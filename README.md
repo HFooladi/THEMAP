@@ -6,8 +6,8 @@ Task Hardness Estimation for Molecular Activity Predcition
 THEMAP can be installed using pip. First, clone this reposiroty, and then install the repository using pip.
 
 ```bash
-git clone 
-cd THEMAP url
+git clone https://github.com/HFooladi/THEMAP.git
+cd THEMAP 
 pip install -e .
 ```
 
