@@ -2,11 +2,74 @@ from dataclasses import dataclass
 import numpy as np
 from typing import Optional, List, Tuple, Dict, Any
 
+
+@dataclass(frozen=True)
+class MoleculeDatapoint:
+    """Data structure holding information for a single molecule.
+
+    Args:
+        task_id (str): String describing the task this datapoint is taken from.
+        smiles (str): SMILES string describing the molecule this datapoint corresponds to.
+        bool_label: bool classification label, usually derived from the numeric label using a threshold.
+        numeric_label: numerical label (e.g., activity), usually measured in the lab
+    """
+
+    task_id: str
+    smiles: str
+    bool_label: bool
+    numeric_label: Optional[float] = None
+
+
+
+@dataclass(frozen=True)
+class ProteinDatapoint:
+    """Data structure holding information for a single protein.
+
+    Args:
+        task_id: String describing the task this datapoint is taken from.
+        protein: protein sequence string
+        numeric_label: numerical label (e.g., activity), usually measured in the lab
+        bool_label: bool classification label, usually derived from the numeric label using a
+            threshold.
+    """
+
+    task_id: str
+    protein: str
+    numeric_label: float
+    bool_label: bool
+
+
+@dataclass
+class MetaData:
+    """Data structure holding metadata for a single task.
+
+    Args:
+        task_id: String describing the task this datapoint is taken from.
+    """
+    task_id: str
+    protein: ProteinDatapoint
+    text_desc: Optional[str]
+
+
+
+@dataclass
+class Task:
+    task_id: str
+    data: List[MoleculeDatapoint]
+    metadata: MetaData
+    hardness: None
+
+    def __repr__(self):
+        return f"Task(task_id={self.task_id}, smiles={self.smiles}, protein={self.protein}, label={self.label}, hardness={self.hardness})"
+
+
+
 @dataclass
 class TaskDistance:
     external_chemical_space: float
     external_protein_space: float
     internal_chemical_space: float
+
 
 
 @dataclass
@@ -21,35 +84,3 @@ class TaskHardness:
     
 
 
-@dataclass(frozen=True)
-class MoleculeDatapoint:
-    """Data structure holding information for a single molecule.
-
-    Args:
-        task_id: String describing the task this datapoint is taken from.
-        smiles: SMILES string describing the molecule this datapoint corresponds to.
-        numeric_label: numerical label (e.g., activity), usually measured in the lab
-        bool_label: bool classification label, usually derived from the numeric label using a
-            threshold.
-        fingerprint: optional ECFP (Extended-Connectivity Fingerprint) for the molecule.
-        descriptors: optional phys-chem descriptors for the molecule.
-    """
-
-    task_id: str
-    smiles: str
-    numeric_label: float
-    bool_label: bool
-    fingerprint: Optional[np.ndarray]
-    descriptors: Optional[np.ndarray]
-
-
-
-@dataclass
-class Task:
-    task_id: str
-    data: str
-    metadata: str
-    hardness: None
-
-    def __repr__(self):
-        return f"Task(task_id={self.task_id}, smiles={self.smiles}, protein={self.protein}, label={self.label}, hardness={self.hardness})"
