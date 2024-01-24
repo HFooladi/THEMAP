@@ -2,6 +2,9 @@ from dataclasses import dataclass
 import numpy as np
 from typing import Optional, List, Tuple, Dict, Any
 
+from rdkit import Chem, DataStructs
+from rdkit.Chem import rdFingerprintGenerator
+
 
 @dataclass(frozen=True)
 class MoleculeDatapoint:
@@ -10,14 +13,28 @@ class MoleculeDatapoint:
     Args:
         task_id (str): String describing the task this datapoint is taken from.
         smiles (str): SMILES string describing the molecule this datapoint corresponds to.
-        bool_label: bool classification label, usually derived from the numeric label using a threshold.
-        numeric_label: numerical label (e.g., activity), usually measured in the lab
+        bool_label (bool): bool classification label, usually derived from the numeric label using a threshold.
+        numeric_label (float): numerical label (e.g., activity), usually measured in the lab
+        fingerprint (np.ndarray): optional ECFP (Extended-Connectivity Fingerprint) for the molecule.
     """
 
     task_id: str
     smiles: str
     bool_label: bool
+    fingerprint: Optional[np.ndarray]
     numeric_label: Optional[float] = None
+
+    def get_fingerprint(self) -> np.ndarray:
+        if self.fingerprint is not None:
+            return self.fingerprint
+        else:
+            mol = Chem.MolFromSmiles(self.smiles)
+            fingerprints_vect = rdFingerprintGenerator.GetCountFPs(
+                [mol], fpType=rdFingerprintGenerator.MorganFP
+            )[0]
+            fingerprint = np.zeros((0,), np.float32)  # Generate target pointer to fill
+            DataStructs.ConvertToNumpyArray(fingerprints_vect, fingerprint)
+            return fingerprint
 
 
 
