@@ -16,7 +16,7 @@ pip install -e .
 ## Citation <a name="citation"></a>
 If you find the models useful in your research, we ask that you cite the following paper:
 ```bibtex
-@article{fooladi2024mlf,
+@article{fooladi2024qth,
   author = {Fooladi, Hosein and Hirte, Steffen and Kirchmair, Johannes},
   title={Quantifying the hardness of bioactivity prediction tasks for transfer learning},
   year={2024},
