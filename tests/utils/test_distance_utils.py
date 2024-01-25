@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from themap.data.tasks import MoleculeDatapoint
-from themap.utils.distance_utils import compute_fp_similarity, compute_fp_similarities, normalize
+from themap.utils.distance_utils import compute_fp_similarity, compute_fps_similarity, normalize
 
 @pytest.fixture
 def first_mol():
@@ -21,5 +21,5 @@ def test_compute_fp_similarity():
 
 
 
-def test_compute_fp_similarities():
+def test_compute_fps_similarity():
     pass
