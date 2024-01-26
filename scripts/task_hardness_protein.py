@@ -39,7 +39,12 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--esm2_model", type=str, default="esm2_t36_3B_UR50D", help="")
     parser.add_argument("--layer", type=int, default=36, help="")
-    parser.add_argument("--k_nearest", type=float, default=10, help="number of training tasks to be considered for determining the hardness of a test task")
+    parser.add_argument(
+        "--k_nearest",
+        type=float,
+        default=10,
+        help="number of training tasks to be considered for determining the hardness of a test task",
+    )
 
     args = parser.parse_args()
     return args
@@ -47,12 +52,8 @@ def parse_args():
 
 def get_protein_embedding(esm2_model: str = "esm2_t36_3B_UR50D", layer: int = 36) -> Tuple:
     ESM_EMBEDDING_PATH = os.path.join(DATASET_PATH, "targets", "esm2_output", esm2_model)
-    target_train_df = pd.read_csv(
-        os.path.join(DATASET_PATH, "targets", "train_proteins.csv")
-    )
-    target_valid_df = pd.read_csv(
-        os.path.join(DATASET_PATH, "targets", "valid_proteins.csv")
-    )
+    target_train_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "train_proteins.csv"))
+    target_valid_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "valid_proteins.csv"))
     target_test_df = pd.read_csv(os.path.join(FS_MOL_DATASET_PATH, "targets", "test_proteins.csv"))
 
     train_esm = os.path.join(ESM_EMBEDDING_PATH, "train_proteins")
@@ -179,7 +180,14 @@ def main():
     )
 
     protein_hardness_df.to_csv(
-        os.path.join(DATASET_PATH, "targets", "esm2_output", args.esm2_model, f"protein_hardness_{args.k_nearest}.csv"), index=False
+        os.path.join(
+            DATASET_PATH,
+            "targets",
+            "esm2_output",
+            args.esm2_model,
+            f"protein_hardness_{args.k_nearest}.csv",
+        ),
+        index=False,
     )
 
     evaluation_output_directory = os.path.join(
