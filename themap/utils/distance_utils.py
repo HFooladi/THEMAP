@@ -364,3 +364,26 @@ def prototype_hardness(
 
     hardness_df = pd.DataFrame({"hardness": results, "assay": data["test_task_name"]})
     return hardness_df
+
+
+def internal_hardness(hardness_df:pd.DataFrame, internal_hardness_path: str) -> pd.DataFrame:
+    """
+    Computes the internal hardness of the dataset and add it as a column to the dataframe.
+
+    Args:
+        hardness_df (pd.DataFrame): Dataframe containing the hardness of the test tasks.
+        internal_hardness_path (str): Path to the file containing the internal hardness of the training tasks.
+    Returns:
+        pd.DataFrame: A dataframe containing the hardness of the test tasks
+    """  
+    with open(internal_hardness_path, 'rb') as f:
+        test_tasks_hardness = pickle.load(f)
+
+    weights=[]
+    for chembl_id in hardness_df['assay']:
+        weights.append(test_tasks_hardness[chembl_id].roc_auc)
+
+    weights = torch.tensor(weights)
+    hardness_df['internal_hardness'] = 1 - weights
+
+    return hardness_df
