@@ -161,3 +161,6 @@ cython_debug/
 
 # third_party modules and libraries
 # third_party/
+
+# FS-Mol dataset
+datasets/fsmol_hardness/
