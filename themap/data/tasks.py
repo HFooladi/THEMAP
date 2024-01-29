@@ -37,7 +37,6 @@ class MoleculeDatapoint:
             return fingerprint
 
 
-
 @dataclass(frozen=True)
 class ProteinDatapoint:
     """Data structure holding information for a single protein.
@@ -63,10 +62,10 @@ class MetaData:
     Args:
         task_id: String describing the task this datapoint is taken from.
     """
+
     task_id: str
     protein: ProteinDatapoint
     text_desc: Optional[str]
-
 
 
 @dataclass
@@ -80,13 +79,11 @@ class Task:
         return f"Task(task_id={self.task_id}, smiles={self.smiles}, protein={self.protein}, label={self.label}, hardness={self.hardness})"
 
 
-
 @dataclass
 class TaskDistance:
     external_chemical_space: float
     external_protein_space: float
     internal_chemical_space: float
-
 
 
 @dataclass
@@ -96,8 +93,9 @@ class TaskHardness:
     internal_chemical_space: float
 
     def compute_hardness(self, w_exc=0.1, w_exp=1.0, w_inc=0.1):
-        final_hardness = w_exc*self.external_chemical_space + w_exp*self.external_protein_space + w_inc*self.internal_chemical_space
+        final_hardness = (
+            w_exc * self.external_chemical_space
+            + w_exp * self.external_protein_space
+            + w_inc * self.internal_chemical_space
+        )
         return final_hardness
-    
-
-
