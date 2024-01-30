@@ -7,7 +7,7 @@ name = "THEMAP"
 authors = [
   {name="Hosein Fooladi", email="fooladi.hosein@gmail.com"}
 ]
-description = "Package for task hardness estimation for molecualr activity prediction"
+description = "Package for task hardness estimation for molecular activity prediction"
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -16,7 +16,10 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
-    "pandas",]
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "scikit-learn",]
 
 dynamic = ["version"]
 

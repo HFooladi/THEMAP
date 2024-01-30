@@ -190,8 +190,19 @@ def corr_protein_hardness_metric(
     distance_matrix: torch.Tensor,
     proportions: List = [0.01, 0.1, 0.5, 0.9],
     metric: str = "delta_auprc",
-):
-    # Correlation between protein hardness and delta_auprc for different k (nearest neighbors)
+)-> List:
+    """Correlation between protein hardness and delta_auprc for different k (nearest neighbors)
+    Args:
+        df: Dataframe with the performance of the tasks. It should also
+        contain the hardness of the tasks.
+        chembl_ids: List of chembl ids of the tasks.
+        distance_matrix: [N_train * N_test] tensor with the pairwise distances between train and test samples.
+        proportions: List of proportions (percent) of training tasks that should be condidered for calculating hardness
+        metric: Performance metric to use (delta_auprc or delta_auroc)
+    
+    Returns:
+        corr_list: List of correlations for different k (nearest neighbors)
+    """
     protein_hardness_diff_k = {}
     corr_list = []
     k = [int(item * distance_matrix.shape[0]) for item in proportions]
@@ -261,12 +272,17 @@ def calculate_task_hardness_weight(
 
     Actually  the output indicate how easy is the task based on different methods.
     The higher the value the easier the task.
+
+    Args:
+        chembl_ids: List of chembl ids of the tasks.
+        evaluated_resuts: Dictionary containing the performance of the tasks.
+        method: Method to use for calculating the hardness. It can be "rf", "knn" or "scaffold".
     """
     assert method in ["rf", "knn" "scaffold"], "Method should be within valid methods"
     weights = []
     for chembl_id in chembl_ids:
         if method in ["rf", "knn"]:
-            weights.append(evaluated_resuts[chembl_id][0].roc_auc)
+            weights.append(evaluated_resuts[chembl_id]['roc_auc'])
         elif method == "scaffold":
             weights.append(1 - evaluated_resuts[chembl_id]["neg"])
 
@@ -284,10 +300,10 @@ def otdd_hardness(
     hardness = sum_{j=1}^k distance_matrix[i,j] * weight[j]
 
     Args:
-        path_to_otdd: Path to the otdd file (pickle file)
-        path_to_intra_hardness: Path to the file containing hardness of the training tasks (pickle file)
-        k: Number of nearest neighbors to consider for hardness calculation
-        train_tasks_weighted: If True, the hardness of the test tasks will be weighted by the hardness of the closest train tasks.
+        path_to_otdd (str): Path to the otdd file (pickle file)
+        path_to_intra_hardness (str): Path to the file containing hardness of the training tasks (pickle file)
+        k (int): Number of nearest neighbors to consider for hardness calculation
+        train_tasks_weighted (bool): If True, the hardness of the test tasks will be weighted by the hardness of the closest train tasks.
 
     Returns:
         A dataframe containing the hardness of the test tasks

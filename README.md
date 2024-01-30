@@ -3,9 +3,11 @@ Task Hardness Estimation for Molecular Activity Predcition
 
 
 ## Installation
-THEMAP can be installed using pip. First, clone this reposiroty, and then install the repository using pip.
+THEMAP can be installed pip. First, create a new conda environemnt with the required packages. Then, clone this reposiroty, and finally, install the repository using pip.
 
 ```bash
+conda env create -f environment.yml
+conda activate themap
 git clone https://github.com/HFooladi/THEMAP.git
 cd THEMAP 
 pip install -e .
