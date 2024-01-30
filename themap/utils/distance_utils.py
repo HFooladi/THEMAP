@@ -294,8 +294,12 @@ def otdd_hardness(
     ## data is a dictionary with following keys:
     print(data.keys())
 
-    ## data['distnce_matrices] is a list. We will convert it to the pytorch tensor
-    distance_matrix = torch.stack(data["distance_matrices"])  # shape: #TRAIN_TASK * TEST_TASKS
+    if isinstance(data["distance_matrices"], list):
+        ## data['distnce_matrices] is a a list of 1d pytorch tensor
+        distance_matrix = torch.stack(data["distance_matrices"]) # shape: #TRAIN_TASK * TEST_TASKS
+    else:
+        ## data['distnce_matrices] is a 2d pytorch tensor
+        distance_matrix = data["distance_matrices"]  # shape: #TRAIN_TASK * TEST_TASKS
     distance_matrix_sorted, distance_matrix_indices = torch.sort(distance_matrix, dim=0)
 
     if train_tasks_weighted:
