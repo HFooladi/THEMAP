@@ -106,6 +106,11 @@ def compute_task_hardness_from_distance_matrix(
         distance_matrix: [N_train * N_test] tensor with the pairwise distances between train and test samples.
         proportion: proportion (percent) of training tasks that should be condidered for calculating hardness
         aggr: aggregation method to use. Can be 'mean', 'median' or 'both'
+    
+    Returns:
+        results: list of tensors containing the hardness of the tasks
+        if aggregation method is 'mean' or 'median', the list will contain only one tensor
+        if aggregation method is 'both', the list will contain two tensors (mean and median)
     """
     assert (
         distance_matrix.shape[0] > distance_matrix.shape[1]

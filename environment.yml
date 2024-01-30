@@ -1,0 +1,15 @@
+name: themap
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - torch
+  - molfeat
+  - dgl
+  - dgllife
+  - pytorch_geometric
+  - pip:
+    - chembl-webresource-client
+    - rdkit
