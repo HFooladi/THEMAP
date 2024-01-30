@@ -19,12 +19,13 @@ from tqdm import tqdm
 repo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHECKOUT_PATH = repo_path
 DATASET_PATH = os.path.join(repo_path, "datasets")
+PROTONET_PATH = os.path.join(DATASET_PATH, "fsmol_hardness", "FSMol_Eval_ProtoNet")
 
 os.chdir(CHECKOUT_PATH)
 sys.path.insert(0, CHECKOUT_PATH)
 
 
-from fs_mol.utils import compute_task_hardness_from_distance_matrix, normalize
+from themap.utils import compute_task_hardness_from_distance_matrix, normalize
 
 """
 ESM2_Models = ["esm2_t6_8M_UR50D",
@@ -54,7 +55,7 @@ def get_protein_embedding(esm2_model: str = "esm2_t36_3B_UR50D", layer: int = 36
     ESM_EMBEDDING_PATH = os.path.join(DATASET_PATH, "targets", "esm2_output", esm2_model)
     target_train_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "train_proteins.csv"))
     target_valid_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "valid_proteins.csv"))
-    target_test_df = pd.read_csv(os.path.join(FS_MOL_DATASET_PATH, "targets", "test_proteins.csv"))
+    target_test_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "test_proteins.csv"))
 
     train_esm = os.path.join(ESM_EMBEDDING_PATH, "train_proteins")
     valid_esm = os.path.join(ESM_EMBEDDING_PATH, "valid_proteins")
@@ -190,12 +191,10 @@ def main():
         index=False,
     )
 
-    evaluation_output_directory = os.path.join(
-        CHECKOUT_PATH, "outputs", "FSMol_Eval_ProtoNet_2023-02-15_12-21-54"
-    )
+
     output_results = pd.read_csv(
         os.path.join(
-            evaluation_output_directory, "summary", "ProtoNet_summary_num_train_requested_128.csv"
+            PROTONET_PATH, "summary", "ProtoNet_summary_num_train_requested_128.csv"
         )
     )
 
