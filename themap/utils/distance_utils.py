@@ -406,9 +406,41 @@ def internal_hardness(hardness_df: pd.DataFrame, internal_hardness_path: str) ->
 
     weights = []
     for chembl_id in hardness_df["assay"]:
-        weights.append(test_tasks_hardness[chembl_id].roc_auc)
+        weights.append(test_tasks_hardness[chembl_id]['roc_auc'])
 
     weights = torch.tensor(weights)
     hardness_df["internal_hardness"] = 1 - weights
 
     return hardness_df
+
+
+def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
+    """Computes the protein hardness from distance matrix.
+
+    Args:
+        path: Path to the distance matrix file (pickle file)
+        k: Number of nearest neighbors to consider for hardness calculation
+    Returns:
+        A dataframe containing the hardness of the test tasks
+    """
+    with open(path, 'rb') as f:
+        protein_distance_matrix = pickle.load(f)
+    
+    hardness_protien = compute_task_hardness_from_distance_matrix(
+        protein_distance_matrix['distance_matrices'], aggr="mean_median", proportion=k
+    )
+
+    hardness_protien_mean_norm = normalize(hardness_protien[0])
+    hardness_protien_median_norm = normalize(hardness_protien[1])
+
+    protein_hardness_df = pd.DataFrame(
+        {
+            "protein_hardness_mean": hardness_protien[0],
+            "protien_hardness_median": hardness_protien[1],
+            "protein_hardness_mean_norm": hardness_protien_mean_norm,
+            "protein_hardness_median_norm": hardness_protien_median_norm,
+            "assay": protein_distance_matrix['test_chembl_ids'],
+        }
+    )
+
+    return protein_hardness_df

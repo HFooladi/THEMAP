@@ -21,6 +21,7 @@ from themap.utils.distance_utils import (
     otdd_hardness,
     prototype_hardness,
     internal_hardness,
+    protein_hardness_from_distance_matrix,
 )
 
 from themap.utils.protein_utils import (
