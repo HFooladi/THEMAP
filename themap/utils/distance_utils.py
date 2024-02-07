@@ -418,13 +418,16 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
     """Computes the protein hardness from distance matrix.
 
     Args:
-        path: Path to the distance matrix file (pickle file)
-        k: Number of nearest neighbors to consider for hardness calculation
+        path (str): Path to the distance matrix file (pickle file)
+        k (int): Number of nearest neighbors to consider for hardness calculation
     Returns:
-        A dataframe containing the hardness of the test tasks
+        pd.DataFrame: A dataframe containing the hardness of the test tasks
     """
     with open(path, 'rb') as f:
         protein_distance_matrix = pickle.load(f)
+    
+    assert 'distance_matrices' in protein_distance_matrix.keys(), "distance_matrices key should be present in the dictionary"
+    assert 'test_chembl_ids' in protein_distance_matrix.keys(), "test_chembl_ids key should be present in the dictionary"
     
     hardness_protien = compute_task_hardness_from_distance_matrix(
         protein_distance_matrix['distance_matrices'], aggr="mean_median", proportion=k

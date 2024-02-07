@@ -23,3 +23,12 @@ def test_compute_fp_similarity():
 
 def test_compute_fps_similarity():
     pass
+
+
+def test_internal_hardness():
+    pass
+
+
+
+def test_protein_hardness_from_distance_matrix(): 
+    pass
