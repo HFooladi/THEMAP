@@ -35,6 +35,9 @@ class MoleculeDatapoint:
             fingerprint = np.zeros((0,), np.float32)  # Generate target pointer to fill
             DataStructs.ConvertToNumpyArray(fingerprints_vect, fingerprint)
             return fingerprint
+    
+    def get_features(self, model) -> np.ndarray:
+        return model.encode(self.smiles)
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,9 @@ class ProteinDatapoint:
     numeric_label: float
     bool_label: bool
 
+    def get_features(self, model) -> np.ndarray:
+        return model.encode(self.protein)
+
 
 @dataclass
 class MetaData:
@@ -67,6 +73,9 @@ class MetaData:
     protein: ProteinDatapoint
     text_desc: Optional[str]
 
+    def get_features(self, model) -> np.ndarray:
+        return model.encode(self.text_desc)
+
 
 @dataclass
 class Task:
@@ -77,6 +86,11 @@ class Task:
 
     def __repr__(self):
         return f"Task(task_id={self.task_id}, smiles={self.smiles}, protein={self.protein}, label={self.label}, hardness={self.hardness})"
+
+    def get_task_embedding(self, data_model, metadata_model) -> np.ndarray:
+        data_features = np.array([data.get_features(data_model) for data in self.data])
+        metadata_features = self.metadata.get_features(metadata_model)
+        return np.concatenate([data_features, metadata_features], axis=0)
 
 
 @dataclass
