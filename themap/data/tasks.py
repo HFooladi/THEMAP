@@ -45,8 +45,8 @@ class ProteinDatapoint:
     """Data structure holding information for a single protein.
 
     Args:
-        task_id: String describing the task this datapoint is taken from.
-        protein: protein sequence string
+        task_id (str): String describing the task this datapoint is taken from.
+        protein (str): protein sequence string
         numeric_label: numerical label (e.g., activity), usually measured in the lab
         bool_label: bool classification label, usually derived from the numeric label using a
             threshold.
