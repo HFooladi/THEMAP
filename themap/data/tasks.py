@@ -78,9 +78,25 @@ class MetaData:
 
 
 @dataclass
-class Task:
+class MoleculeDataset:
     task_id: str
     data: List[MoleculeDatapoint]
+    metadata: MetaData
+
+    def get_dataset_embedding(self, model) -> np.ndarray:
+        data_features = np.array([data.get_features(model) for data in self.data])
+        return data_features
+
+    def get_prototype(self, model) -> MoleculeDatapoint:
+        data_features = self.get_dataset_embedding(model)
+        prototype = data_features.mean(axis=0)
+        return prototype
+
+
+@dataclass
+class Task:
+    task_id: str
+    data: MoleculeDataset
     metadata: MetaData
     hardness: None
 
