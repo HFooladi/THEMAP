@@ -30,3 +30,8 @@ from themap.utils.protein_utils import (
     get_protein_sequence,
     read_esm_embedding,
 )
+
+from themap.utils.featurizer_utils import (
+    get_featurizer,
+    make_mol,
+)

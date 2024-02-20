@@ -21,7 +21,7 @@ sys.path.insert(0, CHECKOUT_PATH)
 
 
 from fs_mol.data import FSMolDataset, DataFold
-from fs_mol.utils.distance_utils import compute_features_smiles_labels
+from themap.utils.distance_utils import compute_features_smiles_labels
 from tqdm import tqdm
 import pandas as pd
 import torch
