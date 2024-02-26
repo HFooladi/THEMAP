@@ -1,22 +1,24 @@
 import datamol as dm
-from rdkit import Chem
 import numpy as np
 from molfeat.calc import FPCalculator
 from molfeat.trans import MoleculeTransformer
 from molfeat.trans.fp import FPVecTransformer
-from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
+from molfeat.trans.pretrained import (GraphormerTransformer,
+                                      PretrainedDGLTransformer)
 from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
+from rdkit import Chem
 
-def make_mol(smiles: str, keep_h: bool=True, add_h: bool=False, keep_atom_map: bool=False):
+
+def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_map: bool = False):
     """
     Builds an RDKit molecule from a SMILES string.
-    
+
     Args:
         smiles: SMILES string.
         keep_h: Boolean whether to keep hydrogens in the input smiles. This does not add hydrogens, it only keeps them if they are specified.
         add_h: Boolean whether to add hydrogens to the input smiles.
         keep_atom_map: Boolean whether to keep the original atom mapping.
-    
+
     Returns:
         RDKit molecule.
     """
@@ -47,7 +49,7 @@ def get_featurizer(featurizer: str, n_jobs: int = -1):
     Args:
         featurizer: String specifying the featurizer to use.
         n_jobs: Number of jobs to use for parallel processing.
-    
+
     Returns:
         Featurizer object.
     """
@@ -74,8 +76,8 @@ def get_featurizer(featurizer: str, n_jobs: int = -1):
         "gin_supervised_masking",
     ]:
         transformer = PretrainedDGLTransformer(kind=featurizer, dtype=float, n_jobs=n_jobs)
-    
+
     else:
         raise ValueError(f"Featurizer {featurizer} not found.")
-    
+
     return transformer

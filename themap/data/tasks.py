@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-import numpy as np
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
 
@@ -53,7 +53,7 @@ class MoleculeDatapoint:
 
         Args:
             featurizer (str): Name of the featurizer model to use.
-        
+
         Returns:
             np.ndarray: Features for the molecule.
         """
@@ -88,7 +88,6 @@ class MoleculeDatapoint:
         """
         mol = make_mol(self.smiles)
         return len(mol.GetBonds())
-
 
 
 @dataclass(frozen=True)

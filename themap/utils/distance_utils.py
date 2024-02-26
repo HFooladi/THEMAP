@@ -5,9 +5,9 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.spatial import distance
 import torch
 from joblib import Parallel, delayed
+from scipy.spatial import distance
 from tqdm import tqdm
 
 
@@ -106,7 +106,7 @@ def compute_task_hardness_from_distance_matrix(
         distance_matrix: [N_train * N_test] tensor with the pairwise distances between train and test samples.
         proportion: proportion (percent) of training tasks that should be condidered for calculating hardness
         aggr: aggregation method to use. Can be 'mean', 'median' or 'both'
-    
+
     Returns:
         results: list of tensors containing the hardness of the tasks
         if aggregation method is 'mean' or 'median', the list will contain only one tensor
@@ -190,7 +190,7 @@ def corr_protein_hardness_metric(
     distance_matrix: torch.Tensor,
     proportions: List = [0.01, 0.1, 0.5, 0.9],
     metric: str = "delta_auprc",
-)-> List:
+) -> List:
     """Correlation between protein hardness and delta_auprc for different k (nearest neighbors)
     Args:
         df: Dataframe with the performance of the tasks. It should also
@@ -199,7 +199,7 @@ def corr_protein_hardness_metric(
         distance_matrix: [N_train * N_test] tensor with the pairwise distances between train and test samples.
         proportions: List of proportions (percent) of training tasks that should be condidered for calculating hardness
         metric: Performance metric to use (delta_auprc or delta_auroc)
-    
+
     Returns:
         corr_list: List of correlations for different k (nearest neighbors)
     """
@@ -282,7 +282,7 @@ def calculate_task_hardness_weight(
     weights = []
     for chembl_id in chembl_ids:
         if method in ["rf", "knn"]:
-            weights.append(evaluated_resuts[chembl_id]['roc_auc'])
+            weights.append(evaluated_resuts[chembl_id]["roc_auc"])
         elif method == "scaffold":
             weights.append(1 - evaluated_resuts[chembl_id]["neg"])
 
@@ -317,7 +317,7 @@ def otdd_hardness(
 
     if isinstance(data["distance_matrices"], list):
         ## data['distnce_matrices] is a a list of 1d pytorch tensor
-        distance_matrix = torch.stack(data["distance_matrices"]) # shape: #TRAIN_TASK * TEST_TASKS
+        distance_matrix = torch.stack(data["distance_matrices"])  # shape: #TRAIN_TASK * TEST_TASKS
     else:
         ## data['distnce_matrices] is a 2d pytorch tensor
         distance_matrix = data["distance_matrices"]  # shape: #TRAIN_TASK * TEST_TASKS
@@ -406,7 +406,7 @@ def internal_hardness(hardness_df: pd.DataFrame, internal_hardness_path: str) ->
 
     weights = []
     for chembl_id in hardness_df["assay"]:
-        weights.append(test_tasks_hardness[chembl_id]['roc_auc'])
+        weights.append(test_tasks_hardness[chembl_id]["roc_auc"])
 
     weights = torch.tensor(weights)
     hardness_df["internal_hardness"] = 1 - weights
@@ -423,14 +423,18 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A dataframe containing the hardness of the test tasks
     """
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         protein_distance_matrix = pickle.load(f)
-    
-    assert 'distance_matrices' in protein_distance_matrix.keys(), "distance_matrices key should be present in the dictionary"
-    assert 'test_chembl_ids' in protein_distance_matrix.keys(), "test_chembl_ids key should be present in the dictionary"
-    
+
+    assert (
+        "distance_matrices" in protein_distance_matrix.keys()
+    ), "distance_matrices key should be present in the dictionary"
+    assert (
+        "test_chembl_ids" in protein_distance_matrix.keys()
+    ), "test_chembl_ids key should be present in the dictionary"
+
     hardness_protien = compute_task_hardness_from_distance_matrix(
-        protein_distance_matrix['distance_matrices'], aggr="mean_median", proportion=k
+        protein_distance_matrix["distance_matrices"], aggr="mean_median", proportion=k
     )
 
     hardness_protien_mean_norm = normalize(hardness_protien[0])
@@ -442,7 +446,7 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
             "protien_hardness_median": hardness_protien[1],
             "protein_hardness_mean_norm": hardness_protien_mean_norm,
             "protein_hardness_median_norm": hardness_protien_median_norm,
-            "assay": protein_distance_matrix['test_chembl_ids'],
+            "assay": protein_distance_matrix["test_chembl_ids"],
         }
     )
 

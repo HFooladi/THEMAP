@@ -1,8 +1,2 @@
-from themap.data.tasks import (
-    MoleculeDatapoint,
-    ProteinDatapoint,
-    MetaData,
-    Task,
-    TaskDistance,
-    TaskHardness
-)
+from themap.data.tasks import (MetaData, MoleculeDatapoint, ProteinDatapoint,
+                               Task, TaskDistance, TaskHardness)
