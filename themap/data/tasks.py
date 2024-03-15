@@ -4,9 +4,17 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
+from dpu_utils.utils import RichPath  # I should see whether I can remove this dependency or not
 
 from themap.utils.featurizer_utils import get_featurizer, make_mol
 
+
+def get_task_name_from_path(path: RichPath) -> str:
+    # Use filename as task name:
+    name = path.basename()
+    if name.endswith(".jsonl.gz"):
+        name = name[: -len(".jsonl.gz")]
+    return name
 
 @dataclass
 class MoleculeDatapoint:
@@ -141,6 +149,35 @@ class MoleculeDataset:
         data_features = self.get_dataset_embedding(model)
         prototype = data_features.mean(axis=0)
         return prototype
+    
+    @staticmethod
+    def load_from_file(path: RichPath) -> "MoleculeDataset":
+        samples = []
+        for raw_sample in path.read_by_file_suffix():
+            fingerprint_raw = raw_sample.get("fingerprints")
+            if fingerprint_raw is not None:
+                fingerprint: Optional[np.ndarray] = np.array(fingerprint_raw, dtype=np.int32)
+            else:
+                fingerprint = None
+
+            descriptors_raw = raw_sample.get("descriptors")
+            if descriptors_raw is not None:
+                descriptors: Optional[np.ndarray] = np.array(descriptors_raw, dtype=np.float32)
+            else:
+                descriptors = None
+
+            samples.append(
+                MoleculeDatapoint(
+                    task_name=get_task_name_from_path(path),
+                    smiles=raw_sample["SMILES"],
+                    bool_label=bool(float(raw_sample["Property"])),
+                    numeric_label=float(raw_sample.get("RegressionProperty") or "nan"),
+                    fingerprint=fingerprint,
+                    descriptors=descriptors,
+                )
+            )
+
+        return MoleculeDataset(get_task_name_from_path(path), samples)
 
 
 @dataclass
