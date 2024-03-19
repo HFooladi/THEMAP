@@ -55,7 +55,7 @@ class MoleculeDatapoint:
             self.fingerprint = fingerprint
             return fingerprint
 
-    def get_features(self, featurizer) -> np.ndarray:
+    def get_features(self, featurizer: str) -> np.ndarray:
         """
         Get features for a molecule using a featurizer model.
 
@@ -65,13 +65,11 @@ class MoleculeDatapoint:
         Returns:
             np.ndarray: Features for the molecule.
         """
-        if self.features is not None:
-            return self.features
-        else:
-            model = get_featurizer(featurizer)
-            features = model(self.smiles)
-            self.features = features
-            return features
+
+        model = get_featurizer(featurizer)
+        features = model(self.smiles)
+        self.features = features
+        return features
 
     @property
     def number_of_atoms(self) -> int:
@@ -168,12 +166,12 @@ class MoleculeDataset:
 
             samples.append(
                 MoleculeDatapoint(
-                    task_name=get_task_name_from_path(path),
+                    task_id=get_task_name_from_path(path),
                     smiles=raw_sample["SMILES"],
                     bool_label=bool(float(raw_sample["Property"])),
                     numeric_label=float(raw_sample.get("RegressionProperty") or "nan"),
                     fingerprint=fingerprint,
-                    descriptors=descriptors,
+                    features=descriptors,
                 )
             )
 
