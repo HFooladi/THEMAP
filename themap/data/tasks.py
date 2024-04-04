@@ -7,6 +7,7 @@ from rdkit.Chem import rdFingerprintGenerator
 from dpu_utils.utils import RichPath  # I should see whether I can remove this dependency or not
 
 from themap.utils.featurizer_utils import get_featurizer, make_mol
+from themap.utils.protein_utils import get_protein_features
 
 
 def get_task_name_from_path(path: RichPath) -> str:
@@ -114,7 +115,7 @@ class ProteinDatapoint:
     bool_label: bool
 
     def get_features(self, model) -> np.ndarray:
-        return model.encode(self.protein)
+        return get_protein_features(model, self.protein)
 
 
 @dataclass

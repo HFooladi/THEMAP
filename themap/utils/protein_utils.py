@@ -5,6 +5,7 @@ from typing import List, Tuple, Union
 
 import requests as r
 import torch
+import esm
 from Bio import SeqIO
 from chembl_webresource_client.new_client import new_client
 from tqdm import tqdm
@@ -119,3 +120,30 @@ def read_esm_embedding(
         valid_emb_label,
         test_emb_label,
     )
+
+
+def get_protein_features(featurizer: str, protein_seq:str, layer=33) -> "Featurizer":
+    """Returns a featurizer object based on the input string.
+
+    Args:
+        featurizer: String specifying the featurizer to use.
+        layer: Layer of the ESM2 model to be used.
+
+    Returns:
+        Featurizer object.
+    """
+    featurizer_dict = {'esm2_t33_650M_UR50D': esm.pretrained.esm2_t33_650M_UR50D()}
+    # Load ESM-2 model
+    model, alphabet = featurizer_dict[featurizer]
+    batch_converter = alphabet.get_batch_converter()
+    model.eval()  # disables dropout for deterministic results
+
+    # Prepare data (first 2 sequences from ESMStructuralSplitDataset superfamily / 4)
+    data = [("protein1", protein_seq)]
+    batch_labels, batch_strs, batch_tokens = batch_converter(data)
+    batch_lens = (batch_tokens != alphabet.padding_idx).sum(1)
+
+    # Extract per-residue representations (on CPU)
+    with torch.no_grad():
+        results = model(batch_tokens, repr_layers=[33], return_contacts=True)
+    token_representations = results["representations"][33]
