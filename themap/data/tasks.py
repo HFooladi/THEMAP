@@ -37,6 +37,10 @@ class MoleculeDatapoint:
     fingerprint: Optional[np.ndarray] = None
     features: Optional[np.ndarray] = None
 
+    def __repr__(self):
+        return f"MoleculeDatapoint(task_id={self.task_id}, smiles={self.smiles}, bool_label={self.bool_label}, numeric_label={self.numeric_label})"
+    
+
     def get_fingerprint(self) -> np.ndarray:
         """
         Get the fingerprint for a molecule.
@@ -96,6 +100,17 @@ class MoleculeDatapoint:
         mol = make_mol(self.smiles)
         return len(mol.GetBonds())
 
+    @property
+    def molecular_weight(self) -> float:
+        """
+        Gets the molecular weight of the :class:`MoleculeDatapoint`.
+
+        Returns:
+            float: Molecular weight of the molecule.
+        """
+        mol = make_mol(self.smiles)
+        return Chem.Descriptors.ExactMolWt(mol)
+
 
 @dataclass(frozen=True)
 class ProteinDatapoint:
@@ -136,13 +151,43 @@ class MetaData:
 
 @dataclass
 class MoleculeDataset:
+    """Data structure holding information for a dataset of molecules.
+
+    Args:
+        task_id (str): String describing the task this dataset is taken from.
+        data (List[MoleculeDatapoint]): List of MoleculeDatapoint objects.
+    """
     task_id: str
     data: List[MoleculeDatapoint]
-    metadata: MetaData
+
+    def __len__(self) -> int:
+        return len(self.data)
+    
+    def __getitem__(self, idx: int) -> MoleculeDatapoint:
+        return self.data[idx]
+    
+    def __iter__(self):
+        return iter(self.data)
+    
+    def __repr__(self):
+        return f"MoleculeDataset(task_id={self.task_id}, task_size={len(self.data)})"
+    
 
     def get_dataset_embedding(self, model) -> np.ndarray:
-        data_features = np.array([data.get_features(model) for data in self.data])
-        return data_features
+        """
+        Get the features for the entire dataset.
+
+        Args:
+            model: Featurizer model to use.
+        
+        Returns:
+            np.ndarray: Features for the entire dataset.
+        """
+        smiles = [data.smiles for data in self.data]
+        features = get_featurizer(model)(smiles)
+        assert len(features) == len(smiles)
+        return features
+
 
     def get_prototype(self, model) -> MoleculeDatapoint:
         data_features = self.get_dataset_embedding(model)
