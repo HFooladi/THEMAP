@@ -60,7 +60,7 @@ class MoleculeDatapoint:
             self.fingerprint = fingerprint
             return fingerprint
 
-    def get_features(self, featurizer: str) -> np.ndarray:
+    def get_features(self, featurizer: Optional[str]=None) -> np.ndarray:
         """
         Get features for a molecule using a featurizer model.
 
@@ -70,7 +70,8 @@ class MoleculeDatapoint:
         Returns:
             np.ndarray: Features for the molecule.
         """
-
+        if self.features is not None:
+            return self.features
         model = get_featurizer(featurizer)
         features = model(self.smiles)
         self.features = features
@@ -185,14 +186,24 @@ class MoleculeDataset:
         """
         smiles = [data.smiles for data in self.data]
         features = get_featurizer(model)(smiles)
+        for i, molecule in enumerate(self.data):
+            molecule.features = features[i]
         assert len(features) == len(smiles)
         return features
-
+    
 
     def get_prototype(self, model) -> MoleculeDatapoint:
         data_features = self.get_dataset_embedding(model)
         prototype = data_features.mean(axis=0)
         return prototype
+    
+    @property
+    def get_features(self) -> np.ndarray:
+        return np.array([data.features for data in self.data])
+    
+    @property
+    def get_labels(self) -> np.ndarray:
+        return np.array([data.bool_label for data in self.data])
     
     @staticmethod
     def load_from_file(path: RichPath) -> "MoleculeDataset":
