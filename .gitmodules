@@ -1,7 +1,7 @@
 [submodule "third_party/otdd"]
 	path = third_party/otdd
-	url = https://github.com/HFooladi/otdd
+	url = git@github.com:HFooladi/otdd.git
 
 [submodule "third_party/FS-Mol"]
 	path = third_party/FS-Mol
-	url = https://github.com/HFooladi/FS-Mol
+	url = git@github.com:HFooladi/FS-Mol.git
