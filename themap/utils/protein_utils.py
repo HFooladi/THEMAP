@@ -1,8 +1,10 @@
 import os
 from io import StringIO
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
+import numpy as np
+import pandas as pd
 import requests as r
 import torch
 import esm
@@ -122,15 +124,42 @@ def read_esm_embedding(
     )
 
 
-def get_protein_features(featurizer: str, protein_seq:str, layer=33) -> "Featurizer":
+def convert_fasta_to_dict(fasta_file: str) -> Dict:
+    """Converts a fasta file to a dictionary.
+
+    Args:
+        fasta_file: Path to the fasta file.
+    """
+    fasta_dict = {}
+    for record in SeqIO.parse(fasta_file, "fasta"):
+        fasta_dict[record.id] = str(record.seq)
+    return fasta_dict
+
+
+def get_task_name_from_uniprot(uniprot_id: List[str], df_path: str = "datasets/uniprot_mapping.csv") -> List[str]:
+    """Returns the task id from the list of uniprot_ids
+
+    Args:
+        uniprot_id (list[str]): List of uniprot ids.
+        df_path (str): Path to the uniprot mapping file.
+    """
+    df = pd.read_csv(df_path)
+    task_id = []
+    for id in uniprot_id:
+        task_id.append(df[df["target_accession_id"] == id]["chembl_id"].values[0])
+    return task_id
+
+
+def get_protein_features(featurizer: str, protein_dict: Dict, layer=33) -> np.ndarray:
     """Returns a featurizer object based on the input string.
 
     Args:
         featurizer: String specifying the featurizer to use.
+        protein_dict: Dictionary containing the protein sequences.
         layer: Layer of the ESM2 model to be used.
 
     Returns:
-        Featurizer object.
+        np.ndarray: Array containing the protein features.
     """
     featurizer_dict = {'esm2_t33_650M_UR50D': esm.pretrained.esm2_t33_650M_UR50D()}
     # Load ESM-2 model
@@ -139,7 +168,7 @@ def get_protein_features(featurizer: str, protein_seq:str, layer=33) -> "Featuri
     model.eval()  # disables dropout for deterministic results
 
     # Prepare data (first 2 sequences from ESMStructuralSplitDataset superfamily / 4)
-    data = [("protein1", protein_seq)]
+    data = list(protein_dict.items())
     batch_labels, batch_strs, batch_tokens = batch_converter(data)
     batch_lens = (batch_tokens != alphabet.padding_idx).sum(1)
 
@@ -147,3 +176,10 @@ def get_protein_features(featurizer: str, protein_seq:str, layer=33) -> "Featuri
     with torch.no_grad():
         results = model(batch_tokens, repr_layers=[33], return_contacts=True)
     token_representations = results["representations"][33]
+
+    sequence_representations = []
+    for i, tokens_len in enumerate(batch_lens):
+        sequence_representations.append(token_representations[i, 1 : tokens_len - 1].mean(0))
+
+    return torch.stack(sequence_representations).numpy()
+    

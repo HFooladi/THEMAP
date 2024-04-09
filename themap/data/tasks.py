@@ -7,7 +7,7 @@ from rdkit.Chem import rdFingerprintGenerator
 from dpu_utils.utils import RichPath  # I should see whether I can remove this dependency or not
 
 from themap.utils.featurizer_utils import get_featurizer, make_mol
-from themap.utils.protein_utils import get_protein_features
+from themap.utils.protein_utils import convert_fasta_to_dict, get_protein_features, get_task_name_from_uniprot
 
 
 def get_task_name_from_path(path: RichPath) -> str:
@@ -114,24 +114,26 @@ class MoleculeDatapoint:
 
 
 @dataclass(frozen=True)
-class ProteinDatapoint:
-    """Data structure holding information for a single protein.
+class ProteinDataset:
+    """Data structure holding information for proteins.
 
     Args:
-        task_id (str): String describing the task this datapoint is taken from.
-        protein (str): protein sequence string
-        numeric_label: numerical label (e.g., activity), usually measured in the lab
-        bool_label: bool classification label, usually derived from the numeric label using a
-            threshold.
+        task_id (list[str]): list of string describing the tasks these protein are taken from.
+        protein (dict): dictionary mapping the protein id to the protein sequence.
     """
 
-    task_id: str
-    protein: str
-    numeric_label: float
-    bool_label: bool
+    task_id: list[str]
+    protein: dict
+
 
     def get_features(self, model) -> np.ndarray:
         return get_protein_features(model, self.protein)
+
+    @staticmethod
+    def load_from_file(path: str) -> "ProteinDataset":
+        protein_dict = convert_fasta_to_dict(path)
+        uniprot_ids = [key.split("|")[1] for key in protein_dict.keys()]
+        return ProteinDataset(get_task_name_from_uniprot(uniprot_ids), protein_dict)
 
 
 @dataclass
@@ -143,7 +145,7 @@ class MetaData:
     """
 
     task_id: str
-    protein: ProteinDatapoint
+    protein: ProteinDataset
     text_desc: Optional[str]
 
     def get_features(self, model) -> np.ndarray:
