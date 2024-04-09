@@ -205,6 +205,10 @@ class MoleculeDataset:
     def get_labels(self) -> np.ndarray:
         return np.array([data.bool_label for data in self.data])
     
+    @property
+    def get_smiles(self) -> List[str]:
+        return [data.smiles for data in self.data]
+    
     @staticmethod
     def load_from_file(path: RichPath) -> "MoleculeDataset":
         samples = []
