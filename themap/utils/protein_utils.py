@@ -3,14 +3,17 @@ from io import StringIO
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
+import esm
 import numpy as np
 import pandas as pd
 import requests as r
 import torch
-import esm
 from Bio import SeqIO
 from chembl_webresource_client.new_client import new_client
 from tqdm import tqdm
+
+here = Path(__file__).parent
+root_dir = here.parent.parent
 
 
 def get_protein_accession(target_chembl_id: str) -> Union[str, None]:
@@ -136,7 +139,9 @@ def convert_fasta_to_dict(fasta_file: str) -> Dict:
     return fasta_dict
 
 
-def get_task_name_from_uniprot(uniprot_id: List[str], df_path: str = "datasets/uniprot_mapping.csv") -> List[str]:
+def get_task_name_from_uniprot(
+    uniprot_id: List[str], df_path: str = f"{root_dir}/datasets/uniprot_mapping.csv"
+) -> List[str]:
     """Returns the task id from the list of uniprot_ids
 
     Args:
@@ -161,7 +166,7 @@ def get_protein_features(featurizer: str, protein_dict: Dict, layer=33) -> np.nd
     Returns:
         np.ndarray: Array containing the protein features.
     """
-    featurizer_dict = {'esm2_t33_650M_UR50D': esm.pretrained.esm2_t33_650M_UR50D()}
+    featurizer_dict = {"esm2_t33_650M_UR50D": esm.pretrained.esm2_t33_650M_UR50D()}
     # Load ESM-2 model
     model, alphabet = featurizer_dict[featurizer]
     batch_converter = alphabet.get_batch_converter()
@@ -182,4 +187,3 @@ def get_protein_features(featurizer: str, protein_dict: Dict, layer=33) -> np.nd
         sequence_representations.append(token_representations[i, 1 : tokens_len - 1].mean(0))
 
     return torch.stack(sequence_representations).numpy()
-    

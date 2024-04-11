@@ -263,6 +263,16 @@ class TaskDistance:
     external_protein_space: float
     internal_chemical_space: float
 
+    def compute_ext_chem_distance(self, method):
+        pass
+
+    def compute_ext_prot_distance(self, method):
+        pass
+
+    def compute_int_chem_distance(self, method):
+        pass
+
+
 
 @dataclass
 class TaskHardness:
