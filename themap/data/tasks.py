@@ -2,12 +2,16 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+from dpu_utils.utils import RichPath  # I should see whether I can remove this dependency or not
 from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
-from dpu_utils.utils import RichPath  # I should see whether I can remove this dependency or not
 
 from themap.utils.featurizer_utils import get_featurizer, make_mol
-from themap.utils.protein_utils import convert_fasta_to_dict, get_protein_features, get_task_name_from_uniprot
+from themap.utils.protein_utils import (
+    convert_fasta_to_dict,
+    get_protein_features,
+    get_task_name_from_uniprot,
+)
 
 
 def get_task_name_from_path(path: RichPath) -> str:
@@ -16,6 +20,7 @@ def get_task_name_from_path(path: RichPath) -> str:
     if name.endswith(".jsonl.gz"):
         name = name[: -len(".jsonl.gz")]
     return name
+
 
 @dataclass
 class MoleculeDatapoint:
@@ -39,7 +44,6 @@ class MoleculeDatapoint:
 
     def __repr__(self):
         return f"MoleculeDatapoint(task_id={self.task_id}, smiles={self.smiles}, bool_label={self.bool_label}, numeric_label={self.numeric_label})"
-    
 
     def get_fingerprint(self) -> np.ndarray:
         """
@@ -60,7 +64,7 @@ class MoleculeDatapoint:
             self.fingerprint = fingerprint
             return fingerprint
 
-    def get_features(self, featurizer: Optional[str]=None) -> np.ndarray:
+    def get_features(self, featurizer: Optional[str] = None) -> np.ndarray:
         """
         Get features for a molecule using a featurizer model.
 
@@ -113,7 +117,7 @@ class MoleculeDatapoint:
         return Chem.Descriptors.ExactMolWt(mol)
 
 
-@dataclass(frozen=True)
+@dataclass
 class ProteinDataset:
     """Data structure holding information for proteins.
 
@@ -121,13 +125,22 @@ class ProteinDataset:
         task_id (list[str]): list of string describing the tasks these protein are taken from.
         protein (dict): dictionary mapping the protein id to the protein sequence.
     """
-
     task_id: list[str]
     protein: dict
+    features: Optional[np.ndarray] = None
 
+    def __getitem__(self, idx: int) -> Tuple[str, str]:
+        return list(self.protein.keys())[idx], list(self.protein.values())[idx]
+    
+    def __len__(self) -> int:
+        return len(self.protein)
+    
+    def __repr__(self) -> str:
+        return f"ProteinDataset(task_id={self.task_id}, protein={self.protein})"
 
     def get_features(self, model) -> np.ndarray:
-        return get_protein_features(model, self.protein)
+        self.features = get_protein_features(self.protein, model)
+        return self.features
 
     @staticmethod
     def load_from_file(path: str) -> "ProteinDataset":
@@ -160,21 +173,21 @@ class MoleculeDataset:
         task_id (str): String describing the task this dataset is taken from.
         data (List[MoleculeDatapoint]): List of MoleculeDatapoint objects.
     """
+
     task_id: str
     data: List[MoleculeDatapoint]
 
     def __len__(self) -> int:
         return len(self.data)
-    
+
     def __getitem__(self, idx: int) -> MoleculeDatapoint:
         return self.data[idx]
-    
+
     def __iter__(self):
         return iter(self.data)
-    
+
     def __repr__(self):
         return f"MoleculeDataset(task_id={self.task_id}, task_size={len(self.data)})"
-    
 
     def get_dataset_embedding(self, model) -> np.ndarray:
         """
@@ -182,7 +195,7 @@ class MoleculeDataset:
 
         Args:
             model: Featurizer model to use.
-        
+
         Returns:
             np.ndarray: Features for the entire dataset.
         """
@@ -192,25 +205,24 @@ class MoleculeDataset:
             molecule.features = features[i]
         assert len(features) == len(smiles)
         return features
-    
 
     def get_prototype(self, model) -> MoleculeDatapoint:
         data_features = self.get_dataset_embedding(model)
         prototype = data_features.mean(axis=0)
         return prototype
-    
+
     @property
     def get_features(self) -> np.ndarray:
         return np.array([data.features for data in self.data])
-    
+
     @property
     def get_labels(self) -> np.ndarray:
         return np.array([data.bool_label for data in self.data])
-    
+
     @property
     def get_smiles(self) -> List[str]:
         return [data.smiles for data in self.data]
-    
+
     @staticmethod
     def load_from_file(path: RichPath) -> "MoleculeDataset":
         samples = []
@@ -273,9 +285,9 @@ class TaskDistance:
         pass
 
 
-
 @dataclass
 class TaskHardness:
+    task_id: str
     external_chemical_space: float
     external_protein_space: float
     internal_chemical_space: float

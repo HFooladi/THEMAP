@@ -155,12 +155,12 @@ def get_task_name_from_uniprot(
     return task_id
 
 
-def get_protein_features(featurizer: str, protein_dict: Dict, layer=33) -> np.ndarray:
+def get_protein_features(protein_dict: Dict, featurizer: str = "esm2_t33_650M_UR50D", layer=33) -> np.ndarray:
     """Returns a featurizer object based on the input string.
 
     Args:
-        featurizer: String specifying the featurizer to use.
         protein_dict: Dictionary containing the protein sequences.
+        featurizer: String specifying the featurizer to use.
         layer: Layer of the ESM2 model to be used.
 
     Returns:

@@ -3,8 +3,7 @@ import numpy as np
 from molfeat.calc import FPCalculator
 from molfeat.trans import MoleculeTransformer
 from molfeat.trans.fp import FPVecTransformer
-from molfeat.trans.pretrained import (GraphormerTransformer,
-                                      PretrainedDGLTransformer)
+from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
 from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
 from rdkit import Chem
 
