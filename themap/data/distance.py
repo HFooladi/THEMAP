@@ -1,6 +1,4 @@
-
-
-class DatasetDistance():
+class DatasetDistance:
     def __init__(self, D1=None, D2=None, method="euclidean"):
         self.source = D1
         self.target = D2
