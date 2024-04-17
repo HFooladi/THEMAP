@@ -5,7 +5,13 @@ channels:
   - defaults
 
 dependencies:
+  - matplotlib
+  - numpy
+  - pandas
+  - seaborn
+  - tqdm
   - torch
+  - datamol
   - molfeat
   - dgl
   - dgllife
@@ -13,3 +19,7 @@ dependencies:
   - pip:
     - chembl-webresource-client
     - rdkit
+    - dpu-utils>=0.2.13
+    - biopython
+    - fair-esm
+    
