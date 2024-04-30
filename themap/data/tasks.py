@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+import pickle
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 from dpu_utils.utils import RichPath  # I should see whether I can remove this dependency or not
 from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
@@ -271,9 +273,14 @@ class Task:
 
 @dataclass
 class TaskDistance:
-    external_chemical_space: float
-    external_protein_space: float
-    internal_chemical_space: float
+    source_task_ids: List[str] = None
+    target_task_ids: List[str] = None
+    external_chemical_space: np.ndarray = None
+    external_protein_space: np.ndarray = None
+    internal_chemical_space: np.ndarray = None
+
+    def __repr__(self) -> str:
+        return f"TaskDistance(source_task_ids={len(self.source_task_ids)}, target_task_ids={len(self.target_task_ids)})"
 
     def compute_ext_chem_distance(self, method):
         pass
@@ -283,6 +290,54 @@ class TaskDistance:
 
     def compute_int_chem_distance(self, method):
         pass
+
+    @staticmethod
+    def load_ext_chem_distance(path):
+        with open(path, "rb") as f:
+            x = pickle.load(f)
+        
+        if 'train_chembl_ids' in x.keys():
+            source_task_ids = x['train_chembl_ids']
+        elif 'train_pubchem_ids' in x.keys():
+            source_task_ids = x['train_pubchem_ids']
+        elif 'source_task_ids' in x.keys():
+            source_task_ids = x['source_task_ids']
+        
+        if 'test_chembl_ids' in x.keys():
+            target_task_ids = x['test_chembl_ids']
+        elif 'test_pubchem_ids' in x.keys():
+            target_task_ids = x['test_pubchem_ids']
+        elif 'target_task_ids' in x.keys():
+            target_task_ids = x['target_task_ids']
+
+        return TaskDistance(source_task_ids, target_task_ids, external_chemical_space= x['distance_matrices'])
+
+    @staticmethod  
+    def load_ext_prot_distance(path):
+        with open(path, "rb") as f:
+            x = pickle.load(f)
+    
+            if 'train_chembl_ids' in x.keys():
+                source_task_ids = x['train_chembl_ids']
+            elif 'train_pubchem_ids' in x.keys():
+                source_task_ids = x['train_pubchem_ids']
+            elif 'source_task_ids' in x.keys():
+                source_task_ids = x['source_task_ids']
+            
+            if 'test_chembl_ids' in x.keys():
+                target_task_ids = x['test_chembl_ids']
+            elif 'test_pubchem_ids' in x.keys():
+                target_task_ids = x['test_pubchem_ids']
+            elif 'target_task_ids' in x.keys():
+                target_task_ids = x['target_task_ids']
+        
+        return TaskDistance(source_task_ids, target_task_ids, external_protein_space = x['distance_matrices'])
+
+    def to_pandas(self):
+        df = pd.DataFrame()
+        df = pd.DataFrame(self.external_chemical_space, index=self.source_task_ids, columns=self.target_task_ids)
+        return df
+
 
 
 @dataclass
