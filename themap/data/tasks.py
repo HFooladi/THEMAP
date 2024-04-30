@@ -281,6 +281,11 @@ class TaskDistance:
 
     def __repr__(self) -> str:
         return f"TaskDistance(source_task_ids={len(self.source_task_ids)}, target_task_ids={len(self.target_task_ids)})"
+    
+    @property
+    def shape(self) -> Tuple[int, int]:
+        return len(self.source_task_ids), len(self.target_task_ids)
+    
 
     def compute_ext_chem_distance(self, method):
         pass
@@ -334,7 +339,6 @@ class TaskDistance:
         return TaskDistance(source_task_ids, target_task_ids, external_protein_space = x['distance_matrices'])
 
     def to_pandas(self):
-        df = pd.DataFrame()
         df = pd.DataFrame(self.external_chemical_space, index=self.source_task_ids, columns=self.target_task_ids)
         return df
 
@@ -342,10 +346,11 @@ class TaskDistance:
 
 @dataclass
 class TaskHardness:
-    task_id: str
-    external_chemical_space: float
-    external_protein_space: float
-    internal_chemical_space: float
+    task_id: List[str] = None
+    external_chemical_space: np.ndarray = None
+    external_protein_space: np.ndarray = None
+    internal_chemical_space: np.ndarray = None
+    hardness: np.ndarray = None
 
     def compute_hardness(self, w_exc=0.1, w_exp=1.0, w_inc=0.1):
         final_hardness = (
@@ -354,3 +359,14 @@ class TaskHardness:
             + w_inc * self.internal_chemical_space
         )
         return final_hardness
+    
+    @staticmethod
+    def compute_from_distance(task_distance: TaskDistance):
+        if task_distance.external_chemical_space is not None:
+            pass
+        elif task_distance.external_protein_space is not None:
+            pass
+        elif task_distance.internal_chemical_space is not None:
+            pass
+
+        pass
