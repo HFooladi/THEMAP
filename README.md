@@ -29,8 +29,8 @@ If you find the models useful in your research, we ask that you cite the followi
   author = {Fooladi, Hosein and Hirte, Steffen and Kirchmair, Johannes},
   title={Quantifying the hardness of bioactivity prediction tasks for transfer learning},
   year={2024},
-  doi={10.26434/chemrxiv-2024-871mt},
-  url={https://chemrxiv.org/engage/chemrxiv/article-details/65b3cafd9138d23161cc5ea4},
-  journal={ChemRxiv}
+  doi={10.1021/acs.jcim.4c00160},
+  url={https://doi.org/10.1021/acs.jcim.4c00160},
+  journal={Journal of Chemical Information and Modeling}
 }
 ```
