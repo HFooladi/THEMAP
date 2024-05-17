@@ -1,4 +1,4 @@
-from themap.data.tasks import MoleculeDatapoint, ProteinDatapoint
+from themap.data.tasks import MoleculeDatapoint, ProteinDataset
 
 
 def test_MoleculeDatapoint():
@@ -20,16 +20,14 @@ def test_MoleculeDatapoint():
 
 def test_ProteinDatapoint():
     # Create a ProteinDatapoint object
-    protein_datapoint = ProteinDatapoint(
-        task_id="task_id",
-        protein="LNMHMNVQNG",
-        numeric_label=1.0,
-        bool_label=True,
+    protein_dataset = ProteinDataset(
+        task_id=["task_id"],
+        protein={"task_id": "LNMHMNVQNG"},
     )
 
     # Test the __repr__ method
     assert (
-        str(protein_datapoint)
-        == "ProteinDatapoint(task_id=task_id, protein=protein, numeric_label=1.0, bool_label=True)"
+        str(protein_dataset)
+        == "ProteinDataset(task_id=task_id, protein=protein, numeric_label=1.0, bool_label=True)"
     )
 
