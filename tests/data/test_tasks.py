@@ -48,7 +48,7 @@ def test_MoleculeDataset_load_from_file(dataset_CHEMBL2219236):
     assert str(dataset) == "MoleculeDataset(task_id=CHEMBL2219236, task_size=157)"
 
 
-def ProteinDataset_load_from_file(protein_dataset_train):
+def test_ProteinDataset_load_from_file(protein_dataset_train):
     # Load the dataset from a file
     dataset = ProteinDataset.load_from_file(protein_dataset_train)
 

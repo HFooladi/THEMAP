@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 import pickle
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
+import os
+import logging
+from enum import Enum
 
 import numpy as np
 import pandas as pd
-from dpu_utils.utils import RichPath  
+from dpu_utils.utils import RichPath
 from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
 
@@ -14,6 +17,14 @@ from themap.utils.protein_utils import (
     get_protein_features,
     get_task_name_from_uniprot,
 )
+
+logger = logging.getLogger(__name__)
+
+
+class DataFold(Enum):
+    TRAIN = 0
+    VALIDATION = 1
+    TEST = 2
 
 
 def get_task_name_from_path(path: RichPath) -> str:
@@ -254,6 +265,87 @@ class MoleculeDataset:
             )
 
         return MoleculeDataset(get_task_name_from_path(path), samples)
+
+
+class MoleculeDatasets:
+    """Dataset of related tasks, provided as individual files split into meta-train, meta-valid and
+    meta-test sets."""
+
+    def __init__(
+        self,
+        train_data_paths: List[RichPath] = [],
+        valid_data_paths: List[RichPath] = [],
+        test_data_paths: List[RichPath] = [],
+        num_workers: Optional[int] = None,
+    ):
+        self._fold_to_data_paths: Dict[DataFold, List[RichPath]] = {
+            DataFold.TRAIN: train_data_paths,
+            DataFold.VALIDATION: valid_data_paths,
+            DataFold.TEST: test_data_paths,
+        }
+        self._num_workers = num_workers if num_workers is not None else os.cpu_count() or 1
+        logger.info(f"Identified {len(self._fold_to_data_paths[DataFold.TRAIN])} training tasks.")
+        logger.info(f"Identified {len(self._fold_to_data_paths[DataFold.VALIDATION])} validation tasks.")
+        logger.info(f"Identified {len(self._fold_to_data_paths[DataFold.TEST])} test tasks.")
+
+    def __repr__(self) -> str:
+        return f"MoleculeDatasets(train={len(self._fold_to_data_paths[DataFold.TRAIN])}, valid={len(self._fold_to_data_paths[DataFold.VALIDATION])}, test={len(self._fold_to_data_paths[DataFold.TEST])})"
+
+    def get_num_fold_tasks(self, fold: DataFold) -> int:
+        return len(self._fold_to_data_paths[fold])
+
+    @staticmethod
+    def from_directory(
+        directory: Union[str, RichPath],
+        task_list_file: Optional[Union[str, RichPath]] = None,
+        **kwargs,
+    ) -> "MoleculeDatasets":
+        """Create a new MoleculeDatasets object from a directory containing the pre-processed
+        files (*.jsonl.gz) split in to train/valid/test subdirectories.
+
+        Args:
+            directory: Path containing .jsonl.gz files representing the pre-processed tasks.
+            task_list_file: (Optional) path of the .json file that stores which assays are to be
+            used in each fold. Used for subset selection.
+            **kwargs: remaining arguments are forwarded to the MoleculeDatasets constructor.
+        """
+        if isinstance(directory, str):
+            data_rp = RichPath.create(directory)
+        else:
+            data_rp = directory
+
+        if task_list_file is not None:
+            if isinstance(task_list_file, str):
+                task_list_file = RichPath.create(task_list_file)
+            else:
+                task_list_file = task_list_file
+            task_list = task_list_file.read_by_file_suffix()
+        else:
+            task_list = None
+
+        def get_fold_file_names(data_fold_name: str):
+            fold_dir = data_rp.join(data_fold_name)
+            if task_list is None:
+                return fold_dir.get_filtered_files_in_dir("*.jsonl.gz")
+            else:
+                return [
+                    file_name
+                    for file_name in fold_dir.get_filtered_files_in_dir("*.jsonl.gz")
+                    if any(
+                        file_name.basename() == f"{task_name}.jsonl.gz"
+                        for task_name in task_list[data_fold_name]
+                    )
+                ]
+
+        return MoleculeDatasets(
+            train_data_paths=get_fold_file_names("train"),
+            valid_data_paths=sorted(get_fold_file_names("valid")),
+            test_data_paths=sorted(get_fold_file_names("test")),
+            **kwargs,
+        )
+
+    def get_task_names(self, data_fold: DataFold) -> List[str]:
+        return [get_task_name_from_path(path) for path in self._fold_to_data_paths[data_fold]]
 
 
 @dataclass
