@@ -17,7 +17,6 @@ def test_MoleculeDatapoint():
     )
 
 
-
 def test_ProteinDatapoint():
     # Create a ProteinDatapoint object
     protein_dataset = ProteinDataset(
@@ -30,4 +29,3 @@ def test_ProteinDatapoint():
         str(protein_dataset)
         == "ProteinDataset(task_id=task_id, protein=protein, numeric_label=1.0, bool_label=True)"
     )
-

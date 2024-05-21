@@ -1,8 +1,8 @@
-""" This script is used to compute the embedding for molecules in the test tasks and train tasks.
-    The embedding is computed using the specified available featurizers. Then for each featurizer, a dictionary
-    is created that maps the task name to the embedding of the molecules in that task. The dictionary is like the following:
-    {'CheMBL1234:{'ecfp': torch.Tensor, 'labels': torch.Tensor, 'smiles': np.array}, 'CheMBL5678': {'ecfp': torch.Tensor, 'labels': torch.Tensor, 'smiles': np.array}, ...}
-    The dictionary is then saved to a pickle file (for train and test tasks separately).
+"""This script is used to compute the embedding for molecules in the test tasks and train tasks.
+The embedding is computed using the specified available featurizers. Then for each featurizer, a dictionary
+is created that maps the task name to the embedding of the molecules in that task. The dictionary is like the following:
+{'CheMBL1234:{'ecfp': torch.Tensor, 'labels': torch.Tensor, 'smiles': np.array}, 'CheMBL5678': {'ecfp': torch.Tensor, 'labels': torch.Tensor, 'smiles': np.array}, ...}
+The dictionary is then saved to a pickle file (for train and test tasks separately).
 """
 
 import os
@@ -56,9 +56,7 @@ AVAILABLE_FEATURIZERS = [
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument(
-        "--output_path", type=str, default="dataset/embedding/ecfp_train.pkl", help=""
-    )
+    parser.add_argument("--output_path", type=str, default="dataset/embedding/ecfp_train.pkl", help="")
     parser.add_argument("--n_jobs", type=int, default=32, help="")
     parser.add_argument("--featurizer", type=str, default="", help="")
     args = parser.parse_args()
@@ -123,14 +121,10 @@ def main():
             transformer = PretrainedDGLTransformer(kind=featurizer, dtype=float, n_jobs=args.n_jobs)
 
         print("computing features for test tasks ...")
-        test_features = [
-            compute_features_smiles_labels(task, transformer) for task in tqdm(test_tasks)
-        ]
+        test_features = [compute_features_smiles_labels(task, transformer) for task in tqdm(test_tasks)]
 
         print("computing features for train tasks ...")
-        train_features = [
-            compute_features_smiles_labels(task, transformer) for task in tqdm(train_tasks)
-        ]
+        train_features = [compute_features_smiles_labels(task, transformer) for task in tqdm(train_tasks)]
 
         features_test = {
             test_tasks[i].name: {featurizer: feature[0], "labels": feature[1], "smiles": feature[2]}
@@ -146,13 +140,9 @@ def main():
             for i, feature in enumerate(train_features)
         }
 
-        path_to_save_embedding_test = os.path.join(
-            DATASET_PATH, "embeddings", f"{featurizer}_test.pkl"
-        )
+        path_to_save_embedding_test = os.path.join(DATASET_PATH, "embeddings", f"{featurizer}_test.pkl")
 
-        path_to_save_embedding_train = os.path.join(
-            DATASET_PATH, "embeddings", f"{featurizer}_train.pkl"
-        )
+        path_to_save_embedding_train = os.path.join(DATASET_PATH, "embeddings", f"{featurizer}_train.pkl")
 
         with open(path_to_save_embedding_test, "wb") as f:
             pickle.dump(features_test, f)

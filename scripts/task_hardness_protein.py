@@ -1,6 +1,6 @@
-""" This script is used to compute the hardness of the test tasks from protein perspective/distance.
-    The hardenss is computed based on the distance between the protein embedding of the test task and the protein embedding of the training tasks.
-    The protein embedding is computed using the ESM2 model. The distance is computed using the Euclidean distance.
+"""This script is used to compute the hardness of the test tasks from protein perspective/distance.
+The hardenss is computed based on the distance between the protein embedding of the test task and the protein embedding of the training tasks.
+The protein embedding is computed using the ESM2 model. The distance is computed using the Euclidean distance.
 """
 
 import os
@@ -162,9 +162,7 @@ def main():
     target_test_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "test_proteins.csv"))
     chembl_ids = []
     for item in test_accession_ids:
-        chembl_ids.append(
-            target_test_df["chembl_id"][target_test_df["target_accession_id"] == item].item()
-        )
+        chembl_ids.append(target_test_df["chembl_id"][target_test_df["target_accession_id"] == item].item())
 
     hardness_protien_mean_norm = normalize(hardness_protien[0])
     hardness_protien_median_norm = normalize(hardness_protien[1])
@@ -191,11 +189,8 @@ def main():
         index=False,
     )
 
-
     output_results = pd.read_csv(
-        os.path.join(
-            PROTONET_PATH, "summary", "ProtoNet_summary_num_train_requested_128.csv"
-        )
+        os.path.join(PROTONET_PATH, "summary", "ProtoNet_summary_num_train_requested_128.csv")
     )
 
     df = protein_hardness_df.merge(output_results[["assay", "delta_auprc", "roc_auc"]], on="assay")
