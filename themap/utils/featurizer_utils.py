@@ -64,9 +64,7 @@ def get_featurizer(featurizer: str, n_jobs: int = -1):
         "Roberta-Zinc480M-102M",
         "MolT5",
     ]:
-        transformer = PretrainedHFTransformer(
-            kind=featurizer, notation="smiles", dtype=float, n_jobs=n_jobs
-        )
+        transformer = PretrainedHFTransformer(kind=featurizer, notation="smiles", dtype=float, n_jobs=n_jobs)
 
     elif featurizer in [
         "gin_supervised_infomax",

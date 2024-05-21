@@ -208,9 +208,9 @@ def corr_protein_hardness_metric(
     k = [int(item * distance_matrix.shape[0]) for item in proportions]
     for item in k:
         hardness_protien = compute_task_hardness_from_distance_matrix(distance_matrix, k=item)
-        hardness_protein_norm = (
-            hardness_protien[0].numpy() - np.min(hardness_protien[0].numpy())
-        ) / (np.max(hardness_protien[0].numpy()) - np.min(hardness_protien[0].numpy()))
+        hardness_protein_norm = (hardness_protien[0].numpy() - np.min(hardness_protien[0].numpy())) / (
+            np.max(hardness_protien[0].numpy()) - np.min(hardness_protien[0].numpy())
+        )
         protein_hardness_diff_k["k" + str(item)] = hardness_protein_norm
         protein_hardness_diff_k["assay"] = chembl_ids
 
@@ -228,16 +228,12 @@ def extract_class_indices(labels: torch.Tensor, which_class: torch.Tensor) -> to
     return torch.reshape(class_mask_indices, (-1,))  # reshape to be a 1D vector
 
 
-def compute_class_prototypes(
-    support_features: torch.Tensor, support_labels: torch.Tensor
-) -> torch.Tensor:
+def compute_class_prototypes(support_features: torch.Tensor, support_labels: torch.Tensor) -> torch.Tensor:
     """Compute the prototype for each class in the support set."""
     means = []
     for c in torch.unique(support_labels):
         # filter out feature vectors which have class c
-        class_features = torch.index_select(
-            support_features, 0, extract_class_indices(support_labels, c)
-        )
+        class_features = torch.index_select(support_features, 0, extract_class_indices(support_labels, c))
         means.append(torch.mean(class_features, dim=0))
     return torch.stack(means)
 
@@ -256,9 +252,7 @@ def compute_features(task, transformer) -> torch.Tensor:
     return support_features
 
 
-def compute_features_smiles_labels(
-    task, transformer
-) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray]:
+def compute_features_smiles_labels(task, transformer) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray]:
     support_smiles = np.array([item.smiles for item in task.samples])
     support_labels = torch.Tensor(np.array([item.bool_label for item in task.samples]))
     support_features = torch.Tensor(np.array(transformer(support_smiles)))

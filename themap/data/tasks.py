@@ -127,16 +127,17 @@ class ProteinDataset:
         task_id (list[str]): list of string describing the tasks these protein are taken from.
         protein (dict): dictionary mapping the protein id to the protein sequence.
     """
+
     task_id: list[str]
     protein: dict
     features: Optional[np.ndarray] = None
 
     def __getitem__(self, idx: int) -> Tuple[str, str]:
         return list(self.protein.keys())[idx], list(self.protein.values())[idx]
-    
+
     def __len__(self) -> int:
         return len(self.protein)
-    
+
     def __repr__(self) -> str:
         return f"ProteinDataset(task_id={self.task_id}, protein={self.protein})"
 
@@ -281,11 +282,10 @@ class TaskDistance:
 
     def __repr__(self) -> str:
         return f"TaskDistance(source_task_ids={len(self.source_task_ids)}, target_task_ids={len(self.target_task_ids)})"
-    
+
     @property
     def shape(self) -> Tuple[int, int]:
         return len(self.source_task_ids), len(self.target_task_ids)
-    
 
     def compute_ext_chem_distance(self, method):
         pass
@@ -300,48 +300,49 @@ class TaskDistance:
     def load_ext_chem_distance(path):
         with open(path, "rb") as f:
             x = pickle.load(f)
-        
-        if 'train_chembl_ids' in x.keys():
-            source_task_ids = x['train_chembl_ids']
-        elif 'train_pubchem_ids' in x.keys():
-            source_task_ids = x['train_pubchem_ids']
-        elif 'source_task_ids' in x.keys():
-            source_task_ids = x['source_task_ids']
-        
-        if 'test_chembl_ids' in x.keys():
-            target_task_ids = x['test_chembl_ids']
-        elif 'test_pubchem_ids' in x.keys():
-            target_task_ids = x['test_pubchem_ids']
-        elif 'target_task_ids' in x.keys():
-            target_task_ids = x['target_task_ids']
 
-        return TaskDistance(source_task_ids, target_task_ids, external_chemical_space= x['distance_matrices'])
+        if "train_chembl_ids" in x.keys():
+            source_task_ids = x["train_chembl_ids"]
+        elif "train_pubchem_ids" in x.keys():
+            source_task_ids = x["train_pubchem_ids"]
+        elif "source_task_ids" in x.keys():
+            source_task_ids = x["source_task_ids"]
 
-    @staticmethod  
+        if "test_chembl_ids" in x.keys():
+            target_task_ids = x["test_chembl_ids"]
+        elif "test_pubchem_ids" in x.keys():
+            target_task_ids = x["test_pubchem_ids"]
+        elif "target_task_ids" in x.keys():
+            target_task_ids = x["target_task_ids"]
+
+        return TaskDistance(source_task_ids, target_task_ids, external_chemical_space=x["distance_matrices"])
+
+    @staticmethod
     def load_ext_prot_distance(path):
         with open(path, "rb") as f:
             x = pickle.load(f)
-    
-            if 'train_chembl_ids' in x.keys():
-                source_task_ids = x['train_chembl_ids']
-            elif 'train_pubchem_ids' in x.keys():
-                source_task_ids = x['train_pubchem_ids']
-            elif 'source_task_ids' in x.keys():
-                source_task_ids = x['source_task_ids']
-            
-            if 'test_chembl_ids' in x.keys():
-                target_task_ids = x['test_chembl_ids']
-            elif 'test_pubchem_ids' in x.keys():
-                target_task_ids = x['test_pubchem_ids']
-            elif 'target_task_ids' in x.keys():
-                target_task_ids = x['target_task_ids']
-        
-        return TaskDistance(source_task_ids, target_task_ids, external_protein_space = x['distance_matrices'])
+
+            if "train_chembl_ids" in x.keys():
+                source_task_ids = x["train_chembl_ids"]
+            elif "train_pubchem_ids" in x.keys():
+                source_task_ids = x["train_pubchem_ids"]
+            elif "source_task_ids" in x.keys():
+                source_task_ids = x["source_task_ids"]
+
+            if "test_chembl_ids" in x.keys():
+                target_task_ids = x["test_chembl_ids"]
+            elif "test_pubchem_ids" in x.keys():
+                target_task_ids = x["test_pubchem_ids"]
+            elif "target_task_ids" in x.keys():
+                target_task_ids = x["target_task_ids"]
+
+        return TaskDistance(source_task_ids, target_task_ids, external_protein_space=x["distance_matrices"])
 
     def to_pandas(self):
-        df = pd.DataFrame(self.external_chemical_space, index=self.source_task_ids, columns=self.target_task_ids)
+        df = pd.DataFrame(
+            self.external_chemical_space, index=self.source_task_ids, columns=self.target_task_ids
+        )
         return df
-
 
 
 @dataclass
@@ -359,7 +360,7 @@ class TaskHardness:
             + w_inc * self.internal_chemical_space
         )
         return final_hardness
-    
+
     @staticmethod
     def compute_from_distance(task_distance: TaskDistance):
         if task_distance.external_chemical_space is not None:
