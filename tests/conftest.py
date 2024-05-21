@@ -1,9 +1,29 @@
 import numpy as np
 import pytest
 
+from dpu_utils.utils import RichPath
+from themap.data.tasks import MoleculeDatapoint, ProteinDataset, MoleculeDataset
+
+pytest.fixture
+
+
+def manual_smiles():
+    smiles = "C1=CC=CC=C1"
+    return smiles
+
+
+@pytest.fixture
+def datapoint_molecule():
+    return MoleculeDatapoint(
+        task_id="task_id",
+        smiles="c1ccccc1",
+        bool_label=True,
+        numeric_label=1.0,
+    )
+
 
 @pytest.fixture(scope="module")
-def manual_smiles():
+def manual_smiles_list():
     return [
         "CCCCC",
         "C1=CC=CC=C1",
@@ -14,3 +34,25 @@ def manual_smiles():
         "CN1C=NC2=C1C(=O)NC(=O)N2C",
         "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
     ]
+
+
+@pytest.fixture
+def dataset_CHEMBL2219236():
+    return RichPath.create("datasets/test/CHEMBL2219236.jsonl.gz")
+
+
+@pytest.fixture
+def dataset_CHEMBL1963831():
+    return RichPath.create("datasets/test/CHEMBL1963831.jsonl.gz")
+
+
+@pytest.fixture
+def protein_dataset_train():
+    path = "datasets/train/train_proteins.fasta"
+    return path
+
+
+@pytest.fixture
+def protein_dataset_test():
+    path = "datasets/test/test_proteins.fasta"
+    return path

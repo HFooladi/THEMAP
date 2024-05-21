@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from dpu_utils.utils import RichPath  # I should see whether I can remove this dependency or not
+from dpu_utils.utils import RichPath  
 from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
 
