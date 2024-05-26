@@ -25,12 +25,11 @@ Then, you can go to the `notebooks` folder, and run the notebooks.
 If you find the models useful in your research, we ask that you cite the following paper:
 
 ```bibtex
-@article{fooladi2024qth,
-  author = {Fooladi, Hosein and Hirte, Steffen and Kirchmair, Johannes},
+@article{fooladi2024quantifying,
   title={Quantifying the hardness of bioactivity prediction tasks for transfer learning},
+  author={Fooladi, Hosein and Hirte, Steffen and Kirchmair, Johannes},
+  journal={Journal of Chemical Information and Modeling},
   year={2024},
-  doi={10.1021/acs.jcim.4c00160},
-  url={https://doi.org/10.1021/acs.jcim.4c00160},
-  journal={Journal of Chemical Information and Modeling}
+  publisher={ACS Publications}
 }
 ```
