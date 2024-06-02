@@ -1,7 +1,8 @@
 import heapq
 import os
 import pickle
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
+import json
 
 import numpy as np
 import pandas as pd
@@ -445,3 +446,23 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
     )
 
     return protein_hardness_df
+
+
+def get_configure(distance: str) -> Optional[Dict]:
+    """Query for the manually specified configuration
+
+    Args:
+        distance (str): Distance type to query for the configuration
+
+    Returns:
+        dict: Returns the manually specified configuration
+    """
+    # path to the parent of parent folder of the current file
+    source_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(source_path, "models", "distance_configures", "{}.json".format(distance))
+    if not os.path.exists(config_path):
+        return None
+    else:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        return config
