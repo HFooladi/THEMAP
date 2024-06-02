@@ -1,4 +1,12 @@
-from themap.data.tasks import MoleculeDatapoint, ProteinDataset, MoleculeDataset
+import torch
+
+from themap.data.tasks import (
+    MoleculeDatapoint,
+    ProteinDataset,
+    MoleculeDataset,
+    TorchMoleculeDataset,
+    MoleculeDataloader,
+)
 
 
 def test_MoleculeDatapoint(datapoint_molecule):
@@ -28,10 +36,7 @@ def test_ProteinDataset():
     )
 
     # Test the __repr__ method
-    assert (
-        str(protein_dataset)
-        == "ProteinDataset(task_id=['task_id'], protein={'task_id': 'LNMHMNVQNG'})"
-    )
+    assert str(protein_dataset) == "ProteinDataset(task_id=['task_id'], protein={'task_id': 'LNMHMNVQNG'})"
 
 
 def test_MoleculeDataset_load_from_file(dataset_CHEMBL2219236):
@@ -59,3 +64,38 @@ def test_ProteinDataset_load_from_file(protein_dataset_train):
     assert isinstance(dataset[0], tuple)
     assert isinstance(dataset[0][0], str)
     assert isinstance(dataset[0][1], str)
+
+
+def test_TorchMoleculeDataset(dataset_CHEMBL2219358):
+    # Load the dataset from a file
+    dataset = MoleculeDataset.load_from_file(dataset_CHEMBL2219358)
+
+    # Create a TorchMoleculeDataset object
+    torch_dataset = TorchMoleculeDataset(dataset)
+
+    # Test the __len__ method
+    assert len(torch_dataset) == 157
+
+    # Test the __getitem__ method
+    assert isinstance(torch_dataset[0], tuple)
+    assert isinstance(torch_dataset[0][0], torch.Tensor)
+    assert isinstance(torch_dataset[0][1], torch.Tensor)
+
+
+def test_MoleculeDataloader(dataset_CHEMBL2219358):
+    # Load the dataset from a file
+    dataset = MoleculeDataset.load_from_file(dataset_CHEMBL2219358)
+
+    # Create a MoleculeDataloader object
+    dataloader = MoleculeDataloader(dataset, batch_size=32)
+
+    # Test the __len__ method
+    assert len(dataloader) == 5
+
+    # Test the __iter__ method
+    for batch in dataloader:
+        assert isinstance(batch, list)
+        assert len(batch) == 2
+        assert isinstance(batch[0], torch.Tensor)
+        assert isinstance(batch[1], torch.Tensor)
+        break
