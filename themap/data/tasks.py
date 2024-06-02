@@ -10,6 +10,8 @@ import pandas as pd
 from dpu_utils.utils import RichPath
 from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
+import torch
+import torch.utils.data.dataloader as dataloader
 
 from themap.utils.featurizer_utils import get_featurizer, make_mol
 from themap.utils.protein_utils import (
@@ -347,6 +349,69 @@ class MoleculeDatasets:
     def get_task_names(self, data_fold: DataFold) -> List[str]:
         return [get_task_name_from_path(path) for path in self._fold_to_data_paths[data_fold]]
 
+
+class TorchMoleculeDataset(torch.utils.data.Dataset):
+    """ PYTORCH Dataset for molecular data.
+
+    Args:
+        data (MoleculeDataset): MoleculeDataset object
+        transform (callable): transform to apply to data
+        target_transform (callable): transform to apply to targets
+
+    """
+    def __init__(self, data, transform=None, target_transform=None):
+        self.data = data
+        self.transform = transform
+        self.target_transform = target_transform
+        self.classes = [0, 1]
+
+        if isinstance(self.data.get_features, np.ndarray):
+            X = torch.from_numpy(self.data.get_features)
+        else:
+            X = self.data.get_features
+        if isinstance(self.data.get_labels, np.ndarray):
+            y = torch.from_numpy(self.data.get_labels).type(torch.LongTensor)
+        else:
+            y = self.data.get_labels.type(torch.LongTensor)
+        self.smiles = self.data.get_smiles
+        self.tensors = [X, y]
+
+
+    def __getitem__(self, index):
+        x = self.tensors[0][index]
+        if self.transform:
+            x = self.transform(x)
+
+        y = self.tensors[1][index]
+        if self.target_transform:
+            y = self.target_transform(y)
+
+        return x, y
+
+    def __len__(self):
+        return self.tensors[0].size(0)
+    
+    def __repr__(self):
+        return f"TorchMoleculeDataset(task_id={self.data.task_id}, task_size={len(self.data.data)})"
+
+
+def MoleculeDataloader(data, batch_size = 64, shuffle=True, transform=None, target_transform=None):
+    """ Load molecular data and create PYTORCH dataloader.
+    Args:
+        data (MoleculeDataset): MoleculeDataset object
+        batch_size (int): batch size
+        shuffle (bool): whether to shuffle data
+        transform (callable): transform to apply to data
+        target_transform (callable): transform to apply to targets
+
+    Returns:
+        dataset_loader (DataLoader): PYTORCH dataloader
+
+    """
+    dataset = TorchMoleculeDataset(data)
+    dataset_loader = dataloader.DataLoader(dataset, batch_size= batch_size, shuffle=shuffle)
+
+    return dataset_loader
 
 @dataclass
 class Task:
