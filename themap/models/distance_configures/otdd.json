@@ -1,0 +1,7 @@
+{
+    "inner_ot_method": "exact",
+    "debiased_loss" : true,
+    "p": 2,
+    "entreg" : 1e-1,
+    "device" : "cuda:0"
+  }
