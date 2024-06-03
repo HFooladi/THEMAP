@@ -53,6 +53,13 @@ def dataset_CHEMBL1023359():
 def dataset_CHEMBL2219358():
     return RichPath.create("datasets/test/CHEMBL2219358.jsonl.gz")
 
+@pytest.fixture
+def manual_protein_dataset():
+    return ProteinDataset(
+        task_id=["CHEMBL2219236", "CHEMBL2219358"],
+        protein={"Q13177" : "MSDNGELEDKPPAPPVRMSSTI",
+                 "P50750" : "MAKQYDSVECPFCDEVSKYEK"}
+        )
 
 @pytest.fixture
 def protein_dataset_train():
