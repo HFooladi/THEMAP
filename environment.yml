@@ -5,21 +5,48 @@ channels:
   - defaults
 
 dependencies:
+  - python >3.8
+  - pip
   - matplotlib
   - numpy
   - pandas
   - seaborn
   - tqdm
-  - torch
-  - datamol
-  - molfeat
+  - pytorch >= 1.13
   - dgl
   - dgllife
   - pytorch_geometric
+
+  # Chemistry
+  - datamol
+  - molfeat
+
+  # Doc
+  - mkdocs
+  - mkdocs-material
+  - mkdocs-jupyter  
+  - mkdocs-material[imaging]
+  - mkdocs-section-index
+  - mkdocstrings[python]
+  - mike
+
+  # Dev
+  - pytest >=6.0
+  - pytest-dotenv
+  - pytest-cov
+  - pytest-timeout
+  - pytest-xdist
+  - black >=22
+  - ruff
+  - jupyterlab
+  - nbconvert  
+
+
   - pip:
     - chembl-webresource-client
     - rdkit
     - dpu-utils>=0.2.13
     - biopython
     - fair-esm
+    - git+https://github.com/HFooladi/otdd
     
