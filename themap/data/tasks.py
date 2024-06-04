@@ -352,7 +352,7 @@ class MoleculeDatasets:
 
 
 class TorchMoleculeDataset(torch.utils.data.Dataset):
-    """ PYTORCH Dataset for molecular data.
+    """PYTORCH Dataset for molecular data.
 
     Args:
         data (MoleculeDataset): MoleculeDataset object
@@ -360,6 +360,7 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
         target_transform (callable): transform to apply to targets
 
     """
+
     def __init__(self, data, transform=None, target_transform=None):
         self.data = data
         self.transform = transform
@@ -377,7 +378,6 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
         self.smiles = self.data.get_smiles
         self.tensors = [X, y]
 
-
     def __getitem__(self, index):
         x = self.tensors[0][index]
         if self.transform:
@@ -391,13 +391,13 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.tensors[0].size(0)
-    
+
     def __repr__(self):
         return f"TorchMoleculeDataset(task_id={self.data.task_id}, task_size={len(self.data.data)})"
 
 
-def MoleculeDataloader(data, batch_size = 64, shuffle=True, transform=None, target_transform=None):
-    """ Load molecular data and create PYTORCH dataloader.
+def MoleculeDataloader(data, batch_size=64, shuffle=True, transform=None, target_transform=None):
+    """Load molecular data and create PYTORCH dataloader.
     Args:
         data (MoleculeDataset): MoleculeDataset object
         batch_size (int): batch size
@@ -410,9 +410,10 @@ def MoleculeDataloader(data, batch_size = 64, shuffle=True, transform=None, targ
 
     """
     dataset = TorchMoleculeDataset(data)
-    dataset_loader = dataloader.DataLoader(dataset, batch_size= batch_size, shuffle=shuffle)
+    dataset_loader = dataloader.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
     return dataset_loader
+
 
 @dataclass
 class Task:
@@ -428,5 +429,3 @@ class Task:
         data_features = np.array([data.get_features(data_model) for data in self.data])
         metadata_features = self.metadata.get_features(metadata_model)
         return np.concatenate([data_features, metadata_features], axis=0)
-
-

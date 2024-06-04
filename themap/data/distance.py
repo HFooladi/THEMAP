@@ -193,7 +193,6 @@ class TaskDistance:
     def compute_ext_prot_distance(self, method):
         pass
 
-
     @staticmethod
     def load_ext_chem_distance(path):
         with open(path, "rb") as f:

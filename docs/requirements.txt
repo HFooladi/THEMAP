@@ -1,5 +1,0 @@
-mkdocs
-mkdocs-material
-mkdocs-material[imaging]
-mkdocs-section-index
-mkdocstrings[python]

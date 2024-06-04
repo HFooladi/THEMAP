@@ -10,7 +10,7 @@ from themap.data.distance import (
     AbstractDatasetDistance,
     MoleculeDatasetDistance,
     ProteinDatasetDistance,
-    TaskDistance
+    TaskDistance,
 )
 
 from themap.data.hardness import TaskHardness

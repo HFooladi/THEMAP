@@ -463,6 +463,6 @@ def get_configure(distance: str) -> Optional[Dict]:
     if not os.path.exists(config_path):
         return None
     else:
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             config = json.load(f)
         return config
