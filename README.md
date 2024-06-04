@@ -8,8 +8,7 @@ Task Hardness Estimation for Molecular Activity Predcition
 ```bash
 conda env create -f environment.yml
 conda activate themap
-git clone https://github.com/HFooladi/THEMAP.git
-cd THEMAP 
+ 
 pip install --no-deps -e .
 ```
 
