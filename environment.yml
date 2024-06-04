@@ -2,22 +2,27 @@ name: themap
 
 channels:
   - conda-forge
-  - defaults
+  - dglteam
 
 dependencies:
-  - python == 3.10
+  - python >3.8
   - pip
-  - matplotlib
+  - tqdm
+
+  # Scientific
   - numpy
   - pandas
+  - matplotlib
   - seaborn
-  - tqdm
-  - pytorch >= 1.13
-  - dgl
-  - dgllife
+  
+  # ML
+  - pytorch >=1.13
+  - dgl >=2.2.0
+  - dgllife >=0.3.2
   - pytorch_geometric
 
   # Chemistry
+  - rdkit
   - datamol
   - molfeat
 
@@ -47,7 +52,6 @@ dependencies:
 
   - pip:
     - chembl-webresource-client
-    - rdkit
     - dpu-utils>=0.2.13
     - biopython
     - fair-esm
