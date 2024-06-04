@@ -7,7 +7,7 @@ import pickle
 
 from themap.utils.distance_utils import get_configure
 from themap.data.tasks import MoleculeDataset, ProteinDataset, MoleculeDataloader
-from third_party.otdd.otdd.pytorch.distance import DatasetDistance
+from otdd.pytorch.distance import DatasetDistance
 
 
 MOLECULE_DISTANCE_METHODS = ["otdd", "euclidean", "cosine"]

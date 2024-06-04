@@ -68,3 +68,14 @@ markers = [
     "serial",
 ]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["themap/"]
+disable_warnings = ["no-data-collected"]
+data_file = ".coverage/coverage"
+
+[tool.coverage.report]
+omit = ["themap/__init__.py"]
+
+[tool.coverage.xml]
+output = "coverage.xml"

@@ -21,6 +21,32 @@ For the FS-Mol dataset, moleuclar embedding for each assay (ChEMBL id) and also,
 
 Then, you can go to the `notebooks` folder, and run the notebooks.
 
+
+## Development
+### Tests
+
+You can run tests locally with:
+
+```bash
+pytest
+```
+
+### Code style
+We use `ruff` as a linter and formatter. 
+
+```bash
+ruff check
+ruff format
+```
+
+### Documentation
+
+You can build and run documentation server with:
+
+```bash
+mkdocs serve
+```
+
 ## Citation <a name="citation"></a>
 If you find the models useful in your research, we ask that you cite the following paper:
 
