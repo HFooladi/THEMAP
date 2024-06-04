@@ -33,7 +33,7 @@ molecule_feaurizer = "gin_supervised_infomax"
 source_features = source_dataset.get_dataset_embedding(molecule_feaurizer)
 target_features = target_dataset.get_dataset_embedding(molecule_feaurizer)
 
-Dist=MoleculeDatasetDistance(D1=source_dataset_loader, D2=target_dataset_loader, method="otdd")
+Dist = MoleculeDatasetDistance(D1=source_dataset, D2=target_dataset, method="otdd")
 
 Dist.get_distance()
 >>> {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
