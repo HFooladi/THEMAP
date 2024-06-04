@@ -8,11 +8,39 @@ Task Hardness Estimation for Molecular Activity Predcition
 ```bash
 conda env create -f environment.yml
 conda activate themap
- 
+
+pip install --no-deps git+https://github.com/HFooladi/otdd.git  
 pip install --no-deps -e .
 ```
 
 ## Getting Started
+
+### Basic Usage
+  
+```python
+import os
+from dpu_utils.utils.richpath import RichPath
+
+from themap.data import MoleculeDataset
+from themap.data.distance import MoleculeDatasetDistance
+
+source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
+target_dataset_path = RichPath.create(os.path.join("datasets", "test", "CHEMBL2219358.jsonl.gz"))
+source_dataset = MoleculeDataset.load_from_file(source_dataset_path)
+target_dataset = MoleculeDataset.load_from_file(target_dataset_path)
+
+molecule_feaurizer = "gin_supervised_infomax"
+source_features = source_dataset.get_dataset_embedding(molecule_feaurizer)
+target_features = target_dataset.get_dataset_embedding(molecule_feaurizer)
+
+Dist=MoleculeDatasetDistance(D1=source_dataset_loader, D2=target_dataset_loader, method="otdd")
+
+Dist.get_distance()
+>>> {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
+```
+
+
+### Reproduce FS-Mol Experiments
 For the FS-Mol dataset, moleuclar embedding for each assay (ChEMBL id) and also, chemical and protein distance have been calculated and deposited in the [zenodo](https://zenodo.org/records/10605093). 
 
 1. Download it from [zenodo](https://zenodo.org/records/10605093)

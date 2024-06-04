@@ -1,11 +1,13 @@
 name: themap
 
 channels:
+  - pytorch
+  - nvidia
   - conda-forge
-  - dglteam
+  - dglteam/label/th23_cu118
 
 dependencies:
-  - python >3.8
+  - python ==3.10
   - pip
   - tqdm
 
@@ -14,17 +16,32 @@ dependencies:
   - pandas
   - matplotlib
   - seaborn
-  
+
+  # Misc
+  - adjustText
+  - h5py
+  - cmake
+  - watermark 
+  - pytz
+  - pydantic
+
   # ML
-  - pytorch >=1.13
-  - dgl >=2.2.0
+  - scikit-learn
+  - pytorch
+  - pytorch-cuda=11.8
+  - torchvision
+  - torchtext
+  - torchdata
+  - dgl 
   - dgllife >=0.3.2
   - pytorch_geometric
+
 
   # Chemistry
   - rdkit
   - datamol
   - molfeat
+ 
 
   # Doc
   - mkdocs
@@ -47,7 +64,9 @@ dependencies:
   - black >=22
   - ruff
   - jupyterlab
-  - nbconvert  
+  - nbconvert 
+  - ipywidgets
+  
 
 
   - pip:
@@ -55,5 +74,12 @@ dependencies:
     - dpu-utils>=0.2.13
     - biopython
     - fair-esm
-    - git+https://github.com/HFooladi/otdd
+    - pot
+    - pykeops
+    - git+https://github.com/jeanfeydy/geomloss
+    - opentsne
+    - munkres
+    - celluloid
+    - git+https://github.com/rossant/ipycache
+    #- git+https://github.com/HFooladi/otdd.git --install-option="--no-deps"
     
