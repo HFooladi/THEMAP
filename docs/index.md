@@ -51,7 +51,7 @@ from themap.data.distance import ProteinDatasetDistance
 
 # load some datasets
 source_protein = ProteinDataset.load_from_file("datasets/train/train_proteins.fasta")
-source_protein = ProteinDataset.load_from_file("datasets/train/train_proteins.fasta")
+target_protein = ProteinDataset.load_from_file("datasets/test/test_proteins.fasta")
 
 # get the features
 protein_featurizer = "esm2_t33_650M_UR50D"
