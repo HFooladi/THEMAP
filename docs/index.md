@@ -1,6 +1,6 @@
 # Overview
 
-THEMAP is a python library designed for aiding in drug discovery by providing powerful methods for estimating the hardness of bioactivity prediction task for transfer learning. It enables researchers and chemists to efficiently determine transferrabilty map for bioactivity prediction tasks. 
+`THEMAP` is a python library designed for aiding in drug discovery by providing powerful methods for estimating the hardness of bioactivity prediction task for transfer learning. It enables researchers and chemists to efficiently determine transferrabilty map for bioactivity prediction tasks. 
 
 
 ## Installation
@@ -40,7 +40,7 @@ target_features = target_dataset.get_dataset_embedding(molecule_feaurizer)
 # calculate the distance
 Dist = MoleculeDatasetDistance(D1=source_dataset, D2=target_dataset, method="otdd")
 Dist.get_distance()
->>> {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
+# {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
 ```
 
 You can calculate distance between protein spces of two (or more) proteins (metadata) using `ProteinDatasetDistance` class.
@@ -61,15 +61,15 @@ target_protein_features = target_protein.get_features(protein_featurizer)
 # calculate the distance
 Dist = ProteinDatasetDistance(source_protein, target_protein, "euclidean")
 Dist.get_distance()
->>> {'CHEMBL2219236': {'CHEMBL2219236': 2.9516282297179703,
->>>  'CHEMBL2219358': 4.372332083302979,
->>>  'CHEMBL1963831': 4.258244298189887},
->>>  'CHEMBL2219358': {'CHEMBL2219236': 3.560959265946417,
->>>  'CHEMBL2219358': 2.005268985065835,
->>>  'CHEMBL1963831': 2.772209146380105},
->>>  'CHEMBL1963831': {'CHEMBL2219236': 3.3623606434721895,
->>>  'CHEMBL2219358': 1.9580669485355773,
->>>  'CHEMBL1963831': 2.452369399042511}}
+#{'CHEMBL2219236': {'CHEMBL2219236': 2.9516282297179703,
+#'CHEMBL2219358': 4.372332083302979,
+#'CHEMBL1963831': 4.258244298189887},
+#'CHEMBL2219358': {'CHEMBL2219236': 3.560959265946417,
+#'CHEMBL2219358': 2.005268985065835,
+#'CHEMBL1963831': 2.772209146380105},
+#'CHEMBL1963831': {'CHEMBL2219236': 3.3623606434721895,
+#'CHEMBL2219358': 1.9580669485355773,
+#'CHEMBL1963831': 2.452369399042511}}
 ```
 
 
