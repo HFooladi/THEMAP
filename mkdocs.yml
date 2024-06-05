@@ -3,7 +3,7 @@ site_description: "THEMAP:  Task Hardness Estimation for Molecular Activity Pred
 site_url: "https://github.com/HFooladi/THEMAP"
 repo_url: "https://github.com/HFooladi/THEMAP"
 repo_name: "HFooladi/THEMAP"
-copyright: Copyright 2023 - 2024 datamol.io
+copyright: Copyright 2023 - 2024 Hosein Fooladi
 
 remote_branch: "gh-pages"
 use_directory_urls: false
