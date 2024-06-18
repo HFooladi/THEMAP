@@ -223,10 +223,26 @@ class MoleculeDataset:
         assert len(features) == len(smiles)
         return features
 
-    def get_prototype(self, model) -> MoleculeDatapoint:
+    def get_prototype(self, model) -> Tuple[np.ndarray]:
+        """
+        Get the prototype of the dataset.
+
+        Args:
+            model: Featurizer model to use.
+        
+        Returns:
+            Tuple[np.ndarray]: Tuple containing the positive and negative prototype of the dataset.
+        """
         data_features = self.get_dataset_embedding(model)
-        prototype = data_features.mean(axis=0)
-        return prototype
+        # Calculate the prototype of the dataset
+        # First find all positive and negative samples
+        # Then just average over all positives and negatives
+        positives = [data_features[i] for i in range(len(data_features)) if self.data[i].bool_label]
+        negatives = [data_features[i] for i in range(len(data_features)) if not self.data[i].bool_label]
+
+        positive_prototype = np.array(positives).mean(axis=0)
+        negative_prototype = np.array(negatives).mean(axis=0)
+        return positive_prototype, negative_prototype
 
     @property
     def get_features(self) -> np.ndarray:
@@ -239,9 +255,23 @@ class MoleculeDataset:
     @property
     def get_smiles(self) -> List[str]:
         return [data.smiles for data in self.data]
+    
+    @property
+    def get_ratio(self) -> float:
+        """
+        Get the ratio of positive to negative examples in the dataset.
+
+        Returns:
+            float: Ratio of positive to negative examples in the dataset.
+        """
+        return round(sum([data.bool_label for data in self.data]) / len(self.data), 2)
 
     @staticmethod
-    def load_from_file(path: RichPath) -> "MoleculeDataset":
+    def load_from_file(path: Union[str, RichPath]) -> "MoleculeDataset":
+        if isinstance(path, str):
+            path = RichPath.create(path)
+        else:
+            path = path        
         samples = []
         for raw_sample in path.read_by_file_suffix():
             fingerprint_raw = raw_sample.get("fingerprints")
