@@ -143,6 +143,20 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
                 prot_distance[src] = dist[j, i]
             prot_distances[tgt] = prot_distance
         return prot_distances
+    
+    def cosine_distance(self) -> Dict:
+        # Calculate the cosine distance between two protein datasets
+        dist = cdist(self.target.features, self.source.features, metric="cosine")
+        prot_distances = {}
+        for i, tgt in enumerate(self.target_task_ids):
+            prot_distance = {}
+            for j, src in enumerate(self.target.task_id):
+                prot_distance[src] = dist[j, i]
+            prot_distances[tgt] = prot_distance
+        return prot_distances
+    
+    def sequence_identity_distnace(self) -> Dict:
+        pass
 
     def get_distance(self):
         if self.method == "euclidean":

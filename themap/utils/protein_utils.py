@@ -132,6 +132,10 @@ def convert_fasta_to_dict(fasta_file: str) -> Dict:
 
     Args:
         fasta_file: Path to the fasta file.
+    
+    Returns:
+        Dict: Dictionary containing the fasta sequences.
+        {'id': 'sequence'}
     """
     fasta_dict = {}
     for record in SeqIO.parse(fasta_file, "fasta"):
