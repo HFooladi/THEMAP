@@ -1,5 +1,8 @@
+[![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs--jcim--3c01774-blue)](https://doi.org/10.1021/acs.jcim.4c00160)
+
+
 # THEMAP
-Task Hardness Estimation for Molecular Activity Predcition
+Task Hardness Estimation for Molecular Activity Prediction
 
 
 ## Installation
@@ -41,7 +44,7 @@ Dist.get_distance()
 
 
 ### Reproduce FS-Mol Experiments
-For the FS-Mol dataset, moleuclar embedding for each assay (ChEMBL id) and also, chemical and protein distance have been calculated and deposited in the [zenodo](https://zenodo.org/records/10605093). 
+For the FS-Mol dataset, molecular embedding for each assay (ChEMBL id) and also, chemical and protein distance have been calculated and deposited in the [zenodo](https://zenodo.org/records/10605093). 
 
 1. Download it from [zenodo](https://zenodo.org/records/10605093)
 2. Unzip the directory and place it into `datasets` such that you have the path `datasets/fsmol_hardness`
@@ -68,7 +71,7 @@ ruff format
 
 ### Documentation
 
-You can build and run documentation server with:
+You can build and run a documentation server with:
 
 ```bash
 mkdocs serve
