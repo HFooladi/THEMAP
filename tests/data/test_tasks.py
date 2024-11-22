@@ -8,7 +8,7 @@ from themap.data.tasks import (
     MoleculeDataloader,
 )
 
-
+# Test 1: Test the MoleculeDatapoint class
 def test_MoleculeDatapoint(datapoint_molecule):
     # Create a MoleculeDatapoint object
 

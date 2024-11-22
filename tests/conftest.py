@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from dpu_utils.utils import RichPath
@@ -12,7 +13,7 @@ def manual_smiles():
     return smiles
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def datapoint_molecule():
     return MoleculeDatapoint(
         task_id="task_id",
@@ -52,6 +53,10 @@ def dataset_CHEMBL1023359():
 @pytest.fixture
 def dataset_CHEMBL2219358():
     return RichPath.create("datasets/test/CHEMBL2219358.jsonl.gz")
+
+@pytest.fixture
+def dataset_CHEMBL1963831_csv():
+    return pd.read_csv("tests/conftest/CHEMBL1963831.csv")
 
 @pytest.fixture
 def manual_protein_dataset():

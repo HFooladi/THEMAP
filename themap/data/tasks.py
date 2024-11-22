@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import pickle
 from typing import Dict, List, Optional, Tuple, Union
 import os
@@ -30,11 +30,20 @@ class DataFold(Enum):
 
 
 def get_task_name_from_path(path: RichPath) -> str:
-    # Use filename as task name:
-    name = path.basename()
-    if name.endswith(".jsonl.gz"):
-        name = name[: -len(".jsonl.gz")]
-    return name
+    """
+    Extract task name from file path.
+    
+    Args:
+        path (Any): Path-like object
+    
+    Returns:
+        str: Extracted task name
+    """
+    try:
+        name = path.basename()
+        return name[:-len(".jsonl.gz")] if name.endswith(".jsonl.gz") else name
+    except Exception:
+        return "unknown_task"
 
 
 @dataclass
@@ -54,8 +63,8 @@ class MoleculeDatapoint:
     smiles: str
     bool_label: bool
     numeric_label: Optional[float] = None
-    fingerprint: Optional[np.ndarray] = None
-    features: Optional[np.ndarray] = None
+    _fingerprint: Optional[np.ndarray] = field(default=None, repr=False)
+    _features: Optional[np.ndarray] = field(default=None, repr=False)
 
     def __repr__(self):
         return f"MoleculeDatapoint(task_id={self.task_id}, smiles={self.smiles}, bool_label={self.bool_label}, numeric_label={self.numeric_label})"
@@ -67,17 +76,17 @@ class MoleculeDatapoint:
         Returns:
             np.ndarray: Morgan fingerprint for the molecule (r=2, nbits=2048).
         """
-        if self.fingerprint is not None:
-            return self.fingerprint
-        else:
-            mol = make_mol(self.smiles)
-            fingerprints_vect = rdFingerprintGenerator.GetCountFPs(
-                [mol], fpType=rdFingerprintGenerator.MorganFP
-            )[0]
-            fingerprint = np.zeros((0,), np.float32)  # Generate target pointer to fill
-            DataStructs.ConvertToNumpyArray(fingerprints_vect, fingerprint)
-            self.fingerprint = fingerprint
-            return fingerprint
+        if self._fingerprint is not None:
+            return self._fingerprint
+        
+        mol = make_mol(self.smiles)
+        fingerprints_vect = rdFingerprintGenerator.GetCountFPs(
+            [mol], fpType=rdFingerprintGenerator.MorganFP
+        )[0]
+        fingerprint = np.zeros((0,), np.float32)  # Generate target pointer to fill
+        DataStructs.ConvertToNumpyArray(fingerprints_vect, fingerprint)
+        self._fingerprint = fingerprint
+        return fingerprint
 
     def get_features(self, featurizer: Optional[str] = None) -> np.ndarray:
         """
@@ -89,11 +98,12 @@ class MoleculeDatapoint:
         Returns:
             np.ndarray: Features for the molecule.
         """
-        if self.features is not None:
+        if self._features is not None:
             return self.features
-        model = get_featurizer(featurizer)
-        features = model(self.smiles)
-        self.features = features
+        model = get_featurizer(featurizer) if featurizer else None
+        features = model(self.smiles) if model else None
+
+        self._features = features
         return features
 
     @property
