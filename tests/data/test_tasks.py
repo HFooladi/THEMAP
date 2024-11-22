@@ -28,6 +28,7 @@ def test_MoleculeDatapoint(datapoint_molecule):
     assert round(datapoint_molecule.molecular_weight) == 78
 
 
+# Test 2: Test the ProteinDataset class
 def test_ProteinDataset():
     # Create a ProteinDatapoint object
     protein_dataset = ProteinDataset(

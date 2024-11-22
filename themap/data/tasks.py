@@ -38,6 +38,9 @@ def get_task_name_from_path(path: RichPath) -> str:
     
     Returns:
         str: Extracted task name
+    
+    Raises:
+        ValueError: If the task name cannot be extracted from the path.
     """
     try:
         name = path.basename()
@@ -99,7 +102,7 @@ class MoleculeDatapoint:
             np.ndarray: Features for the molecule.
         """
         if self._features is not None:
-            return self.features
+            return self._features
         model = get_featurizer(featurizer) if featurizer else None
         features = model(self.smiles) if model else None
 
@@ -114,7 +117,6 @@ class MoleculeDatapoint:
         Returns:
             int: Number of atoms in the molecule.
 
-        TODO: maybe I can create make_mol function to create mol from smiles and then use it in the class
         """
         mol = make_mol(self.smiles)
         return len(mol.GetAtoms())
@@ -202,7 +204,12 @@ class MoleculeDataset:
     """
 
     task_id: str
-    data: List[MoleculeDatapoint]
+    data: List[MoleculeDatapoint] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate dataset initialization."""
+        if not isinstance(self.data, list):
+            raise TypeError("Data must be a list of MoleculeDatapoints")
 
     def __len__(self) -> int:
         return len(self.data)
@@ -302,12 +309,25 @@ class MoleculeDataset:
                     smiles=raw_sample["SMILES"],
                     bool_label=bool(float(raw_sample["Property"])),
                     numeric_label=float(raw_sample.get("RegressionProperty") or "nan"),
-                    fingerprint=fingerprint,
-                    features=descriptors,
+                    _fingerprint=fingerprint,
+                    _features=descriptors,
                 )
             )
 
         return MoleculeDataset(get_task_name_from_path(path), samples)
+
+    def filter(self, condition: callable) -> 'MoleculeDataset':
+        """
+        Filter dataset based on a condition.
+        
+        Args:
+            condition: Callable that returns True/False for each datapoint
+        
+        Returns:
+            Filtered MoleculeDataset
+        """
+        filtered_data = [dp for dp in self.data if condition(dp)]
+        return MoleculeDataset(self.task_id, filtered_data)
 
 
 class MoleculeDatasets:
