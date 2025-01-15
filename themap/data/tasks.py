@@ -69,6 +69,18 @@ class MoleculeDatapoint:
     _fingerprint: Optional[np.ndarray] = field(default=None, repr=False)
     _features: Optional[np.ndarray] = field(default=None, repr=False)
 
+    def __post_init__(self):
+        """Validate initialization data."""
+        if not isinstance(self.task_id, str):
+            raise TypeError("task_id must be a string")
+        if not isinstance(self.smiles, str):
+            raise TypeError("smiles must be a string")
+        if not isinstance(self.bool_label, bool):
+            raise TypeError("bool_label must be a boolean")
+        if self.numeric_label is not None and not isinstance(self.numeric_label, (int, float)):
+            raise TypeError("numeric_label must be a number or None")
+    
+
     def __repr__(self):
         return f"MoleculeDatapoint(task_id={self.task_id}, smiles={self.smiles}, bool_label={self.bool_label}, numeric_label={self.numeric_label})"
 
@@ -208,8 +220,12 @@ class MoleculeDataset:
 
     def __post_init__(self):
         """Validate dataset initialization."""
+        if not isinstance(self.task_id, str):
+            raise TypeError("task_id must be a string")
         if not isinstance(self.data, list):
-            raise TypeError("Data must be a list of MoleculeDatapoints")
+            raise TypeError("data must be a list of MoleculeDatapoints")
+        if not all(isinstance(x, MoleculeDatapoint) for x in self.data):
+            raise TypeError("All items in data must be MoleculeDatapoint instances")
 
     def __len__(self) -> int:
         return len(self.data)
@@ -438,7 +454,7 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
         self.smiles = self.data.get_smiles
         self.tensors = [X, y]
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         x = self.tensors[0][index]
         if self.transform:
             x = self.transform(x)
@@ -454,6 +470,33 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
 
     def __repr__(self):
         return f"TorchMoleculeDataset(task_id={self.data.task_id}, task_size={len(self.data.data)})"
+
+    @classmethod
+    def create_dataloader(
+        cls,
+        data: MoleculeDataset,
+        batch_size: int = 64,
+        shuffle: bool = True,
+        **kwargs
+    ) -> torch.utils.data.DataLoader:
+        """Create PyTorch DataLoader.
+        
+        Args:
+            data: Input dataset
+            batch_size: Batch size
+            shuffle: Whether to shuffle data
+            **kwargs: Additional arguments for DataLoader
+            
+        Returns:
+            DataLoader: PyTorch data loader
+        """
+        dataset = cls(data)
+        return torch.utils.data.DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            **kwargs
+        )
 
 
 def MoleculeDataloader(data, batch_size=64, shuffle=True, transform=None, target_transform=None):
@@ -480,7 +523,18 @@ class Task:
     task_id: str
     data: MoleculeDataset
     metadata: MetaData
-    hardness: None
+    hardness: Optional[float] = None
+
+    def __post_init__(self):
+        """Validate task initialization."""
+        if not isinstance(self.task_id, str):
+            raise TypeError("task_id must be a string")
+        if not isinstance(self.data, MoleculeDataset):
+            raise TypeError("data must be a MoleculeDataset")
+        if not isinstance(self.metadata, MetaData):
+            raise TypeError("metadata must be a MetaData instance")
+        if self.hardness is not None and not isinstance(self.hardness, (int, float)):
+            raise TypeError("hardness must be a number or None")
 
     def __repr__(self):
         return f"Task(task_id={self.task_id}, smiles={self.smiles}, protein={self.protein}, label={self.label}, hardness={self.hardness})"
