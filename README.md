@@ -85,6 +85,9 @@ If you find the models useful in your research, we ask that you cite the followi
   title={Quantifying the hardness of bioactivity prediction tasks for transfer learning},
   author={Fooladi, Hosein and Hirte, Steffen and Kirchmair, Johannes},
   journal={Journal of Chemical Information and Modeling},
+  volume={64},
+  number={10},
+  pages={4031-4046},
   year={2024},
   publisher={ACS Publications}
 }
