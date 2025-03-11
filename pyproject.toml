@@ -41,6 +41,7 @@ source = "vcs"
 
 [tool.hatch.metadata.hooks.vcs]
 version-file = "themap/_version.py"
+tag-pattern = "v[0-9]*"
 
 [tool.hatch.build.targets.wheel]
 packages = ["themap"]
