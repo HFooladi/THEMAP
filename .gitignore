@@ -167,6 +167,3 @@ datasets/fsmol_hardness/
 
 # ignore assets folder
 assets/
-
-# ignore version file
-themap/_version.py
