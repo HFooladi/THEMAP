@@ -26,6 +26,9 @@ class LoggingConfig:
     max_bytes: int = 10 * 1024 * 1024  # 10MB
     backup_count: int = 5
     
+    # Whether to use colorized output for console logging
+    use_colors: bool = True
+    
     def __post_init__(self):
         """Validate and process configuration."""
         if self.log_file:

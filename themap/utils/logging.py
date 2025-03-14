@@ -1,10 +1,50 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 from logging.handlers import RotatingFileHandler
 
 from themap.utils.config import LoggingConfig, default_logging_config
+
+
+class ColorizedFormatter(logging.Formatter):
+    """Custom formatter that adds colors to console output based on log level."""
+    
+    # ANSI color codes
+    COLORS = {
+        'DEBUG': '\033[36m',     # Cyan
+        'INFO': '\033[32m',      # Green
+        'WARNING': '\033[33m',   # Yellow
+        'ERROR': '\033[31m',     # Red
+        'CRITICAL': '\033[41m',  # Red background
+        'RESET': '\033[0m'       # Reset to default
+    }
+    
+    def __init__(self, fmt: str, datefmt: str, use_colors: bool = True):
+        """
+        Initialize the formatter with optional color support.
+        
+        Args:
+            fmt: Log format string
+            datefmt: Date format string
+            use_colors: Whether to use colors in output
+        """
+        super().__init__(fmt, datefmt)
+        self.use_colors = use_colors
+    
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the log record with colors if enabled."""
+        if self.use_colors and record.levelname in self.COLORS:
+            # Save original levelname
+            orig_levelname = record.levelname
+            # Add color codes to levelname
+            record.levelname = f"{self.COLORS[record.levelname]}{record.levelname}{self.COLORS['RESET']}"
+            # Format the record
+            result = super().format(record)
+            # Restore original levelname
+            record.levelname = orig_levelname
+            return result
+        return super().format(record)
 
 
 def setup_logging(config: Optional[LoggingConfig] = None) -> None:
@@ -25,12 +65,17 @@ def setup_logging(config: Optional[LoggingConfig] = None) -> None:
     # Set up basic configuration
     handlers = []
     
-    # Console handler
+    # Console handler with colorized output
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(logging.Formatter(config.format, config.date_format))
+    console_formatter = ColorizedFormatter(
+        config.format, 
+        config.date_format,
+        use_colors=config.use_colors
+    )
+    console_handler.setFormatter(console_formatter)
     handlers.append(console_handler)
     
-    # File handler if log_file is specified
+    # File handler if log_file is specified (no colors for file output)
     if config.log_file:
         file_handler = RotatingFileHandler(
             config.log_file,
