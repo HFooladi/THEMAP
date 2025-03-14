@@ -6,7 +6,28 @@ from molfeat.trans.fp import FPVecTransformer
 from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
 from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
 from rdkit import Chem
+from typing import List, Optional, Union, Dict
+from abc import ABC, abstractmethod
 
+from themap.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class BaseFeaturizer(ABC):
+    """Abstract base class for molecular featurizers."""
+    
+    @abstractmethod
+    def __call__(self, smiles: Union[str, List[str]]) -> np.ndarray:
+        """Convert SMILES to feature vector(s).
+        
+        Args:
+            smiles: SMILES string or list of SMILES strings
+            
+        Returns:
+            np.ndarray: Feature vector(s)
+        """
+        pass
 
 def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_map: bool = False):
     """

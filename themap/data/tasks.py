@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 import pickle
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any, Iterator, Callable, TypeVar, Generic, Sequence
+from typing_extensions import TypedDict, NotRequired
 import os
-import logging
 from enum import Enum
 
 import numpy as np
@@ -19,8 +19,9 @@ from themap.utils.protein_utils import (
     get_protein_features,
     get_task_name_from_uniprot,
 )
+from themap.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DataFold(Enum):
@@ -29,12 +30,22 @@ class DataFold(Enum):
     TEST = 2
 
 
+# Type definitions for better type hints
+ProteinDict = Dict[str, str]  # Maps protein ID to sequence
+FeatureArray = np.ndarray  # Type alias for numpy feature arrays
+ModelType = Any  # Type for model objects (could be made more specific based on actual model types)
+DatasetStats = Dict[str, Union[int, float]]  # Type for dataset statistics
+
+class MoleculeFeatures(TypedDict):
+    fingerprint: NotRequired[np.ndarray]
+    features: NotRequired[np.ndarray]
+
 def get_task_name_from_path(path: RichPath) -> str:
     """
     Extract task name from file path.
     
     Args:
-        path (Any): Path-like object
+        path (RichPath): Path-like object
     
     Returns:
         str: Extracted task name
@@ -53,13 +64,32 @@ def get_task_name_from_path(path: RichPath) -> str:
 class MoleculeDatapoint:
     """Data structure holding information for a single molecule and associated features.
 
+    This class represents a single molecule datapoint with its associated features and labels.
+    It provides methods to compute molecular fingerprints and features, and includes various
+    molecular properties as properties.
+
     Args:
         task_id (str): String describing the task this datapoint is taken from.
         smiles (str): SMILES string describing the molecule this datapoint corresponds to.
         bool_label (bool): bool classification label, usually derived from the numeric label using a threshold.
-        numeric_label (float): numerical label (e.g., activity), usually measured in the lab
-        fingerprint (np.ndarray): optional ECFP (Extended-Connectivity Fingerprint) for the molecule.
-        features (np.ndarray): optional features for the molecule. features are how we represent the molecule in the model
+        numeric_label (Optional[float]): numerical label (e.g., activity), usually measured in the lab
+        _fingerprint (Optional[np.ndarray]): optional ECFP (Extended-Connectivity Fingerprint) for the molecule.
+        _features (Optional[np.ndarray]): optional features for the molecule. features are how we represent the molecule in the model
+
+    Examples:
+        >>> # Create a molecule datapoint
+        >>> datapoint = MoleculeDatapoint(
+        ...     task_id="task1",
+        ...     smiles="CCO",
+        ...     bool_label=True,
+        ...     numeric_label=0.8
+        ... )
+        >>> # Get molecular properties
+        >>> print(f"Number of atoms: {datapoint.number_of_atoms}")
+        >>> print(f"Molecular weight: {datapoint.molecular_weight}")
+        >>> # Get features
+        >>> features = datapoint.get_features(featurizer="ecfp")
+        >>> fingerprint = datapoint.get_fingerprint()
     """
 
     task_id: str
@@ -69,8 +99,15 @@ class MoleculeDatapoint:
     _fingerprint: Optional[np.ndarray] = field(default=None, repr=False)
     _features: Optional[np.ndarray] = field(default=None, repr=False)
 
-    def __post_init__(self):
-        """Validate initialization data."""
+    def __post_init__(self) -> None:
+        """Validate initialization data.
+        
+        This method is called after initialization to validate the input data.
+        It ensures that all fields have the correct types and values.
+
+        Raises:
+            TypeError: If any of the fields have incorrect types.
+        """
         if not isinstance(self.task_id, str):
             raise TypeError("task_id must be a string")
         if not isinstance(self.smiles, str):
@@ -79,78 +116,132 @@ class MoleculeDatapoint:
             raise TypeError("bool_label must be a boolean")
         if self.numeric_label is not None and not isinstance(self.numeric_label, (int, float)):
             raise TypeError("numeric_label must be a number or None")
-    
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"MoleculeDatapoint(task_id={self.task_id}, smiles={self.smiles}, bool_label={self.bool_label}, numeric_label={self.numeric_label})"
 
     def get_fingerprint(self) -> np.ndarray:
-        """
-        Get the fingerprint for a molecule.
+        """Get the Morgan fingerprint for a molecule.
+
+        This method computes the Extended-Connectivity Fingerprint (ECFP) for the molecule
+        using RDKit's Morgan fingerprint generator. The fingerprint is cached after first
+        computation to avoid recomputing.
 
         Returns:
             np.ndarray: Morgan fingerprint for the molecule (r=2, nbits=2048).
+                The fingerprint is a binary vector representing the molecular structure.
+
+        Examples:
+            >>> datapoint = MoleculeDatapoint(
+            ...     task_id="task1",
+            ...     smiles="CCO",
+            ...     bool_label=True
+            ... )
+            >>> fingerprint = datapoint.get_fingerprint()
+            >>> print(f"Fingerprint shape: {fingerprint.shape}")
+            >>> print(f"Fingerprint sum: {np.sum(fingerprint)}")
         """
         if self._fingerprint is not None:
             return self._fingerprint
         
-        mol = make_mol(self.smiles)
-        fingerprints_vect = rdFingerprintGenerator.GetCountFPs(
-            [mol], fpType=rdFingerprintGenerator.MorganFP
-        )[0]
-        fingerprint = np.zeros((0,), np.float32)  # Generate target pointer to fill
-        DataStructs.ConvertToNumpyArray(fingerprints_vect, fingerprint)
-        self._fingerprint = fingerprint
-        return fingerprint
+        logger.debug(f"Generating fingerprint for molecule {self.smiles}")
+        self._fingerprint = get_featurizer("ecfp")(self.smiles)
+        logger.debug(f"Successfully generated fingerprint for molecule {self.smiles}")
+        return self._fingerprint
 
     def get_features(self, featurizer: Optional[str] = None) -> np.ndarray:
-        """
-        Get features for a molecule using a featurizer model.
+        """Get features for a molecule using a featurizer model.
+
+        This method computes molecular features using the specified featurizer model.
+        The features are cached after first computation to avoid recomputing.
 
         Args:
-            featurizer (str): Name of the featurizer model to use.
+            featurizer (Optional[str]): Name of the featurizer model to use.
+                If None, no featurization is performed.
 
         Returns:
-            np.ndarray: Features for the molecule.
+            np.ndarray: Features for the molecule. The shape and content depend on
+                the featurizer used.
+
+        Examples:
+            >>> datapoint = MoleculeDatapoint(
+            ...     task_id="task1",
+            ...     smiles="CCO",
+            ...     bool_label=True
+            ... )
+            >>> # Get features using Morgan fingerprint
+            >>> features = datapoint.get_features(featurizer="ecfp")
+            >>> print(f"Feature shape: {features.shape}")
+            >>> # Get features using a different featurizer
+            >>> features = datapoint.get_features(featurizer="graph")
         """
         if self._features is not None:
             return self._features
+            
+        logger.debug(f"Generating features for molecule {self.smiles} using featurizer {featurizer}")
         model = get_featurizer(featurizer) if featurizer else None
         features = model(self.smiles) if model else None
 
         self._features = features
+        logger.debug(f"Successfully generated features for molecule {self.smiles}")
         return features
 
     @property
     def number_of_atoms(self) -> int:
-        """
-        Gets the number of atoms in the :class:`MoleculeDatapoint`.
+        """Get the number of atoms in the molecule.
+
+        This property computes the number of atoms in the molecule using RDKit.
 
         Returns:
             int: Number of atoms in the molecule.
 
+        Examples:
+            >>> datapoint = MoleculeDatapoint(
+            ...     task_id="task1",
+            ...     smiles="CCO",
+            ...     bool_label=True
+            ... )
+            >>> print(f"Number of atoms: {datapoint.number_of_atoms}")
         """
         mol = make_mol(self.smiles)
         return len(mol.GetAtoms())
 
     @property
     def number_of_bonds(self) -> int:
-        """
-        Gets the number of bonds in the :class:`MoleculeDatapoint`.
+        """Get the number of bonds in the molecule.
+
+        This property computes the number of bonds in the molecule using RDKit.
 
         Returns:
             int: Number of bonds in the molecule.
+
+        Examples:
+            >>> datapoint = MoleculeDatapoint(
+            ...     task_id="task1",
+            ...     smiles="CCO",
+            ...     bool_label=True
+            ... )
+            >>> print(f"Number of bonds: {datapoint.number_of_bonds}")
         """
         mol = make_mol(self.smiles)
         return len(mol.GetBonds())
 
     @property
     def molecular_weight(self) -> float:
-        """
-        Gets the molecular weight of the :class:`MoleculeDatapoint`.
+        """Get the molecular weight of the molecule.
+
+        This property computes the exact molecular weight of the molecule using RDKit.
 
         Returns:
-            float: Molecular weight of the molecule.
+            float: Molecular weight of the molecule in atomic mass units.
+
+        Examples:
+            >>> datapoint = MoleculeDatapoint(
+            ...     task_id="task1",
+            ...     smiles="CCO",
+            ...     bool_label=True
+            ... )
+            >>> print(f"Molecular weight: {datapoint.molecular_weight:.2f}")
         """
         mol = make_mol(self.smiles)
         return Chem.Descriptors.ExactMolWt(mol)
@@ -161,13 +252,23 @@ class ProteinDataset:
     """Data structure holding information for proteins (list of protein).
 
     Args:
-        task_id (list[str]): list of string describing the tasks these protein are taken from.
-        protein (dict): dictionary mapping the protein id to the protein sequence.
+        task_id (List[str]): list of string describing the tasks these protein are taken from.
+        protein (ProteinDict): dictionary mapping the protein id to the protein sequence.
+        features (Optional[FeatureArray]): Optional pre-computed protein features.
     """
 
-    task_id: list[str]
-    protein: dict
-    features: Optional[np.ndarray] = None
+    task_id: List[str]
+    protein: ProteinDict
+    features: Optional[FeatureArray] = None
+
+    def __post_init__(self) -> None:
+        """Validate initialization data."""
+        if not isinstance(self.task_id, list):
+            raise TypeError("task_id must be a list")
+        if not isinstance(self.protein, dict):
+            raise TypeError("protein must be a dictionary")
+        if not all(isinstance(key, str) for key in self.protein.keys()):
+            raise TypeError("protein keys must be strings")
 
     def __getitem__(self, idx: int) -> Tuple[str, str]:
         return list(self.protein.keys())[idx], list(self.protein.values())[idx]
@@ -178,7 +279,7 @@ class ProteinDataset:
     def __repr__(self) -> str:
         return f"ProteinDataset(task_id={self.task_id}, protein={self.protein})"
 
-    def get_features(self, model) -> np.ndarray:
+    def get_features(self, model: ModelType) -> FeatureArray:
         self.features = get_protein_features(self.protein, model)
         return self.features
 
@@ -194,15 +295,23 @@ class MetaData:
     """Data structure holding metadata for a batch of tasks.
 
     Args:
-        task_id (list): list of string describing the tasks these metadata are taken from.
+        task_id (List[str]): list of string describing the tasks these metadata are taken from.
         protein (ProteinDataset): ProteinDataset object.
+        text_desc (Optional[str]): Optional text description of the task.
     """
 
-    task_id: list[str]
+    task_id: List[str]
     protein: ProteinDataset
     text_desc: Optional[str]
 
-    def get_features(self, model) -> np.ndarray:
+    def __post_init__(self) -> None:
+        """Validate initialization data."""
+        if not isinstance(self.task_id, list):
+            raise TypeError("task_id must be a list")
+        if not isinstance(self.protein, ProteinDataset):
+            raise TypeError("protein must be a ProteinDataset")
+
+    def get_features(self, model: ModelType) -> FeatureArray:
         return model.encode(self.text_desc)
 
 
@@ -210,15 +319,35 @@ class MetaData:
 class MoleculeDataset:
     """Data structure holding information for a dataset of molecules.
 
+    This class represents a collection of molecule datapoints, providing methods for
+    dataset manipulation, feature computation, and statistical analysis.
+
     Args:
         task_id (str): String describing the task this dataset is taken from.
         data (List[MoleculeDatapoint]): List of MoleculeDatapoint objects.
+
+    Examples:
+        >>> # Create a dataset
+        >>> dataset = MoleculeDataset(
+        ...     task_id="task1",
+        ...     data=[
+        ...         MoleculeDatapoint("task1", "CCO", True),
+        ...         MoleculeDatapoint("task1", "CCCO", False)
+        ...     ]
+        ... )
+        >>> # Get dataset statistics
+        >>> stats = dataset.get_statistics()
+        >>> print(f"Dataset size: {stats['size']}")
+        >>> print(f"Positive ratio: {stats['positive_ratio']}")
+        >>> # Filter dataset
+        >>> filtered_dataset = dataset.filter(lambda x: x.number_of_atoms > 3)
     """
 
     task_id: str
     data: List[MoleculeDatapoint] = field(default_factory=list)
+    _features: Optional[FeatureArray] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate dataset initialization."""
         if not isinstance(self.task_id, str):
             raise TypeError("task_id must be a string")
@@ -233,53 +362,88 @@ class MoleculeDataset:
     def __getitem__(self, idx: int) -> MoleculeDatapoint:
         return self.data[idx]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[MoleculeDatapoint]:
         return iter(self.data)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"MoleculeDataset(task_id={self.task_id}, task_size={len(self.data)})"
 
-    def get_dataset_embedding(self, model) -> np.ndarray:
-        """
-        Get the features for the entire dataset.
+    def get_dataset_embedding(self, model: str) -> FeatureArray:
+        """Get the features for the entire dataset.
+
+        This method computes features for all molecules in the dataset using the specified
+        featurizer model. The features are stored in each datapoint for future use.
 
         Args:
-            model: Featurizer model to use.
+            model (ModelType): Featurizer model to use.
 
         Returns:
-            np.ndarray: Features for the entire dataset.
+            FeatureArray: Features for the entire dataset, shape (n_samples, n_features).
+
+        Examples:
+            >>> dataset = MoleculeDataset(
+            ...     task_id="task1",
+            ...     data=[MoleculeDatapoint("task1", "CCO", True),
+            ...           MoleculeDatapoint("task1", "CCCO", False)]
+            ... )
+            >>> features = dataset.get_dataset_embedding(model="ecfp")
+            >>> print(f"Feature matrix shape: {features.shape}")
         """
+        logger.info(f"Generating embeddings for dataset {self.task_id} with {len(self.data)} molecules")
+        if self._features is not None:
+            return self._features
         smiles = [data.smiles for data in self.data]
         features = get_featurizer(model)(smiles)
         for i, molecule in enumerate(self.data):
-            molecule.features = features[i]
-        assert len(features) == len(smiles)
+            molecule._features = features[i]
+        assert len(features) == len(smiles), "Feature length does not match SMILES length"
+        if isinstance(features, np.ndarray):
+            self._features = features
+        else:
+            features = np.array(features)
+            self._features = features
+        logger.info(f"Successfully generated embeddings for dataset {self.task_id}")
         return features
 
-    def get_prototype(self, model) -> Tuple[np.ndarray]:
-        """
-        Get the prototype of the dataset.
+    def get_prototype(self, model: ModelType) -> Tuple[FeatureArray, FeatureArray]:
+        """Get the prototype of the dataset.
+
+        This method computes the mean feature vectors for positive and negative examples
+        in the dataset, which can be used as prototypes for each class.
 
         Args:
-            model: Featurizer model to use.
+            model (ModelType): Featurizer model to use.
         
         Returns:
-            Tuple[np.ndarray]: Tuple containing the positive and negative prototype of the dataset.
+            Tuple[FeatureArray, FeatureArray]: Tuple containing:
+                - positive_prototype: Mean feature vector of positive examples
+                - negative_prototype: Mean feature vector of negative examples
+
+        Examples:
+            >>> dataset = MoleculeDataset(
+            ...     task_id="task1",
+            ...     data=[
+            ...         MoleculeDatapoint("task1", "CCO", True),
+            ...         MoleculeDatapoint("task1", "CCCO", False)
+            ...     ]
+            ... )
+            >>> pos_proto, neg_proto = dataset.get_prototype(model="ecfp")
+            >>> print(f"Positive prototype shape: {pos_proto.shape}")
+            >>> print(f"Negative prototype shape: {neg_proto.shape}")
         """
+        logger.info(f"Calculating prototypes for dataset {self.task_id}")
         data_features = self.get_dataset_embedding(model)
-        # Calculate the prototype of the dataset
-        # First find all positive and negative samples
-        # Then just average over all positives and negatives
         positives = [data_features[i] for i in range(len(data_features)) if self.data[i].bool_label]
         negatives = [data_features[i] for i in range(len(data_features)) if not self.data[i].bool_label]
 
         positive_prototype = np.array(positives).mean(axis=0)
         negative_prototype = np.array(negatives).mean(axis=0)
+        logger.info(f"Successfully calculated prototypes for dataset {self.task_id}")
         return positive_prototype, negative_prototype
 
     @property
-    def get_features(self) -> np.ndarray:
-        return np.array([data.features for data in self.data])
+    def get_features(self) -> FeatureArray:
+        return np.array(self._features)
 
     @property
     def get_labels(self) -> np.ndarray:
@@ -304,7 +468,9 @@ class MoleculeDataset:
         if isinstance(path, str):
             path = RichPath.create(path)
         else:
-            path = path        
+            path = path
+        
+        logger.info(f"Loading dataset from {path}")
         samples = []
         for raw_sample in path.read_by_file_suffix():
             fingerprint_raw = raw_sample.get("fingerprints")
@@ -330,20 +496,71 @@ class MoleculeDataset:
                 )
             )
 
+        logger.info(f"Successfully loaded dataset from {path} with {len(samples)} samples")
         return MoleculeDataset(get_task_name_from_path(path), samples)
 
-    def filter(self, condition: callable) -> 'MoleculeDataset':
-        """
-        Filter dataset based on a condition.
+    def filter(self, condition: Callable[[MoleculeDatapoint], bool]) -> 'MoleculeDataset':
+        """Filter dataset based on a condition.
         
+        This method creates a new dataset containing only the datapoints that satisfy
+        the given condition.
+
         Args:
-            condition: Callable that returns True/False for each datapoint
+            condition (Callable[[MoleculeDatapoint], bool]): Function that returns True/False
+                for each datapoint. Should take a MoleculeDatapoint as input and return a boolean.
         
         Returns:
-            Filtered MoleculeDataset
+            MoleculeDataset: New dataset containing only the filtered datapoints.
+
+        Examples:
+            >>> dataset = MoleculeDataset(
+            ...     task_id="task1",
+            ...     data=[
+            ...         MoleculeDatapoint("task1", "CCO", True),
+            ...         MoleculeDatapoint("task1", "CCCO", False)
+            ...     ]
+            ... )
+            >>> # Filter for molecules with more than 3 atoms
+            >>> filtered = dataset.filter(lambda x: x.number_of_atoms > 3)
+            >>> print(f"Original size: {len(dataset)}")
+            >>> print(f"Filtered size: {len(filtered)}")
         """
         filtered_data = [dp for dp in self.data if condition(dp)]
         return MoleculeDataset(self.task_id, filtered_data)
+
+    def get_statistics(self) -> DatasetStats:
+        """Get statistics about the dataset.
+
+        This method computes various statistical measures about the dataset, including
+        size, class balance, and molecular properties.
+
+        Returns:
+            DatasetStats: Dictionary containing:
+                - size: Total number of datapoints
+                - positive_ratio: Ratio of positive to negative examples
+                - avg_molecular_weight: Average molecular weight
+                - avg_atoms: Average number of atoms
+                - avg_bonds: Average number of bonds
+
+        Examples:
+            >>> dataset = MoleculeDataset(
+            ...     task_id="task1",
+            ...     data=[
+            ...         MoleculeDatapoint("task1", "CCO", True),
+            ...         MoleculeDatapoint("task1", "CCCO", False)
+            ...     ]
+            ... )
+            >>> stats = dataset.get_statistics()
+            >>> print(f"Dataset size: {stats['size']}")
+            >>> print(f"Average molecular weight: {stats['avg_molecular_weight']:.2f}")
+        """
+        return {
+            "size": len(self),
+            "positive_ratio": self.get_ratio,
+            "avg_molecular_weight": np.mean([dp.molecular_weight for dp in self.data]),
+            "avg_atoms": np.mean([dp.number_of_atoms for dp in self.data]),
+            "avg_bonds": np.mean([dp.number_of_bonds for dp in self.data])
+        }
 
 
 class MoleculeDatasets:
@@ -356,16 +573,15 @@ class MoleculeDatasets:
         valid_data_paths: List[RichPath] = [],
         test_data_paths: List[RichPath] = [],
         num_workers: Optional[int] = None,
-    ):
+    ) -> None:
+        logger.info("Initializing MoleculeDatasets")
         self._fold_to_data_paths: Dict[DataFold, List[RichPath]] = {
             DataFold.TRAIN: train_data_paths,
             DataFold.VALIDATION: valid_data_paths,
             DataFold.TEST: test_data_paths,
         }
-        self._num_workers = num_workers if num_workers is not None else os.cpu_count() or 1
-        logger.info(f"Identified {len(self._fold_to_data_paths[DataFold.TRAIN])} training tasks.")
-        logger.info(f"Identified {len(self._fold_to_data_paths[DataFold.VALIDATION])} validation tasks.")
-        logger.info(f"Identified {len(self._fold_to_data_paths[DataFold.TEST])} test tasks.")
+        self._num_workers = num_workers
+        logger.info(f"Initialized with {len(train_data_paths)} training, {len(valid_data_paths)} validation, and {len(test_data_paths)} test paths")
 
     def __repr__(self) -> str:
         return f"MoleculeDatasets(train={len(self._fold_to_data_paths[DataFold.TRAIN])}, valid={len(self._fold_to_data_paths[DataFold.VALIDATION])}, test={len(self._fold_to_data_paths[DataFold.TEST])})"
@@ -379,47 +595,40 @@ class MoleculeDatasets:
         task_list_file: Optional[Union[str, RichPath]] = None,
         **kwargs,
     ) -> "MoleculeDatasets":
-        """Create a new MoleculeDatasets object from a directory containing the pre-processed
-        files (*.jsonl.gz) split in to train/valid/test subdirectories.
-
-        Args:
-            directory: Path containing .jsonl.gz files representing the pre-processed tasks.
-            task_list_file: (Optional) path of the .json file that stores which assays are to be
-            used in each fold. Used for subset selection.
-            **kwargs: remaining arguments are forwarded to the MoleculeDatasets constructor.
-        """
+        logger.info(f"Loading datasets from directory {directory}")
         if isinstance(directory, str):
-            data_rp = RichPath.create(directory)
+            directory = RichPath.create(directory)
         else:
-            data_rp = directory
+            directory = directory
 
         if task_list_file is not None:
             if isinstance(task_list_file, str):
                 task_list_file = RichPath.create(task_list_file)
-            else:
-                task_list_file = task_list_file
-            task_list = task_list_file.read_by_file_suffix()
+            logger.info(f"Using task list file: {task_list_file}")
+            with open(task_list_file, "r") as f:
+                task_list = [line.strip() for line in f.readlines()]
         else:
             task_list = None
 
         def get_fold_file_names(data_fold_name: str):
-            fold_dir = data_rp.join(data_fold_name)
-            if task_list is None:
-                return fold_dir.get_filtered_files_in_dir("*.jsonl.gz")
-            else:
-                return [
-                    file_name
-                    for file_name in fold_dir.get_filtered_files_in_dir("*.jsonl.gz")
-                    if any(
-                        file_name.basename() == f"{task_name}.jsonl.gz"
-                        for task_name in task_list[data_fold_name]
-                    )
-                ]
+            fold_dir = directory.join(data_fold_name)
+            if not fold_dir.exists():
+                logger.warning(f"Directory {fold_dir} does not exist")
+                return []
+            return [
+                f for f in fold_dir.iterate_filtered(glob_pattern="*.jsonl.gz")
+                if task_list is None or get_task_name_from_path(f) in task_list
+            ]
 
+        train_data_paths = get_fold_file_names("train")
+        valid_data_paths = get_fold_file_names("valid")
+        test_data_paths = get_fold_file_names("test")
+
+        logger.info(f"Found {len(train_data_paths)} training, {len(valid_data_paths)} validation, and {len(test_data_paths)} test tasks")
         return MoleculeDatasets(
-            train_data_paths=get_fold_file_names("train"),
-            valid_data_paths=sorted(get_fold_file_names("valid")),
-            test_data_paths=sorted(get_fold_file_names("test")),
+            train_data_paths=train_data_paths,
+            valid_data_paths=valid_data_paths,
+            test_data_paths=test_data_paths,
             **kwargs,
         )
 
