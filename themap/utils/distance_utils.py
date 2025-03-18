@@ -53,7 +53,6 @@ def compute_fp_similarity(first_mol: Any, second_mol: Any) -> np.ndarray:
     Raises:
         TypeError: If first_mol or second_mol don't have get_fingerprint method
         ValueError: If fingerprints are empty or incompatible shapes
-        RuntimeError: If fingerprint computation or distance calculation fails
     """
     # Input validation
     if not hasattr(first_mol, 'get_fingerprint') or not callable(getattr(first_mol, 'get_fingerprint')):
