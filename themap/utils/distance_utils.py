@@ -1,7 +1,20 @@
+"""Utility functions for computing various types of distances in the THEMAP framework.
+
+This module provides functions for computing:
+- Molecular fingerprint similarities
+- Task hardness metrics
+- Protein sequence distances
+- Dataset distances
+- Correlation analysis between different distance metrics
+
+The module includes both low-level distance computation functions and high-level
+analysis tools for understanding dataset relationships and task difficulty.
+"""
+
 import heapq
 import os
 import pickle
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union, Any
 import json
 
 import numpy as np
@@ -12,36 +25,71 @@ from scipy.spatial import distance
 from tqdm import tqdm
 
 
-def normalize(x):
+def normalize(x: np.ndarray) -> np.ndarray:
+    """Normalize an array to the range [0, 1].
+    
+    Args:
+        x: Input array to normalize
+        
+    Returns:
+        Normalized array with values between 0 and 1
+    """
     return (x - x.min()) / (x.max() - x.min())
 
 
-def compute_fp_similarity(first_mol, second_mol) -> np.ndarray:
-    """Compute similarity between molecules. It receives two MoleculeDatapoint objects,
-    extracts their fingerprints and computes the similarity between them.
-
+def compute_fp_similarity(first_mol: Any, second_mol: Any) -> np.ndarray:
+    """Compute similarity between molecules using their fingerprints.
+    
+    This function receives two MoleculeDatapoint objects, extracts their fingerprints
+    and computes the similarity between them using the Jaccard distance.
+    
     Args:
-        first_mol: MoleculeDatapoint object
-        second_mol: MoleculeDatapoint object
+        first_mol: First MoleculeDatapoint object
+        second_mol: Second MoleculeDatapoint object
+        
     Returns:
-        np.ndarray: similarity between the two molecules
+        Array containing the similarity between the two molecules' fingerprints
+        
+    Raises:
+        TypeError: If first_mol or second_mol don't have get_fingerprint method
+        ValueError: If fingerprints are empty or incompatible shapes
+        RuntimeError: If fingerprint computation or distance calculation fails
     """
+    # Input validation
+    if not hasattr(first_mol, 'get_fingerprint') or not callable(getattr(first_mol, 'get_fingerprint')):
+        raise TypeError("First molecule object doesn't have a get_fingerprint method")
+    if not hasattr(second_mol, 'get_fingerprint') or not callable(getattr(second_mol, 'get_fingerprint')):
+        raise TypeError("Second molecule object doesn't have a get_fingerprint method")
+    
+
+    # Get fingerprints
     fp1 = first_mol.get_fingerprint()
     fp2 = second_mol.get_fingerprint()
+        
+    # Validate fingerprints
+    if fp1 is None or fp2 is None:
+        raise ValueError("One or both fingerprints are None")
+        
+    if len(fp1) == 0 or len(fp2) == 0:
+        raise ValueError("One or both fingerprints are empty")
+            
+    # Calculate similarity
     sim = 1 - distance.cdist(fp1, fp2, metric="jaccard")
     return sim.astype(np.float32)
 
 
-def compute_fps_similarity(first_mol_list: List, second_mol_list: List) -> np.ndarray:
-    """Compute similarity between two lists of molecules. It receives two lists of
-    MoleculeDatapoint objects, extracts their fingerprints and computes the similarities
-    between them.
-
+def compute_fps_similarity(first_mol_list: List[Any], second_mol_list: List[Any]) -> np.ndarray:
+    """Compute similarity between two lists of molecules using their fingerprints.
+    
+    This function receives two lists of MoleculeDatapoint objects, extracts their
+    fingerprints and computes the similarities between them using the Jaccard distance.
+    
     Args:
-        first_mol_list: list of MoleculeDatapoint objects
-        second_mol_list: list of MoleculeDatapoint objects
+        first_mol_list: List of first set of MoleculeDatapoint objects
+        second_mol_list: List of second set of MoleculeDatapoint objects
+        
     Returns:
-        np.ndarray: matrix of similarities between the two lists of molecules
+        Matrix of similarities between the two lists of molecules
     """
     fps1 = [mol.get_fingerprint() for mol in first_mol_list]  # assumed train set
     fps2 = [mol.get_fingerprint() for mol in second_mol_list]  # assumed test set
@@ -49,25 +97,37 @@ def compute_fps_similarity(first_mol_list: List, second_mol_list: List) -> np.nd
     return sims.astype(np.float32)
 
 
-def compute_similarities_mean_nearest(mol_list1: List, mol_list2: List) -> float:
-    """Compute similarities between two lists of molecules. It receives two lists of
-    MoleculeDatapoint objects, extracts their fingerprints and computes the similarities
-    between them.
-
+def compute_similarities_mean_nearest(mol_list1: List[Any], mol_list2: List[Any]) -> float:
+    """Compute mean similarity between nearest neighbors of two molecule lists.
+    
+    This function computes the similarities between two lists of molecules and
+    returns the mean of the maximum similarities for each molecule in the first list.
+    
     Args:
-        mol_list1: list of MoleculeDatapoint objects
-        mol_list2: list of MoleculeDatapoint objects
+        mol_list1: First list of MoleculeDatapoint objects
+        mol_list2: Second list of MoleculeDatapoint objects
+        
+    Returns:
+        Mean similarity between nearest neighbors
     """
     result = compute_fps_similarity(mol_list1, mol_list2).max(axis=1).mean()
     return result
 
 
-def similar_dissimilar_indices(similarity_matrix, threshold) -> Tuple[np.ndarray, np.ndarray]:
+def similar_dissimilar_indices(
+    similarity_matrix: np.ndarray,
+    threshold: float
+) -> Tuple[np.ndarray, np.ndarray]:
     """Compute indices of similar and dissimilar pairs of molecules.
-
+    
     Args:
-        similarity_matrix: matrix of similarities between molecules
-        threshold: threshold for similarity
+        similarity_matrix: Matrix of similarities between molecules
+        threshold: Threshold value for determining similarity
+        
+    Returns:
+        Tuple containing:
+        - Array of indices for similar pairs
+        - Array of indices for dissimilar pairs
     """
     similar_indices = [sim_col.max(axis=0) >= threshold for sim_col in similarity_matrix.T]
     dissimilar_indices = [np.logical_not(ind) for ind in similar_indices]
@@ -78,17 +138,40 @@ def similar_dissimilar_indices(similarity_matrix, threshold) -> Tuple[np.ndarray
     return similar_indices, dissimilar_indices
 
 
-def inter_distance(test_tasks, train_tasks):
+def inter_distance(test_tasks: List[Any], train_tasks: List[Any]) -> List[float]:
+    """Compute inter-task distances between test and train tasks.
+    
+    This function computes the mean similarity between nearest neighbors for each
+    pair of test and train tasks in parallel.
+    
+    Args:
+        test_tasks: List of test tasks
+        train_tasks: List of train tasks
+        
+    Returns:
+        List of inter-task distances
+    """
     inter_dist = Parallel(n_jobs=32)(
         delayed(compute_similarities_mean_nearest)(test_tasks[i].samples, train_tasks[j].samples)
         for i in tqdm(range(len(test_tasks)))
         for j in range(len(train_tasks))
     )
-
     return inter_dist
 
 
-def intra_distance(tasks_pos, tasks_neg):
+def intra_distance(tasks_pos: List[Any], tasks_neg: List[Any]) -> List[np.ndarray]:
+    """Compute intra-task distances between positive and negative samples.
+    
+    This function computes the similarities between positive and negative samples
+    within each task in parallel.
+    
+    Args:
+        tasks_pos: List of tasks containing positive samples
+        tasks_neg: List of tasks containing negative samples
+        
+    Returns:
+        List of similarity matrices between positive and negative samples
+    """
     intra_dist = Parallel(n_jobs=16)(
         delayed(compute_fps_similarity)(tasks_pos[i].samples, tasks_neg[i].samples)
         for i in tqdm(range(len(tasks_pos)))
@@ -97,33 +180,42 @@ def intra_distance(tasks_pos, tasks_neg):
 
 
 def compute_task_hardness_from_distance_matrix(
-    distance_matrix: torch.Tensor, proportion: float = 0.01, aggr="mean"
+    distance_matrix: torch.Tensor,
+    proportion: float = 0.01,
+    aggr: str = "mean"
 ) -> List[torch.Tensor]:
-    """Computes the task hardness for each tasks in the dataset.
-    We first sort the distance matrix along the test dimension (from min distance to max for each test task) and
-    then take the mean and median of the first k elements.
-
+    """Compute task hardness from a distance matrix.
+    
+    This function computes the hardness of each task by considering the distances
+    to the nearest neighbors. The hardness is computed by taking the mean or median
+    of the k nearest neighbors, where k is determined by the proportion parameter.
+    
     Args:
-        distance_matrix: [N_train * N_test] tensor with the pairwise distances between train and test samples.
-        proportion: proportion (percent) of training tasks that should be condidered for calculating hardness
-        aggr: aggregation method to use. Can be 'mean', 'median' or 'both'
-
+        distance_matrix: [N_train * N_test] tensor with pairwise distances
+        proportion: Proportion of training tasks to consider for hardness calculation
+        aggr: Aggregation method ('mean', 'median', or 'both')
+        
     Returns:
-        results: list of tensors containing the hardness of the tasks
-        if aggregation method is 'mean' or 'median', the list will contain only one tensor
-        if aggregation method is 'both', the list will contain two tensors (mean and median)
+        List of tensors containing task hardness values. If aggr is 'mean' or 'median',
+        returns a single tensor. If 'both', returns [mean_tensor, median_tensor]
+        
+    Raises:
+        AssertionError: If training set is not larger than test set
     """
     assert (
         distance_matrix.shape[0] > distance_matrix.shape[1]
     ), "training set tasks should be larger than test set tasks"
+    
     # Sort the distance matrix along the test dimension
     sorted_distance_matrix = torch.sort(distance_matrix, dim=0)[0]
-    # Take the mean of the first k elements
-    results = []
+    
+    # Determine k based on proportion
     if proportion < 1:
         k: int = int(proportion * distance_matrix.shape[0])
     else:
         k: int = int(proportion)
+        
+    results = []
     if aggr == "mean":
         results.append(torch.mean(sorted_distance_matrix[:k, :], dim=0))
         return results
@@ -136,110 +228,159 @@ def compute_task_hardness_from_distance_matrix(
         return results
 
 
-def compute_task_hardness_molecule_intra(distance_list: List[np.ndarray]) -> List:
-    """Computes the task hardness for each task in the dataset.
-    We have a list of arrays, where each element of the list is a N_pos*N_neg array where N_pos is the number of positives
-    and N_neg is the number of negatives. Each element of the array is the tanimoto similarity between a positive and a negative.
-
-    Higher Tanimoto similarity means harder thet task.
+def compute_task_hardness_molecule_intra(distance_list: List[np.ndarray]) -> List[float]:
+    """Compute task hardness from intra-task distances.
+    
+    This function computes the hardness of each task based on the similarities
+    between positive and negative samples within the task.
+    
     Args:
-        distance_list: List of N_pos*N_neg array where each array is tanimoto similarity between positives and negatives.
-
+        distance_list: List of N_pos*N_neg arrays containing Tanimoto similarities
+                      between positive and negative samples
+        
+    Returns:
+        List of task hardness values (higher values indicate harder tasks)
     """
-
     task_hardness = [item.max(axis=1).mean() for item in distance_list]
     return task_hardness
 
 
 def compute_task_hardness_molecule_inter(
-    distance_list: List[np.ndarray], test_size=157, train_size=4938, topk=100
-) -> List:
-    """Computes the task hardness for each task in the dataset.
-    We have a list of arrays, where each element of the list is a N_pos*N_neg array where N_pos is the number of positives
-    and N_neg is the number of negatives. Each element of the array is the tanimoto similarity between a positive and a negative.
-
-    Higher Tanimoto similarity means harder thet task.
+    distance_list: List[float],
+    test_size: int = 157,
+    train_size: int = 4938,
+    topk: int = 100
+) -> List[float]:
+    """Compute task hardness from inter-task distances.
+    
+    This function computes the hardness of each task based on its distances
+    to the top-k nearest training tasks.
+    
     Args:
-        distance_list: List of N_pos*N_neg array where each array is tanimoto similarity between positives and negatives.
-
+        distance_list: List of distances between test and train tasks
+        test_size: Number of test tasks
+        train_size: Number of train tasks
+        topk: Number of nearest neighbors to consider
+        
+    Returns:
+        List of task hardness values (higher values indicate harder tasks)
     """
     distance = []
     for i in range(test_size):
         d = heapq.nlargest(topk, distance_list[i * train_size : i * train_size + train_size])
         distance.append(1 - np.array(d).mean())
-
     return distance
 
 
-def compute_correlation(task_df_with_perf, col1, col2, method="pearson"):
-    """Computes the correlation between two columns of a dataframe.
-
+def compute_correlation(
+    task_df_with_perf: pd.DataFrame,
+    col1: str,
+    col2: str,
+    method: str = "pearson"
+) -> float:
+    """Compute correlation between two columns in a DataFrame.
+    
     Args:
-        task_df_with_perf: Dataframe with the performance of the tasks. It should also
-        contain the hardness of the tasks.
-        col1: First column name (usually a measure of task hardness).
-        col2: Second column name (usually a performance measure of a task).
-        method: Correlation method to use.
+        task_df_with_perf: DataFrame containing task performance and hardness metrics
+        col1: Name of first column (usually a hardness measure)
+        col2: Name of second column (usually a performance measure)
+        method: Correlation method to use ('pearson', 'spearman', etc.)
+        
+    Returns:
+        Correlation coefficient between the two columns
     """
     corr = task_df_with_perf[col1].corr(task_df_with_perf[col2], method=method)
     return corr
 
 
 def corr_protein_hardness_metric(
-    df,
-    chembl_ids: List,
+    df: pd.DataFrame,
+    chembl_ids: List[str],
     distance_matrix: torch.Tensor,
-    proportions: List = [0.01, 0.1, 0.5, 0.9],
+    proportions: List[float] = [0.01, 0.1, 0.5, 0.9],
     metric: str = "delta_auprc",
-) -> List:
-    """Correlation between protein hardness and delta_auprc for different k (nearest neighbors)
+) -> List[float]:
+    """Compute correlation between protein hardness and performance metrics.
+    
+    This function computes the correlation between protein hardness (computed using
+    different proportions of nearest neighbors) and a performance metric.
+    
     Args:
-        df: Dataframe with the performance of the tasks. It should also
-        contain the hardness of the tasks.
-        chembl_ids: List of chembl ids of the tasks.
-        distance_matrix: [N_train * N_test] tensor with the pairwise distances between train and test samples.
-        proportions: List of proportions (percent) of training tasks that should be condidered for calculating hardness
-        metric: Performance metric to use (delta_auprc or delta_auroc)
-
+        df: DataFrame containing task performance metrics
+        chembl_ids: List of ChEMBL IDs for the tasks
+        distance_matrix: [N_train * N_test] tensor with pairwise distances
+        proportions: List of proportions for computing hardness
+        metric: Performance metric to use ('delta_auprc' or 'delta_auroc')
+        
     Returns:
-        corr_list: List of correlations for different k (nearest neighbors)
+        List of correlations for different proportions
     """
     protein_hardness_diff_k = {}
     corr_list = []
     k = [int(item * distance_matrix.shape[0]) for item in proportions]
+    
     for item in k:
-        hardness_protien = compute_task_hardness_from_distance_matrix(distance_matrix, k=item)
-        hardness_protein_norm = (hardness_protien[0].numpy() - np.min(hardness_protien[0].numpy())) / (
-            np.max(hardness_protien[0].numpy()) - np.min(hardness_protien[0].numpy())
-        )
-        protein_hardness_diff_k["k" + str(item)] = hardness_protein_norm
+        hardness_protein = compute_task_hardness_from_distance_matrix(distance_matrix, k=item)
+        hardness_protein_norm = normalize(hardness_protein[0].numpy())
+        protein_hardness_diff_k[f"k{item}"] = hardness_protein_norm
         protein_hardness_diff_k["assay"] = chembl_ids
 
     protein_hardness_diff_k_df = pd.DataFrame(protein_hardness_diff_k)
     z = pd.merge(df, protein_hardness_diff_k_df, on="assay")
+    
     for item in k:
-        corr_list.append(compute_correlation(z, "k" + str(item), metric))
+        corr_list.append(compute_correlation(z, f"k{item}", metric))
 
     return corr_list
 
 
 def extract_class_indices(labels: torch.Tensor, which_class: torch.Tensor) -> torch.Tensor:
-    class_mask = torch.eq(labels, which_class)  # binary mask of labels equal to which_class
-    class_mask_indices = torch.nonzero(class_mask)  # indices of labels equal to which class
-    return torch.reshape(class_mask_indices, (-1,))  # reshape to be a 1D vector
+    """Extract indices of samples belonging to a specific class.
+    
+    Args:
+        labels: Tensor of class labels
+        which_class: Class label to find indices for
+        
+    Returns:
+        Tensor containing indices of samples with the specified class label
+    """
+    class_mask = torch.eq(labels, which_class)
+    class_mask_indices = torch.nonzero(class_mask)
+    return torch.reshape(class_mask_indices, (-1,))
 
 
-def compute_class_prototypes(support_features: torch.Tensor, support_labels: torch.Tensor) -> torch.Tensor:
-    """Compute the prototype for each class in the support set."""
+def compute_class_prototypes(
+    support_features: torch.Tensor,
+    support_labels: torch.Tensor
+) -> torch.Tensor:
+    """Compute prototype vectors for each class in the support set.
+    
+    Args:
+        support_features: Feature vectors of support set samples
+        support_labels: Labels of support set samples
+        
+    Returns:
+        Tensor containing prototype vectors for each class
+    """
     means = []
     for c in torch.unique(support_labels):
-        # filter out feature vectors which have class c
-        class_features = torch.index_select(support_features, 0, extract_class_indices(support_labels, c))
+        class_features = torch.index_select(
+            support_features, 0, extract_class_indices(support_labels, c)
+        )
         means.append(torch.mean(class_features, dim=0))
     return torch.stack(means)
 
 
-def compute_prototype_datamol(task, transformer) -> torch.Tensor:
+def compute_prototype_datamol(task: Any, transformer: Any) -> torch.Tensor:
+    """Compute prototype vectors for a molecule dataset.
+    
+    Args:
+        task: Molecule dataset task
+        transformer: Feature transformer for SMILES strings
+        
+    Returns:
+        Tensor containing prototype vectors for each class
+    """
     support_smiles = [item.smiles for item in task.samples]
     support_features = torch.Tensor(np.array(transformer(support_smiles)))
     support_labels = torch.Tensor(np.array([item.bool_label for item in task.samples]))
@@ -247,13 +388,37 @@ def compute_prototype_datamol(task, transformer) -> torch.Tensor:
     return prototypes
 
 
-def compute_features(task, transformer) -> torch.Tensor:
+def compute_features(task: Any, transformer: Any) -> torch.Tensor:
+    """Compute feature vectors for a molecule dataset.
+    
+    Args:
+        task: Molecule dataset task
+        transformer: Feature transformer for SMILES strings
+        
+    Returns:
+        Tensor containing feature vectors for all samples
+    """
     support_smiles = [item.smiles for item in task.samples]
     support_features = torch.Tensor(np.array(transformer(support_smiles)))
     return support_features
 
 
-def compute_features_smiles_labels(task, transformer) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray]:
+def compute_features_smiles_labels(
+    task: Any,
+    transformer: Any
+) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray]:
+    """Compute features, labels, and SMILES strings for a molecule dataset.
+    
+    Args:
+        task: Molecule dataset task
+        transformer: Feature transformer for SMILES strings
+        
+    Returns:
+        Tuple containing:
+        - Feature vectors tensor
+        - Labels tensor
+        - SMILES strings array
+    """
     support_smiles = np.array([item.smiles for item in task.samples])
     support_labels = torch.Tensor(np.array([item.bool_label for item in task.samples]))
     support_features = torch.Tensor(np.array(transformer(support_smiles)))
@@ -261,65 +426,71 @@ def compute_features_smiles_labels(task, transformer) -> Tuple[torch.Tensor, tor
 
 
 def calculate_task_hardness_weight(
-    chembl_ids: List, evaluated_resuts: Dict, method: str = "rf"
+    chembl_ids: List[str],
+    evaluated_results: Dict[str, Dict[str, float]],
+    method: str = "rf"
 ) -> torch.Tensor:
-    """Computes the internal hardness of a tasks
-
-    Actually  the output indicate how easy is the task based on different methods.
-    The higher the value the easier the task.
-
+    """Calculate task hardness weights based on different methods.
+    
     Args:
-        chembl_ids: List of chembl ids of the tasks.
-        evaluated_resuts: Dictionary containing the performance of the tasks.
-        method: Method to use for calculating the hardness. It can be "rf", "knn" or "scaffold".
+        chembl_ids: List of ChEMBL IDs for the tasks
+        evaluated_results: Dictionary containing task performance metrics
+        method: Method to use for calculating hardness ('rf', 'knn', or 'scaffold')
+        
+    Returns:
+        Tensor containing task hardness weights (higher values indicate easier tasks)
+        
+    Raises:
+        AssertionError: If method is not one of the supported methods
     """
-    assert method in ["rf", "knn" "scaffold"], "Method should be within valid methods"
+    assert method in ["rf", "knn", "scaffold"], "Method should be within valid methods"
+    
     weights = []
     for chembl_id in chembl_ids:
         if method in ["rf", "knn"]:
-            weights.append(evaluated_resuts[chembl_id]["roc_auc"])
+            weights.append(evaluated_results[chembl_id]["roc_auc"])
         elif method == "scaffold":
-            weights.append(1 - evaluated_resuts[chembl_id]["neg"])
+            weights.append(1 - evaluated_results[chembl_id]["neg"])
 
     weights = torch.tensor(weights)
     return weights
 
 
 def otdd_hardness(
-    path_to_otdd, path_to_intra_hardness, k=10, train_tasks_weighted=False, weighting_method="rf"
+    path_to_otdd: str,
+    path_to_intra_hardness: str,
+    k: int = 10,
+    train_tasks_weighted: bool = False,
+    weighting_method: str = "rf"
 ) -> pd.DataFrame:
-    """This function computes the hardness of the test tasks from distance matirix
-    computed with OTDD method. The hardeness can be weighted based on the internal hardness of the
-    training tasks.
-
-    hardness = sum_{j=1}^k distance_matrix[i,j] * weight[j]
-
+    """Compute task hardness using OTDD distances.
+    
+    This function computes the hardness of test tasks based on their distances
+    to training tasks, optionally weighted by the internal hardness of training tasks.
+    
     Args:
-        path_to_otdd (str): Path to the otdd file (pickle file)
-        path_to_intra_hardness (str): Path to the file containing hardness of the training tasks (pickle file)
-        k (int): Number of nearest neighbors to consider for hardness calculation
-        train_tasks_weighted (bool): If True, the hardness of the test tasks will be weighted by the hardness of the closest train tasks.
-
+        path_to_otdd: Path to OTDD distance matrix file
+        path_to_intra_hardness: Path to training task hardness file
+        k: Number of nearest neighbors to consider
+        train_tasks_weighted: Whether to weight distances by training task hardness
+        weighting_method: Method to use for weighting ('rf', 'knn', or 'scaffold')
+        
     Returns:
-        A dataframe containing the hardness of the test tasks
+        DataFrame containing task hardness values and assay IDs
     """
-    PATH_TO_OTDD = path_to_otdd
-    with open(PATH_TO_OTDD, "rb") as f:
+    with open(path_to_otdd, "rb") as f:
         data = pickle.load(f)
 
-    ## data is a dictionary with following keys:
     print(data.keys())
 
     if isinstance(data["distance_matrices"], list):
-        ## data['distnce_matrices] is a a list of 1d pytorch tensor
-        distance_matrix = torch.stack(data["distance_matrices"])  # shape: #TRAIN_TASK * TEST_TASKS
+        distance_matrix = torch.stack(data["distance_matrices"])
     else:
-        ## data['distnce_matrices] is a 2d pytorch tensor
-        distance_matrix = data["distance_matrices"]  # shape: #TRAIN_TASK * TEST_TASKS
+        distance_matrix = data["distance_matrices"]
+        
     distance_matrix_sorted, distance_matrix_indices = torch.sort(distance_matrix, dim=0)
 
     if train_tasks_weighted:
-        ## We will weight the distance matrix by the hardness of the closest train tasks
         with open(path_to_intra_hardness, "rb") as f:
             train_tasks_hardness = pickle.load(f)
         weights = calculate_task_hardness_weight(
@@ -329,8 +500,8 @@ def otdd_hardness(
         results = torch.mean(weighted_distance_matrix[:k, :], dim=0)
     else:
         results = torch.mean(distance_matrix_sorted[:k, :], dim=0)
-    ## Some entries can contain nan values. We will replace them with mean of the results.
-    print("Numebr of NaN values in the hardness matrix: ", torch.isnan(results).sum().item())
+        
+    print("Number of NaN values in the hardness matrix: ", torch.isnan(results).sum().item())
     results = torch.nan_to_num(results, nan=torch.nanmean(results).item())
 
     hardness_df = pd.DataFrame({"hardness": results, "assay": data["test_chembl_ids"]})
@@ -338,37 +509,36 @@ def otdd_hardness(
 
 
 def prototype_hardness(
-    path_to_prototypes_distance,
-    path_to_intra_hardness,
-    k=10,
-    train_tasks_weighted=False,
-    weighting_method="rf",
+    path_to_prototypes_distance: str,
+    path_to_intra_hardness: str,
+    k: int = 10,
+    train_tasks_weighted: bool = False,
+    weighting_method: str = "rf"
 ) -> pd.DataFrame:
-    """This function computes the hardness of the test tasks from distance matirix
-    computed based on prototype distance. The hardeness can be weighted based on the internal hardness of the
-    training tasks
-
+    """Compute task hardness using prototype distances.
+    
+    This function computes the hardness of test tasks based on their distances
+    to training task prototypes, optionally weighted by training task hardness.
+    
     Args:
-        path_to_prototypes_distance: Path to the prototype distance file (pickle file)
-        path_to_intra_hardness: Path to the file containing hardness of the training tasks (pickle file)
-        k: Number of nearest neighbors to consider for hardness calculation
-        train_tasks_weighted: If True, the hardness of the test tasks will be weighted by the hardness of the closest train tasks.
-
+        path_to_prototypes_distance: Path to prototype distance matrix file
+        path_to_intra_hardness: Path to training task hardness file
+        k: Number of nearest neighbors to consider
+        train_tasks_weighted: Whether to weight distances by training task hardness
+        weighting_method: Method to use for weighting ('rf', 'knn', or 'scaffold')
+        
     Returns:
-        A dataframe containing the hardness of the test tasks
+        DataFrame containing task hardness values and assay IDs
     """
-    PATH_TO_PROTOTYPE_DISTANCE = path_to_prototypes_distance
-    with open(PATH_TO_PROTOTYPE_DISTANCE, "rb") as f:
+    with open(path_to_prototypes_distance, "rb") as f:
         data = pickle.load(f)
 
-    ## data is a dictionary with following keys:
     print(data.keys())
 
-    distance_matrix = data["distance_matrix"]  # shape: #TRAIN_TASK * TEST_TASKS
+    distance_matrix = data["distance_matrix"]
     distance_matrix_sorted, distance_matrix_indices = torch.sort(distance_matrix, dim=0)
 
     if train_tasks_weighted:
-        ## We will weight the distance matrix by the hardness of the closest train tasks
         with open(path_to_intra_hardness, "rb") as f:
             train_tasks_hardness = pickle.load(f)
         weights = calculate_task_hardness_weight(
@@ -378,23 +548,26 @@ def prototype_hardness(
         results = torch.mean(weighted_distance_matrix[:k, :], dim=0)
     else:
         results = torch.mean(distance_matrix_sorted[:k, :], dim=0)
-    ## Some entries can contain nan values. We will replace them with mean of the results.
-    print("Numebr of NaN values in the hardness matrix: ", torch.isnan(results).sum().item())
+        
+    print("Number of NaN values in the hardness matrix: ", torch.isnan(results).sum().item())
     results = torch.nan_to_num(results, nan=torch.nanmean(results).item())
 
     hardness_df = pd.DataFrame({"hardness": results, "assay": data["test_task_name"]})
     return hardness_df
 
 
-def internal_hardness(hardness_df: pd.DataFrame, internal_hardness_path: str) -> pd.DataFrame:
-    """
-    Computes the internal hardness of the dataset and add it as a column to the dataframe.
-
+def internal_hardness(
+    hardness_df: pd.DataFrame,
+    internal_hardness_path: str
+) -> pd.DataFrame:
+    """Add internal hardness to a hardness DataFrame.
+    
     Args:
-        hardness_df (pd.DataFrame): Dataframe containing the hardness of the test tasks.
-        internal_hardness_path (str): Path to the file containing the internal hardness of the training tasks.
+        hardness_df: DataFrame containing task hardness values
+        internal_hardness_path: Path to internal hardness file
+        
     Returns:
-        pd.DataFrame: A dataframe containing the hardness of the test tasks
+        DataFrame with added internal hardness column
     """
     with open(internal_hardness_path, "rb") as f:
         test_tasks_hardness = pickle.load(f)
@@ -410,13 +583,17 @@ def internal_hardness(hardness_df: pd.DataFrame, internal_hardness_path: str) ->
 
 
 def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
-    """Computes the protein hardness from distance matrix.
-
+    """Compute protein hardness from a distance matrix.
+    
     Args:
-        path (str): Path to the distance matrix file (pickle file)
-        k (int): Number of nearest neighbors to consider for hardness calculation
+        path: Path to protein distance matrix file
+        k: Number of nearest neighbors to consider
+        
     Returns:
-        pd.DataFrame: A dataframe containing the hardness of the test tasks
+        DataFrame containing protein hardness values and metrics
+        
+    Raises:
+        AssertionError: If required keys are missing from the distance matrix file
     """
     with open(path, "rb") as f:
         protein_distance_matrix = pickle.load(f)
@@ -428,19 +605,19 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
         "test_chembl_ids" in protein_distance_matrix.keys()
     ), "test_chembl_ids key should be present in the dictionary"
 
-    hardness_protien = compute_task_hardness_from_distance_matrix(
+    hardness_protein = compute_task_hardness_from_distance_matrix(
         protein_distance_matrix["distance_matrices"], aggr="mean_median", proportion=k
     )
 
-    hardness_protien_mean_norm = normalize(hardness_protien[0])
-    hardness_protien_median_norm = normalize(hardness_protien[1])
+    hardness_protein_mean_norm = normalize(hardness_protein[0])
+    hardness_protein_median_norm = normalize(hardness_protein[1])
 
     protein_hardness_df = pd.DataFrame(
         {
-            "protein_hardness_mean": hardness_protien[0],
-            "protien_hardness_median": hardness_protien[1],
-            "protein_hardness_mean_norm": hardness_protien_mean_norm,
-            "protein_hardness_median_norm": hardness_protien_median_norm,
+            "protein_hardness_mean": hardness_protein[0],
+            "protein_hardness_median": hardness_protein[1],
+            "protein_hardness_mean_norm": hardness_protein_mean_norm,
+            "protein_hardness_median_norm": hardness_protein_median_norm,
             "assay": protein_distance_matrix["test_chembl_ids"],
         }
     )
@@ -448,21 +625,21 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
     return protein_hardness_df
 
 
-def get_configure(distance: str) -> Optional[Dict]:
-    """Query for the manually specified configuration
-
+def get_configure(distance: str) -> Optional[Dict[str, Any]]:
+    """Get configuration for a distance computation method.
+    
     Args:
-        distance (str): Distance type to query for the configuration
-
+        distance: Name of the distance method
+        
     Returns:
-        dict: Returns the manually specified configuration
+        Dictionary containing configuration parameters, or None if not found
     """
-    # path to the parent of parent folder of the current file
     source_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(source_path, "models", "distance_configures", "{}.json".format(distance))
+    config_path = os.path.join(source_path, "models", "distance_configures", f"{distance}.json")
+    
     if not os.path.exists(config_path):
         return None
-    else:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-        return config
+        
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    return config
