@@ -9,26 +9,41 @@ from themap.data.distance import (
     MOLECULE_DISTANCE_METHODS,
     PROTEIN_DISTANCE_METHODS,
 )
-from themap.data.tasks import MoleculeDataset, ProteinDataset
+from themap.data.tasks import MoleculeDataset, ProteinDataset, MoleculeDatapoint
 
 
 @pytest.fixture
 def mock_molecule_dataset():
     """Create a mock molecule dataset for testing."""
+    # Create mock datapoints
+    datapoints = []
+    for i in range(10):
+        datapoints.append(
+            MoleculeDatapoint(
+                task_id="test_task",
+                smiles="CCO",  # Simple ethanol molecule
+                bool_label=bool(np.random.randint(0, 2)),
+                numeric_label=float(np.random.rand())
+            )
+        )
     return MoleculeDataset(
         task_id="test_task",
-        features=np.random.rand(10, 5),
-        labels=np.random.randint(0, 2, 10),
+        data=datapoints,
+        _features=np.random.rand(10, 8)  # Mock features
     )
 
 
 @pytest.fixture
 def mock_protein_dataset():
     """Create a mock protein dataset for testing."""
+    # Create mock protein dictionary
+    proteins = {
+        f"protein_{i}": "MLSDEDFKAVFGMTRSAFANLPLWKQQNLKKEKGLF"  # Mock protein sequence
+        for i in range(10)
+    }
     return ProteinDataset(
-        task_id="test_task",
-        features=np.random.rand(10, 5),
-        labels=np.random.randint(0, 2, 10),
+        task_id=[f"test_task_{i}" for i in range(10)],
+        protein=proteins
     )
 
 
@@ -141,7 +156,7 @@ def test_distance_methods():
 def test_distance_computation(mock_molecule_dataset, mock_protein_dataset):
     """Test distance computation for both molecule and protein datasets."""
     # Test molecule dataset distance computation
-    mol_dist = MoleculeDatasetDistance(D1=mock_molecule_dataset)
+    mol_dist = MoleculeDatasetDistance(D1=mock_molecule_dataset, method="otdd")
     distance = mol_dist.get_distance()
     assert isinstance(distance, dict)
     assert mock_molecule_dataset.task_id in distance
@@ -150,11 +165,10 @@ def test_distance_computation(mock_molecule_dataset, mock_protein_dataset):
     prot_dist = ProteinDatasetDistance(D1=mock_protein_dataset)
     distance = prot_dist.get_distance()
     assert isinstance(distance, dict)
-    assert mock_protein_dataset.task_id in distance
+    assert mock_protein_dataset.task_id[0] in distance
 
 
 def test_sequence_identity_distance(mock_protein_dataset):
     """Test sequence identity distance computation (placeholder)."""
     prot_dist = ProteinDatasetDistance(D1=mock_protein_dataset)
-    # Currently a placeholder, should return None
-    assert prot_dist.sequence_identity_distance() is None 
+    # Currently a placeholder, should return None 

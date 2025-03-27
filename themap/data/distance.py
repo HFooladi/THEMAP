@@ -114,6 +114,7 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
         **kwargs: Any
     ):
         super().__init__(D1, D2, method)
+        self.symmetric_tasks = False
         self.source = D1
         if D2 is None:
             self.target = self.source
@@ -167,6 +168,21 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
                 chem_distance[self.source_task_ids[j]] = d.cpu().item()
             chem_distances[self.target_task_ids[i]] = chem_distance
         return chem_distances
+
+    def euclidean_distance(self) -> Dict[str, Dict[str, float]]:
+        """Compute Euclidean distance between molecule datasets.
+        
+        This method computes the Euclidean distance between the feature vectors
+        of the datasets. For each dataset, it computes the mean feature vector
+        and then calculates the pairwise distances between these mean vectors.
+
+        Returns:
+            Dictionary containing Euclidean distances between source and target datasets.
+            The outer dictionary is keyed by target task IDs, and the inner dictionary
+            is keyed by source task IDs with distance values.
+        """
+        ## TODO: Implement Euclidean distance
+        return {}
 
     def get_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute the distance between molecule datasets using the specified method.
@@ -237,6 +253,7 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
         method: str = "euclidean"
     ):
         super().__init__(D1, D2, method)
+        self.symmetric_tasks = False
         self.source = D1
         if D2 is None:
             self.target = self.source

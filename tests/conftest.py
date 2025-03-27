@@ -5,9 +5,7 @@ import pytest
 from dpu_utils.utils import RichPath
 from themap.data.tasks import MoleculeDatapoint, ProteinDataset, MoleculeDataset
 
-pytest.fixture
-
-
+@pytest.fixture
 def manual_smiles():
     smiles = "C1=CC=CC=C1"
     return smiles

@@ -442,8 +442,11 @@ class MoleculeDataset:
         return positive_prototype, negative_prototype
 
     @property
-    def get_features(self) -> FeatureArray:
-        return np.array(self._features)
+    def get_features(self) -> Optional[FeatureArray]:
+        if self._features is None:
+            return None
+        else:
+            return np.array(self._features)
 
     @property
     def get_labels(self) -> np.ndarray:
@@ -652,10 +655,12 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
         self.target_transform = target_transform
         self.classes = [0, 1]
 
-        if isinstance(self.data.get_features, np.ndarray):
-            X = torch.from_numpy(self.data.get_features)
+        if self.data.get_features is None:
+            logger.warning("Dataset does not have features")
+            X = torch.ones(len(self.data), 2)
         else:
-            X = self.data.get_features
+            X = torch.from_numpy(self.data.get_features)
+        
         if isinstance(self.data.get_labels, np.ndarray):
             y = torch.from_numpy(self.data.get_labels).type(torch.LongTensor)
         else:
