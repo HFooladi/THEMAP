@@ -2,14 +2,15 @@ from Bio import Align
 from Bio.Align import substitution_matrices
 from Bio import SeqIO
 from tqdm import tqdm
+from typing import List, Dict, Any, Optional
 
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class ProteinIdentityDistance():
-    def __init__(self, seq1, seq2):
+class ProteinIdentityDistance:
+    def __init__(self, seq1: str, seq2: str) -> None:
         logger.debug(f"Initializing ProteinIdentityDistance with sequences of lengths {len(seq1)} and {len(seq2)}")
         self.seq1 = seq1
         self.seq2 = seq2
@@ -19,10 +20,10 @@ class ProteinIdentityDistance():
         self.aligner.substitution_matrix = substitution_matrices.load("BLOSUM62")
         logger.debug("Successfully initialized aligner with BLOSUM62 matrix")
 
-    def get_seqid(self):
+    def get_seqid(self) -> float:
         return self.seqid
 
-    def get_distance(self):
+    def get_distance(self) -> float:
         logger.debug("Calculating protein identity distance")
         self.alignments = self.aligner.align(self.seq1, self.seq2)
         self.exact_match = self.alignments[0].counts().identities
@@ -34,7 +35,7 @@ class ProteinIdentityDistance():
         return self.distance
 
 
-def get_seqid(aligner, target, query):
+def get_seqid(aligner: Align.PairwiseAligner, target: str, query: str) -> float:
     logger.debug(f"Calculating sequence identity between sequences of lengths {len(target)} and {len(query)}")
     alignments = aligner.align(target, query)
     exact_match = alignments[0].counts().identities
@@ -45,7 +46,7 @@ def get_seqid(aligner, target, query):
     return seqid
 
 
-def max_seqid(assay_sequence, pdbbinds_list):
+def max_seqid(assay_sequence: Dict[str, Any], pdbbinds_list: List[Dict[str, Any]]) -> Dict[str, Any]:
     logger.info(f"Finding maximum sequence identity for assay {assay_sequence.get('uniprot_id', 'unknown')} against {len(pdbbinds_list)} PDB structures")
     
     aligner = Align.PairwiseAligner()

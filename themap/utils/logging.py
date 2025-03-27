@@ -11,7 +11,7 @@ class ColorizedFormatter(logging.Formatter):
     """Custom formatter that adds colors to console output based on log level."""
     
     # ANSI color codes
-    COLORS = {
+    COLORS: Dict[str, str] = {
         'DEBUG': '\033[36m',     # Cyan
         'INFO': '\033[32m',      # Green
         'WARNING': '\033[33m',   # Yellow
@@ -20,7 +20,7 @@ class ColorizedFormatter(logging.Formatter):
         'RESET': '\033[0m'       # Reset to default
     }
     
-    def __init__(self, fmt: str, datefmt: str, use_colors: bool = True):
+    def __init__(self, fmt: str, datefmt: str, use_colors: bool = True) -> None:
         """
         Initialize the formatter with optional color support.
         

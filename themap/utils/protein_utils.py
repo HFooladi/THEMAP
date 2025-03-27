@@ -1,7 +1,7 @@
 import os
 from io import StringIO
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Optional, Any
 
 import esm
 import numpy as np
@@ -16,12 +16,15 @@ here = Path(__file__).parent
 root_dir = here.parent.parent
 
 
-def get_protein_accession(target_chembl_id: str) -> Union[str, None]:
+def get_protein_accession(target_chembl_id: str) -> Optional[str]:
     """Returns the target protein accesion id for a given target chembl id.
     This id can be used to retrieve the protein sequence from the UniProt.
 
     Args:
         target_chembl_id: Chembl id of the target.
+
+    Returns:
+        Optional[str]: The protein accession ID if found, None otherwise.
     """
     target = new_client.target
     target_result = target.get(target_chembl_id)
@@ -31,11 +34,14 @@ def get_protein_accession(target_chembl_id: str) -> Union[str, None]:
         return None
 
 
-def get_target_chembl_id(assay_chembl_id: str) -> Union[str, None]:
+def get_target_chembl_id(assay_chembl_id: str) -> Optional[str]:
     """Returns the target chembl id for a given assay chembl id.
 
     Args:
         assay_chembl_id: Chembl id of the assay.
+
+    Returns:
+        Optional[str]: The target ChEMBL ID if found, None otherwise.
     """
     assay = new_client.assay
     assay_result = assay.get(assay_chembl_id)
@@ -50,6 +56,9 @@ def get_protein_sequence(protein_accession: str) -> List[SeqIO.SeqRecord]:
 
     Args:
         protein_accession: Accession id of the protein.
+
+    Returns:
+        List[SeqIO.SeqRecord]: List of sequence records from UniProt.
     """
     cID = protein_accession
     baseUrl = "http://www.uniprot.org/uniprot/"
@@ -63,14 +72,25 @@ def get_protein_sequence(protein_accession: str) -> List[SeqIO.SeqRecord]:
 
 
 def read_esm_embedding(
-    fs_mol_dataset_path: str, esm2_model: str = "esm2_t33_650M_UR50D", layer: int = 33
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List, List, List]:
+    fs_mol_dataset_path: str, 
+    esm2_model: str = "esm2_t33_650M_UR50D", 
+    layer: int = 33
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[Any], List[Any], List[Any]]:
     """Reads the ESM embedding from a given path.
 
     Args:
         fs_mol_dataset_path: Path to the FS_MOL Dataset.
         esm2_model: Name of the ESM2 model.
         layer: Layer of the ESM2 model to be used.
+
+    Returns:
+        Tuple containing:
+        - train_emb_tensor: Training embeddings tensor
+        - valid_emb_tensor: Validation embeddings tensor
+        - test_emb_tensor: Test embeddings tensor
+        - train_emb_label: Training labels
+        - valid_emb_label: Validation labels
+        - test_emb_label: Test labels
     """
     ESM_EMBEDDING_PATH = os.path.join(fs_mol_dataset_path, "targets", "esm2_output", esm2_model)
 
@@ -127,14 +147,14 @@ def read_esm_embedding(
     )
 
 
-def convert_fasta_to_dict(fasta_file: str) -> Dict:
+def convert_fasta_to_dict(fasta_file: str) -> Dict[str, str]:
     """Converts a fasta file to a dictionary.
 
     Args:
         fasta_file: Path to the fasta file.
     
     Returns:
-        Dict: Dictionary containing the fasta sequences.
+        Dict[str, str]: Dictionary containing the fasta sequences.
         {'id': 'sequence'}
     """
     fasta_dict = {}
@@ -144,13 +164,17 @@ def convert_fasta_to_dict(fasta_file: str) -> Dict:
 
 
 def get_task_name_from_uniprot(
-    uniprot_id: List[str], df_path: str = f"{root_dir}/datasets/uniprot_mapping.csv"
+    uniprot_id: List[str], 
+    df_path: str = f"{root_dir}/datasets/uniprot_mapping.csv"
 ) -> List[str]:
     """Returns the task id from the list of uniprot_ids
 
     Args:
-        uniprot_id (list[str]): List of uniprot ids.
-        df_path (str): Path to the uniprot mapping file.
+        uniprot_id: List of uniprot ids.
+        df_path: Path to the uniprot mapping file.
+
+    Returns:
+        List[str]: List of task IDs.
     """
     df = pd.read_csv(df_path)
     task_id = []
@@ -159,7 +183,11 @@ def get_task_name_from_uniprot(
     return task_id
 
 
-def get_protein_features(protein_dict: Dict, featurizer: str = "esm2_t33_650M_UR50D", layer=33) -> np.ndarray:
+def get_protein_features(
+    protein_dict: Dict[str, str], 
+    featurizer: str = "esm2_t33_650M_UR50D", 
+    layer: int = 33
+) -> np.ndarray:
     """Returns a featurizer object based on the input string.
 
     Args:

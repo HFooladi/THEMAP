@@ -6,7 +6,7 @@ from molfeat.trans.fp import FPVecTransformer
 from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
 from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
 from rdkit import Chem
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Union, Dict, Any
 from abc import ABC, abstractmethod
 
 from themap.utils.logging import get_logger
@@ -29,7 +29,8 @@ class BaseFeaturizer(ABC):
         """
         pass
 
-def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_map: bool = False):
+
+def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_map: bool = False) -> Optional[Chem.Mol]:
     """
     Builds an RDKit molecule from a SMILES string.
 
@@ -62,7 +63,7 @@ def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_ma
     return mol
 
 
-def get_featurizer(featurizer: str, n_jobs: int = -1):
+def get_featurizer(featurizer: str, n_jobs: int = -1) -> Union[MoleculeTransformer, GraphormerTransformer, PretrainedHFTransformer, PretrainedDGLTransformer]:
     """
     Returns a featurizer object based on the input string.
 
@@ -72,6 +73,9 @@ def get_featurizer(featurizer: str, n_jobs: int = -1):
 
     Returns:
         Featurizer object.
+
+    Raises:
+        ValueError: If the specified featurizer is not found.
     """
     if featurizer in ["ecfp", "fcfp", "mordred", "desc2D", "desc3D", "maccs", "usrcat"]:
         transformer = MoleculeTransformer(featurizer, n_jobs=n_jobs)

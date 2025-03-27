@@ -29,7 +29,7 @@ class LoggingConfig:
     # Whether to use colorized output for console logging
     use_colors: bool = True
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate and process configuration."""
         if self.log_file:
             self.log_file = str(Path(self.log_file))

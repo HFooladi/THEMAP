@@ -252,11 +252,11 @@ def compute_task_hardness_molecule_inter(
 ) -> List[float]:
     """Compute task hardness from inter-task distances.
     
-    This function computes the hardness of each task based on its distances
-    to the top-k nearest training tasks.
+    This function computes the hardness of each task based on the similarities
+    between test and train tasks.
     
     Args:
-        distance_list: List of distances between test and train tasks
+        distance_list: List of inter-task distances
         test_size: Number of test tasks
         train_size: Number of train tasks
         topk: Number of nearest neighbors to consider
@@ -264,11 +264,13 @@ def compute_task_hardness_molecule_inter(
     Returns:
         List of task hardness values (higher values indicate harder tasks)
     """
-    distance = []
+    task_hardness = []
     for i in range(test_size):
-        d = heapq.nlargest(topk, distance_list[i * train_size : i * train_size + train_size])
-        distance.append(1 - np.array(d).mean())
-    return distance
+        start_idx = i * train_size
+        end_idx = (i + 1) * train_size
+        task_distances = distance_list[start_idx:end_idx]
+        task_hardness.append(np.mean(heapq.nlargest(topk, task_distances)))
+    return task_hardness
 
 
 def compute_correlation(
@@ -280,16 +282,15 @@ def compute_correlation(
     """Compute correlation between two columns in a DataFrame.
     
     Args:
-        task_df_with_perf: DataFrame containing task performance and hardness metrics
-        col1: Name of first column (usually a hardness measure)
-        col2: Name of second column (usually a performance measure)
-        method: Correlation method to use ('pearson', 'spearman', etc.)
+        task_df_with_perf: DataFrame containing task performance metrics
+        col1: Name of first column
+        col2: Name of second column
+        method: Correlation method ('pearson', 'spearman', or 'kendall')
         
     Returns:
         Correlation coefficient between the two columns
     """
-    corr = task_df_with_perf[col1].corr(task_df_with_perf[col2], method=method)
-    return corr
+    return task_df_with_perf[col1].corr(task_df_with_perf[col2], method=method)
 
 
 def corr_protein_hardness_metric(
@@ -299,20 +300,20 @@ def corr_protein_hardness_metric(
     proportions: List[float] = [0.01, 0.1, 0.5, 0.9],
     metric: str = "delta_auprc",
 ) -> List[float]:
-    """Compute correlation between protein hardness and performance metrics.
+    """Compute correlation between protein hardness and performance metric.
     
     This function computes the correlation between protein hardness (computed using
     different proportions of nearest neighbors) and a performance metric.
     
     Args:
         df: DataFrame containing task performance metrics
-        chembl_ids: List of ChEMBL IDs for the tasks
-        distance_matrix: [N_train * N_test] tensor with pairwise distances
-        proportions: List of proportions for computing hardness
-        metric: Performance metric to use ('delta_auprc' or 'delta_auroc')
+        chembl_ids: List of ChEMBL IDs for tasks
+        distance_matrix: Matrix of protein distances
+        proportions: List of proportions to use for hardness calculation
+        metric: Performance metric to correlate with hardness
         
     Returns:
-        List of correlations for different proportions
+        List of correlation coefficients for each proportion
     """
     protein_hardness_diff_k = {}
     corr_list = []
@@ -563,10 +564,10 @@ def internal_hardness(
     
     Args:
         hardness_df: DataFrame containing task hardness values
-        internal_hardness_path: Path to internal hardness file
+        internal_hardness_path: Path to save internal hardness values
         
     Returns:
-        DataFrame with added internal hardness column
+        DataFrame containing combined hardness values
     """
     with open(internal_hardness_path, "rb") as f:
         test_tasks_hardness = pickle.load(f)
@@ -625,13 +626,13 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
 
 
 def get_configure(distance: str) -> Optional[Dict[str, Any]]:
-    """Get configuration for a distance computation method.
+    """Get configuration for a distance metric.
     
     Args:
-        distance: Name of the distance method
+        distance: Name of the distance metric
         
     Returns:
-        Dictionary containing configuration parameters, or None if not found
+        Dictionary containing distance metric configuration, or None if not found
     """
     source_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(source_path, "models", "distance_configures", f"{distance}.json")
