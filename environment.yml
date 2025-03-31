@@ -66,6 +66,8 @@ dependencies:
   - jupyterlab
   - nbconvert 
   - ipywidgets
+  - isort
+  - mypy
   
 
 

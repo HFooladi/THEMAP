@@ -9,7 +9,7 @@ authors = [
   {name="Hosein Fooladi", email="fooladi.hosein@gmail.com"}
 ]
 description = "Package for task hardness estimation for molecular activity prediction"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -20,12 +20,33 @@ dependencies = [
     "pandas",
     "matplotlib",
     "seaborn",
-    "scikit-learn",]
+    "scikit-learn",
+    "torch",  
+    "dpu-utils>=0.2.13",
+    "rdkit",  
+    "datamol",
+    "molfeat",
+]
 
 [project.optional-dependencies]
 test = [
   "pytest",
   "pytest-cov",
+]
+
+dev = [
+  "ruff",
+  "black",
+  "isort",
+  "mypy",
+]
+
+docs = [
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocs-material-extensions",
+  "mkdocstrings",
+  "mkdocstrings-python",
 ]
 
 [project.urls]
@@ -56,14 +77,17 @@ exclude = [
 
 [tool.black]
 line-length = 110
-target-version = ['py39', 'py310']
+target-version = ['py310', 'py311']
 
 [tool.ruff]
+# Select rule codes to enforce. "E" and "F" are defaults. Add "I" for import sorting.
+# You can add more codes like "B" (flake8-bugbear) or "C4" (flake8-comprehensions) etc.
+lint.select = ["E", "F", "W", "I"] # W = warnings, I = isort
 lint.ignore = [
-    "E501", # Never enforce `E501` (line length violations).
+    "E501", # Line length handled by Black
 ]
 line-length = 110
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [

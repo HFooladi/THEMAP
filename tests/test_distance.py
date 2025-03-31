@@ -153,6 +153,7 @@ def test_distance_methods():
     assert "cosine" in PROTEIN_DISTANCE_METHODS
 
 
+
 def test_distance_computation(mock_molecule_dataset, mock_protein_dataset):
     """Test distance computation for both molecule and protein datasets."""
     # Test molecule dataset distance computation
