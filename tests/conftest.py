@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from dpu_utils.utils import RichPath
-from themap.data.tasks import MoleculeDatapoint, ProteinDataset, MoleculeDataset
+from themap.data import MoleculeDatapoint, ProteinDataset, MoleculeDataset
 
 @pytest.fixture
 def manual_smiles():

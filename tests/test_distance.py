@@ -9,7 +9,7 @@ from themap.data.distance import (
     MOLECULE_DISTANCE_METHODS,
     PROTEIN_DISTANCE_METHODS,
 )
-from themap.data.tasks import MoleculeDataset, ProteinDataset, MoleculeDatapoint
+from themap.data import MoleculeDataset, ProteinDataset, MoleculeDatapoint
 
 
 @pytest.fixture
