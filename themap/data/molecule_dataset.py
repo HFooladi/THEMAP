@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
-
+import logging
 import numpy as np
+import time
 from dpu_utils.utils import RichPath
 
 from themap.data.molecule_datapoint import MoleculeDatapoint
@@ -9,10 +10,10 @@ from themap.utils.featurizer_utils import get_featurizer
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
+logger.setLevel(logging.INFO)
 
 # Type definitions for better type hints
 FeatureArray = np.ndarray  # Type alias for numpy feature arrays
-ModelType = Any  # Type for model objects
 DatasetStats = Dict[str, Union[int, float]]  # Type for dataset statistics
 
 
@@ -39,14 +40,18 @@ class MoleculeDataset:
     This class represents a collection of molecule datapoints, providing methods for
     dataset manipulation, feature computation, and statistical analysis.
 
-    Args:
+    Attributes:
         task_id (str): String describing the task this dataset is taken from.
         data (List[MoleculeDatapoint]): List of MoleculeDatapoint objects.
+        _features (Optional[FeatureArray]): Cached features for the dataset.
+        _cache_info (Dict[str, Any]): Information about the feature caching.
     """
 
     task_id: str
     data: List[MoleculeDatapoint] = field(default_factory=list)
     _features: Optional[FeatureArray] = None
+    _cache_info: Dict[str, Any] = field(default_factory=dict)
+
 
     def __post_init__(self) -> None:
         """Validate dataset initialization."""
@@ -69,46 +74,187 @@ class MoleculeDataset:
     def __repr__(self) -> str:
         return f"MoleculeDataset(task_id={self.task_id}, task_size={len(self.data)})"
 
-    def get_dataset_embedding(self, model: str) -> FeatureArray:
-        """Get the features for the entire dataset.
-
+    def get_dataset_embedding(self, featurizer_name: str, n_jobs: Optional[int] = None, 
+                            force_recompute: bool = False, batch_size: int = 1000) -> FeatureArray:
+        """Get the features for the entire dataset using a featurizer.
+        
+        Efficiently computes features for all molecules in the dataset using the 
+        specified featurizer, taking advantage of the featurizer's built-in 
+        parallelization capabilities and maintaining a two-level cache strategy.
+        
         Args:
-            model (str): Featurizer model to use.
-
+            featurizer_name (str): Name of the featurizer to use
+            n_jobs (Optional[int]): Number of parallel jobs. If provided, temporarily 
+                                overrides the featurizer's own setting
+            force_recompute (bool): Whether to force recomputation even if cached
+            batch_size (int): Batch size for processing, used for memory efficiency
+                            when handling large datasets
+            
         Returns:
-            FeatureArray: Features for the entire dataset, shape (n_samples, n_features).
+            FeatureArray: Features for the entire dataset, shape (n_samples, n_features)
+            
+        Raises:
+            ValueError: If the generated features length doesn't match the dataset length
         """
-        logger.info(f"Generating embeddings for dataset {self.task_id} with {len(self.data)} molecules")
-        if self._features is not None:
+        # Start timing for performance measurement
+        start_time = time.time()
+        
+        # Return cached features if available and not forcing recompute
+        if self._features is not None and not force_recompute:
+            logger.info(f"Using cached dataset features for {self.task_id}")
             return self._features
-        smiles = [data.smiles for data in self.data]
-        features = get_featurizer(model)(smiles)
-        for i, molecule in enumerate(self.data):
-            molecule._features = features[i]
-        assert len(features) == len(smiles), "Feature length does not match SMILES length"
-        if isinstance(features, np.ndarray):
+            
+        logger.info(f"Generating embeddings for dataset {self.task_id} with {len(self.data)} molecules")
+        
+        # Get the featurizer
+        featurizer = get_featurizer(featurizer_name)
+        
+        # Check if we're dealing with a BaseFeaturizer
+        if not hasattr(featurizer, 'n_jobs'):
+            logger.warning(f"Featurizer {featurizer_name} does not appear to be a BaseFeaturizer. "
+                        f"Parallelization settings may not apply.")
+        
+        # Configure parallelization if needed and possible
+        original_n_jobs = None
+        if n_jobs is not None and hasattr(featurizer, 'n_jobs'):
+            original_n_jobs = featurizer.n_jobs
+            featurizer.n_jobs = n_jobs
+            logger.info(f"Temporarily set featurizer to use {featurizer.n_jobs} jobs")
+        
+        try:
+            # Get all SMILES strings
+            smiles_list = [dp.smiles for dp in self.data]
+            
+            # Find unique SMILES for optimization (avoid computing duplicates)
+            unique_smiles = []
+            smiles_indices = {}
+            for i, smiles in enumerate(smiles_list):
+                if smiles not in smiles_indices:
+                    unique_smiles.append(smiles)
+                    smiles_indices[smiles] = []
+                smiles_indices[smiles].append(i)
+            
+            has_duplicates = len(unique_smiles) < len(smiles_list)
+            if has_duplicates:
+                logger.info(f"Found {len(smiles_list) - len(unique_smiles)} duplicate SMILES - optimizing computation")
+            
+            # Check if dataset is too large for memory-efficient processing
+            if len(unique_smiles) > batch_size:
+                logger.info(f"Processing large dataset in batches of {batch_size}")
+                # Process in batches to avoid memory issues
+                all_features = []
+                
+                for i in range(0, len(unique_smiles), batch_size):
+                    batch = unique_smiles[i:i+batch_size]
+                    
+                    # Preprocess batch with the featurizer's method
+                    processed_batch, _ = featurizer.preprocess(batch)
+                    
+                    # Transform preprocessed batch (assume scikit-learn API)
+                    if hasattr(featurizer, 'transform'):
+                        batch_features = featurizer.transform(processed_batch)
+                    else:
+                        # Fallback if transform not available
+                        batch_features = featurizer(processed_batch)
+                    
+                    all_features.append(batch_features)
+                
+                # Combine all batches
+                unique_features = np.vstack(all_features)
+            else:
+                # Process all unique SMILES at once
+                processed_smiles, _ = featurizer.preprocess(unique_smiles)
+                
+                # Transform preprocessed SMILES
+                if hasattr(featurizer, 'transform'):
+                    unique_features = featurizer.transform(processed_smiles)
+                else:
+                    unique_features = featurizer(processed_smiles)
+            
+            # Create a mapping from unique SMILES to their features
+            smiles_to_features = {smiles: unique_features[i] for i, smiles in enumerate(unique_smiles)}
+            
+            # Create the full feature array, maintaining the original order
+            features = np.array([smiles_to_features[smiles] for smiles in smiles_list])
+            
+            # Ensure we have the right shape and format
+            if not isinstance(features, np.ndarray):
+                features = np.array(features)
+                
+            if len(features) != len(self.data):
+                raise ValueError(f"Feature length ({len(features)}) does not match data length ({len(self.data)})")
+            
+            # Update individual molecule features for efficient access later
+            for i, molecule in enumerate(self.data):
+                # Use a view instead of a copy when possible to save memory
+                molecule._features = features[i]
+                
+            # Cache at dataset level
             self._features = features
-        else:
-            features = np.array(features)
-            self._features = features
-        logger.info(f"Successfully generated embeddings for dataset {self.task_id}")
-        return features
+            
+            elapsed_time = time.time() - start_time
+            logger.info(f"Successfully generated embeddings for dataset {self.task_id} in {elapsed_time:.2f} seconds")
+            
+            return features
+            
+        finally:
+            # Restore original n_jobs setting if we changed it
+            if original_n_jobs is not None and hasattr(featurizer, 'n_jobs'):
+                featurizer.n_jobs = original_n_jobs
+                logger.info(f"Restored featurizer to original setting of {original_n_jobs} jobs")
 
-    def get_prototype(self, model: ModelType) -> tuple[FeatureArray, FeatureArray]:
+    # Helper method to clear cache for benchmarking
+    def clear_cache(self):
+        """Clear all cached features."""
+        self._features = None
+        for molecule in self.data:
+            molecule._features = None
+        logger.info(f"Cleared cache for dataset {self.task_id}")
+
+    # Method to measure cache efficiency
+    def get_cache_info(self):
+        """Get information about the current cache state."""
+        molecules_cached = sum(1 for dp in self.data if dp._features is not None)
+        dataset_cached = self._features is not None
+        
+        cache_info = {
+            'dataset_cached': dataset_cached,
+            'molecules_cached': molecules_cached,
+            'total_molecules': len(self.data),
+            'cache_ratio': molecules_cached / len(self.data) if len(self.data) > 0 else 0
+        }
+        logger.info(f"Cache info for dataset {self.task_id}: {cache_info}")
+        self._cache_info.update(cache_info)
+        return self._cache_info
+
+    def get_prototype(self, featurizer_name: str) -> tuple[FeatureArray, FeatureArray]:
         """Get the prototype of the dataset.
 
+        This method calculates the mean feature vector of positive and negative examples
+        in the dataset using the specified featurizer.
+
         Args:
-            model (ModelType): Featurizer model to use.
+            featurizer_name (str): Name of the featurizer to use.
 
         Returns:
             tuple[FeatureArray, FeatureArray]: Tuple containing:
                 - positive_prototype: Mean feature vector of positive examples
                 - negative_prototype: Mean feature vector of negative examples
+                
+        Raises:
+            ValueError: If there are no positive or negative examples in the dataset
         """
         logger.info(f"Calculating prototypes for dataset {self.task_id}")
-        data_features = self.get_dataset_embedding(model)
+
+        # Get the features for the entire dataset
+        data_features = self.get_dataset_embedding(featurizer_name)
+
+        # Calculate the mean feature vector of positive and negative examples
         positives = [data_features[i] for i in range(len(data_features)) if self.data[i].bool_label]
         negatives = [data_features[i] for i in range(len(data_features)) if not self.data[i].bool_label]
+
+        if not positives or not negatives:
+            raise ValueError("Dataset must contain both positive and negative examples")
 
         positive_prototype = np.array(positives).mean(axis=0)
         negative_prototype = np.array(negatives).mean(axis=0)
@@ -117,10 +263,14 @@ class MoleculeDataset:
 
     @property
     def get_features(self) -> Optional[FeatureArray]:
+        """Get the cached features for the dataset.
+
+        Returns:
+            Optional[FeatureArray]: Cached features for the dataset if available, None otherwise.
+        """
         if self._features is None:
             return None
-        else:
-            return np.array(self._features)
+        return np.array(self._features)
 
     @property
     def get_labels(self) -> np.ndarray:
@@ -206,7 +356,13 @@ class MoleculeDataset:
                 - avg_molecular_weight: Average molecular weight
                 - avg_atoms: Average number of atoms
                 - avg_bonds: Average number of bonds
+                
+        Raises:
+            ValueError: If the dataset is empty
         """
+        if not self.data:
+            raise ValueError("Cannot compute statistics for empty dataset")
+            
         return {
             "size": len(self),
             "positive_ratio": self.get_ratio,
