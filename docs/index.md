@@ -23,7 +23,7 @@ import os
 from dpu_utils.utils.richpath import RichPath
 
 from themap.data import MoleculeDataset
-from themap.data.distance import MoleculeDatasetDistance
+from themap.distance import MoleculeDatasetDistance
 
 source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
 target_dataset_path = RichPath.create(os.path.join("datasets", "test", "CHEMBL2219358.jsonl.gz"))
@@ -47,7 +47,7 @@ You can calculate distance between protein spces of two (or more) proteins (meta
     
 ```python
 from themap.data import ProteinDataset
-from themap.data.distance import ProteinDatasetDistance
+from themap.distance import ProteinDatasetDistance
 
 # load some datasets
 source_protein = ProteinDataset.load_from_file("datasets/train/train_proteins.fasta")

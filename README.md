@@ -25,7 +25,7 @@ import os
 from dpu_utils.utils.richpath import RichPath
 
 from themap.data import MoleculeDataset
-from themap.data.distance import MoleculeDatasetDistance
+from themap.distance import MoleculeDatasetDistance
 
 source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
 target_dataset_path = RichPath.create(os.path.join("datasets", "test", "CHEMBL2219358.jsonl.gz"))
