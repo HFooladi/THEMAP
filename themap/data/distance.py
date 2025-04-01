@@ -18,7 +18,7 @@ import pandas as pd
 import pickle
 
 from themap.utils.distance_utils import get_configure
-from themap.data.tasks import MoleculeDataset, ProteinDataset, MoleculeDataloader
+from themap.data import MoleculeDataset, ProteinDataset, MoleculeDataloader
 from otdd.pytorch.distance import DatasetDistance
 
 
