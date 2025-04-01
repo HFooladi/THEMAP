@@ -39,7 +39,7 @@ target_features = target_dataset.get_dataset_embedding(molecule_feaurizer)
 Dist = MoleculeDatasetDistance(D1=source_dataset, D2=target_dataset, method="otdd")
 
 Dist.get_distance()
->>> {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
+# {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
 ```
 
 
