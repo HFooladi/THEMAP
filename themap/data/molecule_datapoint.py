@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
+
 import numpy as np
 from rdkit import Chem
 
@@ -7,6 +8,7 @@ from themap.utils.featurizer_utils import get_featurizer, make_mol
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
 
 @dataclass
 class MoleculeDatapoint:
@@ -59,7 +61,7 @@ class MoleculeDatapoint:
         """
         if self._fingerprint is not None:
             return self._fingerprint
-        
+
         logger.debug(f"Generating fingerprint for molecule {self.smiles}")
         self._fingerprint = get_featurizer("ecfp")(self.smiles)
         logger.debug(f"Successfully generated fingerprint for molecule {self.smiles}")
@@ -81,7 +83,7 @@ class MoleculeDatapoint:
         """
         if self._features is not None:
             return self._features
-            
+
         logger.debug(f"Generating features for molecule {self.smiles} using featurizer {featurizer}")
         model = get_featurizer(featurizer) if featurizer else None
         features = model(self.smiles) if model else None
@@ -118,4 +120,4 @@ class MoleculeDatapoint:
             float: Molecular weight of the molecule in atomic mass units.
         """
         mol = make_mol(self.smiles)
-        return Chem.Descriptors.ExactMolWt(mol) 
+        return Chem.Descriptors.ExactMolWt(mol)

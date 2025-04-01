@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Callable, Dict, Union, Any, Iterator
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union
+
 import numpy as np
 from dpu_utils.utils import RichPath
 
@@ -14,20 +15,22 @@ FeatureArray = np.ndarray  # Type alias for numpy feature arrays
 ModelType = Any  # Type for model objects
 DatasetStats = Dict[str, Union[int, float]]  # Type for dataset statistics
 
+
 def get_task_name_from_path(path: RichPath) -> str:
     """Extract task name from file path.
-    
+
     Args:
         path (RichPath): Path-like object
-    
+
     Returns:
         str: Extracted task name
     """
     try:
         name = path.basename()
-        return name[:-len(".jsonl.gz")] if name.endswith(".jsonl.gz") else name
+        return name[: -len(".jsonl.gz")] if name.endswith(".jsonl.gz") else name
     except Exception:
         return "unknown_task"
+
 
 @dataclass
 class MoleculeDataset:
@@ -96,7 +99,7 @@ class MoleculeDataset:
 
         Args:
             model (ModelType): Featurizer model to use.
-        
+
         Returns:
             tuple[FeatureArray, FeatureArray]: Tuple containing:
                 - positive_prototype: Mean feature vector of positive examples
@@ -126,7 +129,7 @@ class MoleculeDataset:
     @property
     def get_smiles(self) -> List[str]:
         return [data.smiles for data in self.data]
-    
+
     @property
     def get_ratio(self) -> float:
         """Get the ratio of positive to negative examples in the dataset.
@@ -150,7 +153,7 @@ class MoleculeDataset:
             path = RichPath.create(path)
         else:
             path = path
-        
+
         logger.info(f"Loading dataset from {path}")
         samples = []
         for raw_sample in path.read_by_file_suffix():
@@ -180,13 +183,13 @@ class MoleculeDataset:
         logger.info(f"Successfully loaded dataset from {path} with {len(samples)} samples")
         return MoleculeDataset(get_task_name_from_path(path), samples)
 
-    def filter(self, condition: Callable[[MoleculeDatapoint], bool]) -> 'MoleculeDataset':
+    def filter(self, condition: Callable[[MoleculeDatapoint], bool]) -> "MoleculeDataset":
         """Filter dataset based on a condition.
-        
+
         Args:
             condition (Callable[[MoleculeDatapoint], bool]): Function that returns True/False
                 for each datapoint.
-        
+
         Returns:
             MoleculeDataset: New dataset containing only the filtered datapoints.
         """
@@ -209,5 +212,5 @@ class MoleculeDataset:
             "positive_ratio": self.get_ratio,
             "avg_molecular_weight": np.mean([dp.molecular_weight for dp in self.data]),
             "avg_atoms": np.mean([dp.number_of_atoms for dp in self.data]),
-            "avg_bonds": np.mean([dp.number_of_bonds for dp in self.data])
-        } 
+            "avg_bonds": np.mean([dp.number_of_bonds for dp in self.data]),
+        }

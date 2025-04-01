@@ -10,17 +10,19 @@ The module supports both single dataset comparisons and batch comparisons
 across multiple datasets.
 """
 
-from typing import Any, Optional, Union
-from scipy.spatial.distance import cdist
-from typing import Dict, List, Tuple
+import pickle
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
-import pickle
-
-from themap.utils.distance_utils import get_configure
-from themap.data import MoleculeDataset, ProteinDataset, MoleculeDataloader
 from otdd.pytorch.distance import DatasetDistance
+from scipy.spatial.distance import cdist
 
+# Import directly from their respective modules to avoid circular imports
+from themap.data.molecule_dataset import MoleculeDataset
+from themap.data.protein_dataset import ProteinDataset
+from themap.data.torch_dataset import MoleculeDataloader
+from themap.utils.distance_utils import get_configure
 
 MOLECULE_DISTANCE_METHODS = ["otdd", "euclidean", "cosine"]
 PROTEIN_DISTANCE_METHODS = ["euclidean", "cosine"]
@@ -28,21 +30,21 @@ PROTEIN_DISTANCE_METHODS = ["euclidean", "cosine"]
 
 class AbstractDatasetDistance:
     """Base class for computing distances between datasets.
-    
+
     This abstract class defines the interface for dataset distance computation.
     It provides a common structure for both molecule and protein dataset distances.
-    
+
     Args:
         D1: First dataset for distance computation
         D2: Second dataset for distance computation (optional)
         method: Distance computation method to use
     """
-    
+
     def __init__(
-        self, 
+        self,
         D1: Optional[Union[MoleculeDataset, ProteinDataset]] = None,
         D2: Optional[Union[MoleculeDataset, ProteinDataset]] = None,
-        method: str = "euclidean"
+        method: str = "euclidean",
     ):
         self.source = D1
         if D2 is None:
@@ -54,12 +56,12 @@ class AbstractDatasetDistance:
 
     def get_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute the distance between datasets.
-        
+
         Returns:
             Dictionary containing distance matrix between source and target datasets.
             The outer dictionary is keyed by target task IDs, and the inner dictionary
             is keyed by source task IDs with distance values.
-            
+
         Raises:
             NotImplementedError: If not implemented by subclass
         """
@@ -67,10 +69,10 @@ class AbstractDatasetDistance:
 
     def get_hopts(self) -> Dict[str, Any]:
         """Get hyperparameters for distance computation.
-        
+
         Returns:
             Dictionary of hyperparameters for the distance computation method.
-            
+
         Raises:
             NotImplementedError: If not implemented by subclass
         """
@@ -78,7 +80,7 @@ class AbstractDatasetDistance:
 
     def __call__(self, *args: Any, **kwds: Any) -> Dict[str, Dict[str, float]]:
         """Allow the class to be called as a function.
-        
+
         Returns:
             The computed distance matrix.
         """
@@ -87,31 +89,31 @@ class AbstractDatasetDistance:
 
 class MoleculeDatasetDistance(AbstractDatasetDistance):
     """Calculate distances between molecule datasets using various methods.
-    
+
     This class implements distance computation between molecule datasets using:
     - Optimal Transport Dataset Distance (OTDD)
     - Euclidean distance
     - Cosine distance
-    
+
     The class supports both single dataset comparisons and batch comparisons
     across multiple datasets.
-    
+
     Args:
         D1: Single MoleculeDataset or list of MoleculeDatasets for source data
         D2: Single MoleculeDataset or list of MoleculeDatasets for target data
         method: Distance computation method ('otdd', 'euclidean', or 'cosine')
         **kwargs: Additional arguments passed to the distance computation method
-        
+
     Raises:
         ValueError: If the specified method is not supported for molecule datasets
     """
-    
+
     def __init__(
-        self, 
+        self,
         D1: Optional[Union[MoleculeDataset, List[MoleculeDataset]]] = None,
         D2: Optional[Union[MoleculeDataset, List[MoleculeDataset]]] = None,
         method: str = "euclidean",
-        **kwargs: Any
+        **kwargs: Any,
     ):
         super().__init__(D1, D2, method)
         self.symmetric_tasks = False
@@ -128,8 +130,10 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
             self.target = [self.target]
 
         if method not in MOLECULE_DISTANCE_METHODS:
-            raise ValueError(f"Method {method} not supported for molecule datasets. "
-                           f"Supported methods are: {MOLECULE_DISTANCE_METHODS}")
+            raise ValueError(
+                f"Method {method} not supported for molecule datasets. "
+                f"Supported methods are: {MOLECULE_DISTANCE_METHODS}"
+            )
         self.method = method
 
         self.source_task_ids = [d.task_id for d in self.source]
@@ -138,7 +142,7 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
     def get_hopts(self) -> Dict[str, Any]:
         """Get hyperparameters for the distance computation method.
-        
+
         Returns:
             Dictionary of hyperparameters specific to the chosen distance method.
         """
@@ -146,11 +150,11 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
     def otdd_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute Optimal Transport Dataset Distance between molecule datasets.
-        
+
         This method uses the OTDD implementation to compute distances between
         molecule datasets, which takes into account both the feature space
         and label space of the datasets.
-        
+
         Returns:
             Dictionary containing OTDD distances between source and target datasets.
             The outer dictionary is keyed by target task IDs, and the inner dictionary
@@ -171,7 +175,7 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
     def euclidean_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute Euclidean distance between molecule datasets.
-        
+
         This method computes the Euclidean distance between the feature vectors
         of the datasets. For each dataset, it computes the mean feature vector
         and then calculates the pairwise distances between these mean vectors.
@@ -186,7 +190,7 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
     def get_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute the distance between molecule datasets using the specified method.
-        
+
         Returns:
             Dictionary containing distance matrix between source and target datasets.
             The outer dictionary is keyed by target task IDs, and the inner dictionary
@@ -200,10 +204,10 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
     def load_distance(self, path: str) -> None:
         """Load pre-computed distances from a file.
-        
+
         Args:
             path: Path to the file containing pre-computed distances
-            
+
         Note:
             This method is currently a placeholder and needs to be implemented.
         """
@@ -211,7 +215,7 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
     def to_pandas(self) -> pd.DataFrame:
         """Convert the distance matrix to a pandas DataFrame.
-        
+
         Returns:
             DataFrame with source task IDs as index and target task IDs as columns,
             containing the distance values.
@@ -220,7 +224,7 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
     def __repr__(self) -> str:
         """Return a string representation of the MoleculeDatasetDistance instance.
-        
+
         Returns:
             String containing the class name and initialization parameters.
         """
@@ -229,28 +233,28 @@ class MoleculeDatasetDistance(AbstractDatasetDistance):
 
 class ProteinDatasetDistance(AbstractDatasetDistance):
     """Calculate distances between protein datasets using various methods.
-    
+
     This class implements distance computation between protein datasets using:
     - Euclidean distance
     - Cosine distance
-    
+
     The class supports both single dataset comparisons and batch comparisons
     across multiple datasets.
-    
+
     Args:
         D1: ProteinDataset for source data
         D2: ProteinDataset for target data
         method: Distance computation method ('euclidean' or 'cosine')
-        
+
     Raises:
         ValueError: If the specified method is not supported for protein datasets
     """
-    
+
     def __init__(
-        self, 
+        self,
         D1: Optional[ProteinDataset] = None,
         D2: Optional[ProteinDataset] = None,
-        method: str = "euclidean"
+        method: str = "euclidean",
     ):
         super().__init__(D1, D2, method)
         self.symmetric_tasks = False
@@ -263,8 +267,10 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
         self.method = method
 
         if method not in PROTEIN_DISTANCE_METHODS:
-            raise ValueError(f"Method {method} not supported for protein datasets. "
-                           f"Supported methods are: {PROTEIN_DISTANCE_METHODS}")
+            raise ValueError(
+                f"Method {method} not supported for protein datasets. "
+                f"Supported methods are: {PROTEIN_DISTANCE_METHODS}"
+            )
 
         self.source_task_ids = self.source.task_id
         self.target_task_ids = self.target.task_id
@@ -272,7 +278,7 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
 
     def get_hopts(self) -> Dict[str, Any]:
         """Get hyperparameters for the distance computation method.
-        
+
         Returns:
             Dictionary of hyperparameters specific to the chosen distance method.
         """
@@ -280,10 +286,10 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
 
     def euclidean_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute Euclidean distance between protein datasets.
-        
+
         This method calculates the pairwise Euclidean distances between protein
         feature vectors in the datasets.
-        
+
         Returns:
             Dictionary containing Euclidean distances between source and target datasets.
             The outer dictionary is keyed by target task IDs, and the inner dictionary
@@ -297,13 +303,13 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
                 prot_distance[src] = dist[j, i]
             prot_distances[tgt] = prot_distance
         return prot_distances
-    
+
     def cosine_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute cosine distance between protein datasets.
-        
+
         This method calculates the pairwise cosine distances between protein
         feature vectors in the datasets.
-        
+
         Returns:
             Dictionary containing cosine distances between source and target datasets.
             The outer dictionary is keyed by target task IDs, and the inner dictionary
@@ -317,16 +323,16 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
                 prot_distance[src] = dist[j, i]
             prot_distances[tgt] = prot_distance
         return prot_distances
-    
+
     def sequence_identity_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute sequence identity-based distance between protein datasets.
-        
+
         This method calculates distances based on protein sequence identity.
         Currently a placeholder for future implementation.
-        
+
         Returns:
             Dictionary containing sequence identity-based distances between datasets.
-            
+
         Note:
             This method is currently a placeholder and needs to be implemented.
         """
@@ -334,7 +340,7 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
 
     def get_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute the distance between protein datasets using the specified method.
-        
+
         Returns:
             Dictionary containing distance matrix between source and target datasets.
             The outer dictionary is keyed by target task IDs, and the inner dictionary
@@ -348,10 +354,10 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
 
     def load_distance(self, path: str) -> None:
         """Load pre-computed distances from a file.
-        
+
         Args:
             path: Path to the file containing pre-computed distances
-            
+
         Note:
             This method is currently a placeholder and needs to be implemented.
         """
@@ -359,7 +365,7 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
 
     def to_pandas(self) -> pd.DataFrame:
         """Convert the distance matrix to a pandas DataFrame.
-        
+
         Returns:
             DataFrame with source task IDs as index and target task IDs as columns,
             containing the distance values.
@@ -368,7 +374,7 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
 
     def __repr__(self) -> str:
         """Return a string representation of the ProteinDatasetDistance instance.
-        
+
         Returns:
             String containing the class name and initialization parameters.
         """
@@ -377,18 +383,18 @@ class ProteinDatasetDistance(AbstractDatasetDistance):
 
 class TaskDistance:
     """Class for computing and managing distances between tasks.
-    
+
     This class handles the computation and storage of distances between tasks,
     supporting both chemical and protein space distances. It can work with
     pre-computed distance matrices or compute them on demand.
-    
+
     Args:
         source_task_ids: List of task IDs for source tasks
         target_task_ids: List of task IDs for target tasks
         external_chemical_space: Pre-computed chemical space distance matrix (optional)
         external_protein_space: Pre-computed protein space distance matrix (optional)
     """
-    
+
     def __init__(
         self,
         source_task_ids: List[str],
@@ -403,7 +409,7 @@ class TaskDistance:
 
     def __repr__(self) -> str:
         """Return a string representation of the TaskDistance instance.
-        
+
         Returns:
             String containing the number of source and target tasks.
         """
@@ -412,7 +418,7 @@ class TaskDistance:
     @property
     def shape(self) -> Tuple[int, int]:
         """Get the shape of the distance matrix.
-        
+
         Returns:
             Tuple containing (number of source tasks, number of target tasks).
         """
@@ -420,13 +426,13 @@ class TaskDistance:
 
     def compute_ext_chem_distance(self, method: str) -> Dict[str, Dict[str, float]]:
         """Compute chemical space distances between tasks.
-        
+
         Args:
             method: Distance computation method to use
-            
+
         Returns:
             Dictionary containing chemical space distances between tasks.
-            
+
         Note:
             This method is currently a placeholder and needs to be implemented.
         """
@@ -434,28 +440,28 @@ class TaskDistance:
 
     def compute_ext_prot_distance(self, method: str) -> Dict[str, Dict[str, float]]:
         """Compute protein space distances between tasks.
-        
+
         Args:
             method: Distance computation method to use
-            
+
         Returns:
             Dictionary containing protein space distances between tasks.
-            
+
         Note:
             This method is currently a placeholder and needs to be implemented.
         """
         pass
 
     @staticmethod
-    def load_ext_chem_distance(path: str) -> 'TaskDistance':
+    def load_ext_chem_distance(path: str) -> "TaskDistance":
         """Load pre-computed chemical space distances from a file.
-        
+
         Args:
             path: Path to the file containing pre-computed chemical space distances
-            
+
         Returns:
             TaskDistance instance initialized with the loaded distances.
-            
+
         Note:
             The file should contain a dictionary with keys:
             - 'train_chembl_ids' or 'train_pubchem_ids' or 'source_task_ids'
@@ -486,15 +492,15 @@ class TaskDistance:
         return TaskDistance(source_task_ids, target_task_ids, external_chemical_space=x["distance_matrices"])
 
     @staticmethod
-    def load_ext_prot_distance(path: str) -> 'TaskDistance':
+    def load_ext_prot_distance(path: str) -> "TaskDistance":
         """Load pre-computed protein space distances from a file.
-        
+
         Args:
             path: Path to the file containing pre-computed protein space distances
-            
+
         Returns:
             TaskDistance instance initialized with the loaded distances.
-            
+
         Note:
             The file should contain a dictionary with keys:
             - 'train_chembl_ids' or 'train_pubchem_ids' or 'source_task_ids'
@@ -526,11 +532,11 @@ class TaskDistance:
 
     def to_pandas(self) -> pd.DataFrame:
         """Convert the chemical space distance matrix to a pandas DataFrame.
-        
+
         Returns:
             DataFrame with source task IDs as index and target task IDs as columns,
             containing the chemical space distance values.
-            
+
         Raises:
             ValueError: If no chemical space distances are available
         """
@@ -539,4 +545,4 @@ class TaskDistance:
         df = pd.DataFrame(
             self.external_chemical_space, index=self.source_task_ids, columns=self.target_task_ids
         )
-        return df
+        return df 

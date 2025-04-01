@@ -1,11 +1,13 @@
 from dataclasses import dataclass
-from typing import List, Optional, Any
+from typing import Any, List, Optional
+
 import numpy as np
 
 from themap.data.protein_dataset import ProteinDataset
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
 
 @dataclass
 class MetaData:
@@ -37,4 +39,4 @@ class MetaData:
         Returns:
             np.ndarray: Computed features from text description.
         """
-        return model.encode(self.text_desc) 
+        return model.encode(self.text_desc)

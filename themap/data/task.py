@@ -1,12 +1,14 @@
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Any, Optional
+
 import numpy as np
 
-from themap.data.molecule_dataset import MoleculeDataset
 from themap.data.metadata import MetaData
+from themap.data.molecule_dataset import MoleculeDataset
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
 
 @dataclass
 class Task:
@@ -50,4 +52,4 @@ class Task:
         """
         data_features = np.array([data.get_features(data_model) for data in self.data])
         metadata_features = self.metadata.get_features(metadata_model)
-        return np.concatenate([data_features, metadata_features], axis=0) 
+        return np.concatenate([data_features, metadata_features], axis=0)

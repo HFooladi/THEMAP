@@ -1,14 +1,15 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 from dpu_utils.utils import RichPath
 
+from themap.utils.logging import get_logger
 from themap.utils.protein_utils import (
     convert_fasta_to_dict,
     get_protein_features,
     get_task_name_from_uniprot,
 )
-from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -16,6 +17,7 @@ logger = get_logger(__name__)
 ProteinDict = Dict[str, str]  # Maps protein ID to sequence
 FeatureArray = np.ndarray  # Type alias for numpy feature arrays
 ModelType = Any  # Type for model objects
+
 
 @dataclass
 class ProteinDataset:
@@ -73,4 +75,4 @@ class ProteinDataset:
         """
         protein_dict = convert_fasta_to_dict(path)
         uniprot_ids = [key.split("|")[1] for key in protein_dict.keys()]
-        return ProteinDataset(get_task_name_from_uniprot(uniprot_ids), protein_dict) 
+        return ProteinDataset(get_task_name_from_uniprot(uniprot_ids), protein_dict)

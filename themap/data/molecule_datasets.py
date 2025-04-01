@@ -1,16 +1,20 @@
 from typing import Dict, List, Optional, Union
+
 from dpu_utils.utils import RichPath
 
-from themap.data.molecule_dataset import MoleculeDataset, get_task_name_from_path
+from themap.data.molecule_dataset import get_task_name_from_path
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class DataFold:
     """Enum for data fold types."""
+
     TRAIN = 0
     VALIDATION = 1
     TEST = 2
+
 
 class MoleculeDatasets:
     """Dataset of related tasks, provided as individual files split into meta-train, meta-valid and
@@ -38,7 +42,9 @@ class MoleculeDatasets:
             DataFold.TEST: test_data_paths,
         }
         self._num_workers = num_workers
-        logger.info(f"Initialized with {len(train_data_paths)} training, {len(valid_data_paths)} validation, and {len(test_data_paths)} test paths")
+        logger.info(
+            f"Initialized with {len(train_data_paths)} training, {len(valid_data_paths)} validation, and {len(test_data_paths)} test paths"
+        )
 
     def __repr__(self) -> str:
         return f"MoleculeDatasets(train={len(self._fold_to_data_paths[DataFold.TRAIN])}, valid={len(self._fold_to_data_paths[DataFold.VALIDATION])}, test={len(self._fold_to_data_paths[DataFold.TEST])})"
@@ -91,7 +97,8 @@ class MoleculeDatasets:
                 logger.warning(f"Directory {fold_dir} does not exist")
                 return []
             return [
-                f for f in fold_dir.iterate_filtered(glob_pattern="*.jsonl.gz")
+                f
+                for f in fold_dir.iterate_filtered(glob_pattern="*.jsonl.gz")
                 if task_list is None or get_task_name_from_path(f) in task_list
             ]
 
@@ -99,7 +106,9 @@ class MoleculeDatasets:
         valid_data_paths = get_fold_file_names("valid")
         test_data_paths = get_fold_file_names("test")
 
-        logger.info(f"Found {len(train_data_paths)} training, {len(valid_data_paths)} validation, and {len(test_data_paths)} test tasks")
+        logger.info(
+            f"Found {len(train_data_paths)} training, {len(valid_data_paths)} validation, and {len(test_data_paths)} test tasks"
+        )
         return MoleculeDatasets(
             train_data_paths=train_data_paths,
             valid_data_paths=valid_data_paths,
@@ -116,4 +125,4 @@ class MoleculeDatasets:
         Returns:
             List[str]: List of task names in the fold.
         """
-        return [get_task_name_from_path(path) for path in self._fold_to_data_paths[data_fold]] 
+        return [get_task_name_from_path(path) for path in self._fold_to_data_paths[data_fold]]

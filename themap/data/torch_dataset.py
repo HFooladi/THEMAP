@@ -1,11 +1,12 @@
+import numpy as np
 import torch
 import torch.utils.data.dataloader as dataloader
-import numpy as np
 
 from themap.data.molecule_dataset import MoleculeDataset
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
 
 class TorchMoleculeDataset(torch.utils.data.Dataset):
     """PYTORCH Dataset for molecular data.
@@ -34,7 +35,7 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
             X = torch.ones(len(self.data), 2)
         else:
             X = torch.from_numpy(self.data.get_features)
-        
+
         if isinstance(self.data.get_labels, np.ndarray):
             y = torch.from_numpy(self.data.get_labels).type(torch.LongTensor)
         else:
@@ -74,34 +75,28 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
 
     @classmethod
     def create_dataloader(
-        cls,
-        data: MoleculeDataset,
-        batch_size: int = 64,
-        shuffle: bool = True,
-        **kwargs
+        cls, data: MoleculeDataset, batch_size: int = 64, shuffle: bool = True, **kwargs
     ) -> torch.utils.data.DataLoader:
         """Create PyTorch DataLoader.
-        
+
         Args:
             data: Input dataset
             batch_size: Batch size
             shuffle: Whether to shuffle data
             **kwargs: Additional arguments for DataLoader
-            
+
         Returns:
             DataLoader: PyTorch data loader
         """
         dataset = cls(data)
-        return torch.utils.data.DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            **kwargs
-        )
+        return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, **kwargs)
 
-def MoleculeDataloader(data: MoleculeDataset, batch_size: int = 64, shuffle: bool = True, transform=None, target_transform=None) -> torch.utils.data.DataLoader:
+
+def MoleculeDataloader(
+    data: MoleculeDataset, batch_size: int = 64, shuffle: bool = True, transform=None, target_transform=None
+) -> torch.utils.data.DataLoader:
     """Load molecular data and create PYTORCH dataloader.
-    
+
     Args:
         data (MoleculeDataset): MoleculeDataset object
         batch_size (int): batch size
@@ -115,4 +110,4 @@ def MoleculeDataloader(data: MoleculeDataset, batch_size: int = 64, shuffle: boo
     dataset = TorchMoleculeDataset(data)
     dataset_loader = dataloader.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
-    return dataset_loader 
+    return dataset_loader
