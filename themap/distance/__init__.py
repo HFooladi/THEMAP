@@ -3,6 +3,8 @@ from themap.distance.distance import (
     MoleculeDatasetDistance,
     ProteinDatasetDistance,
     TaskDistance,
+    MOLECULE_DISTANCE_METHODS,
+    PROTEIN_DISTANCE_METHODS,
 )
 
 __all__ = [
@@ -10,4 +12,6 @@ __all__ = [
     "MoleculeDatasetDistance",
     "ProteinDatasetDistance",
     "TaskDistance",
+    "MOLECULE_DISTANCE_METHODS",
+    "PROTEIN_DISTANCE_METHODS",
 ]

@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from themap.data.tasks import MoleculeDatapoint
+from themap.data import MoleculeDatapoint
 from themap.utils.distance_utils import compute_fp_similarity, compute_fps_similarity, normalize
 
 
