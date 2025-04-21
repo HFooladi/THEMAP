@@ -1,5 +1,8 @@
 [![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs--jcim--3c01774-blue)](https://doi.org/10.1021/acs.jcim.4c00160)
 
+<p align="center">
+  <img src="assets/banner.png" alt="THEMAP Banner" style="max-width:100%;">
+</p>
 
 # THEMAP
 Task Hardness Estimation for Molecular Activity Prediction
