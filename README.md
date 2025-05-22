@@ -147,9 +147,6 @@ mkdocs serve
 
 If you use THEMAP in your research, please cite our paper:
 
-## Citation <a name="citation"></a>
-If you find the models useful in your research, we ask that you cite the following paper:
-
 ```bibtex
 @article{fooladi2024quantifying,
   title={Quantifying the hardness of bioactivity prediction tasks for transfer learning},
