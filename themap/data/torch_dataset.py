@@ -83,7 +83,7 @@ class TorchMoleculeDataset(torch.utils.data.Dataset):
             data: Input dataset
             batch_size: Batch size
             shuffle: Whether to shuffle data
-            **kwargs: Additional arguments for DataLoader
+            **kwargs (any): Additional arguments for DataLoader
 
         Returns:
             DataLoader: PyTorch data loader

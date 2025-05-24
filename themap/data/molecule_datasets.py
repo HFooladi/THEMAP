@@ -71,7 +71,7 @@ class MoleculeDatasets:
         Args:
             directory (Union[str, RichPath]): Directory containing train/valid/test subdirectories.
             task_list_file (Optional[Union[str, RichPath]]): File containing list of tasks to include.
-            **kwargs: Additional arguments to pass to MoleculeDatasets constructor.
+            **kwargs (any): Additional arguments to pass to MoleculeDatasets constructor.
 
         Returns:
             MoleculeDatasets: Created dataset.
