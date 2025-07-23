@@ -159,14 +159,13 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# third_party modules and libraries
-# third_party/
 
 # FS-Mol dataset
 datasets/fsmol_hardness/
+fsmol_datasets/
 
 # ignore assets folder
-# assets/
+assets/figures/
 
 # ignore dev notebook
 notebooks/dev.ipynb
