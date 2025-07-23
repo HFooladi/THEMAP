@@ -2,14 +2,16 @@
 
 import numpy as np
 import pytest
+
+from themap.data import MoleculeDatapoint, MoleculeDataset
+from themap.data.protein_datasets import ProteinDataset
 from themap.distance import (
+    MOLECULE_DISTANCE_METHODS,
+    PROTEIN_DISTANCE_METHODS,
     MoleculeDatasetDistance,
     ProteinDatasetDistance,
     TaskDistance,
-    MOLECULE_DISTANCE_METHODS,
-    PROTEIN_DISTANCE_METHODS,
 )
-from themap.data import MoleculeDataset, ProteinDataset, MoleculeDatapoint
 
 
 @pytest.fixture
@@ -23,13 +25,13 @@ def mock_molecule_dataset():
                 task_id="test_task",
                 smiles="CCO",  # Simple ethanol molecule
                 bool_label=bool(np.random.randint(0, 2)),
-                numeric_label=float(np.random.rand())
+                numeric_label=float(np.random.rand()),
             )
         )
     return MoleculeDataset(
         task_id="test_task",
         data=datapoints,
-        _features=np.random.rand(10, 8)  # Mock features
+        _features=np.random.rand(10, 8),  # Mock features
     )
 
 
@@ -41,10 +43,7 @@ def mock_protein_dataset():
         f"protein_{i}": "MLSDEDFKAVFGMTRSAFANLPLWKQQNLKKEKGLF"  # Mock protein sequence
         for i in range(10)
     }
-    return ProteinDataset(
-        task_id=[f"test_task_{i}" for i in range(10)],
-        protein=proteins
-    )
+    return ProteinDataset(task_id=[f"test_task_{i}" for i in range(10)], protein=proteins)
 
 
 def test_molecule_dataset_distance_initialization(mock_molecule_dataset):
@@ -153,7 +152,6 @@ def test_distance_methods():
     assert "cosine" in PROTEIN_DISTANCE_METHODS
 
 
-
 def test_distance_computation(mock_molecule_dataset, mock_protein_dataset):
     """Test distance computation for both molecule and protein datasets."""
     # Test molecule dataset distance computation
@@ -172,4 +170,5 @@ def test_distance_computation(mock_molecule_dataset, mock_protein_dataset):
 def test_sequence_identity_distance(mock_protein_dataset):
     """Test sequence identity distance computation (placeholder)."""
     prot_dist = ProteinDatasetDistance(D1=mock_protein_dataset)
-    # Currently a placeholder, should return None 
+    # Currently a placeholder, should return None
+    assert prot_dist.get_distance() is None

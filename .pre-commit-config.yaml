@@ -1,10 +1,10 @@
 repos:
   # Ruff - replaces flake8, isort, black, and more
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.4  # Use latest stable version
+    rev: v0.12.4
     hooks:
       - id: ruff
-        args: [--fix]  # Automatically fix what can be fixed
+        args: [--fix]  # Add back --fix for pre-commit
       - id: ruff-format
 
   # Type checking
@@ -13,8 +13,7 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-requests]
-        args: [--ignore-missing-imports]
-        exclude: ^(scripts/|third_party/|themap/models/otdd/)
+        # Remove --config-file arg, mypy reads pyproject.toml automatically
 
   # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -27,7 +26,7 @@ repos:
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-added-large-files
-        args: ['--maxkb=1000']  # Prevent large files
+        args: ['--maxkb=1000']
 
   # Optional: Run tests (can be slow, consider making it optional)
   # Uncomment if you want tests to run on every commit

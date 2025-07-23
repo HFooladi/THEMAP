@@ -1,9 +1,10 @@
-import numpy as np
 import pandas as pd
 import pytest
-
 from dpu_utils.utils import RichPath
-from themap.data import MoleculeDatapoint, ProteinDataset, MoleculeDataset
+
+from themap.data.molecule_datapoint import MoleculeDatapoint
+from themap.data.protein_datasets import ProteinDataset
+
 
 @pytest.fixture
 def manual_smiles():
@@ -44,25 +45,29 @@ def dataset_CHEMBL2219236():
 def dataset_CHEMBL1963831():
     return RichPath.create("datasets/test/CHEMBL1963831.jsonl.gz")
 
+
 @pytest.fixture
 def dataset_CHEMBL1023359():
     return RichPath.create("datasets/test/CHEMBL1023359.jsonl.gz")
+
 
 @pytest.fixture
 def dataset_CHEMBL2219358():
     return RichPath.create("datasets/test/CHEMBL2219358.jsonl.gz")
 
+
 @pytest.fixture
 def dataset_CHEMBL1963831_csv():
     return pd.read_csv("tests/conftest/CHEMBL1963831.csv")
+
 
 @pytest.fixture
 def manual_protein_dataset():
     return ProteinDataset(
         task_id=["CHEMBL2219236", "CHEMBL2219358"],
-        protein={"Q13177" : "MSDNGELEDKPPAPPVRMSSTI",
-                 "P50750" : "MAKQYDSVECPFCDEVSKYEK"}
-        )
+        protein={"Q13177": "MSDNGELEDKPPAPPVRMSSTI", "P50750": "MAKQYDSVECPFCDEVSKYEK"},
+    )
+
 
 @pytest.fixture
 def protein_dataset_train():

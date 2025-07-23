@@ -1,8 +1,8 @@
-import pytest
 import numpy as np
+import pytest
 
 from themap.data import MoleculeDatapoint
-from themap.utils.distance_utils import compute_fp_similarity, compute_fps_similarity, normalize
+from themap.utils.distance_utils import normalize
 
 
 @pytest.fixture

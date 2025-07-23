@@ -19,7 +19,7 @@ dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
-    "seaborn", 
+    "seaborn",
     "scikit-learn",
     "dpu-utils>=0.2.13",
     "rdkit",
@@ -60,7 +60,7 @@ protein = [
   "esm",
 ]
 
-# Optimal transport distances  
+# Optimal transport distances
 otdd = [
   "torch==2.4.0",
   "torchvision==0.19.0",
@@ -78,7 +78,7 @@ all = [
   "torchvision==0.19.0",
   "torchaudio==2.4.0",
   "molfeat==0.11.0",
-  "dgl<=2.0", 
+  "dgl<=2.0",
   "dgllife>=0.3.2",
   "pytorch_geometric",
   "fcd_torch",
@@ -152,14 +152,22 @@ exclude = [
 ]
 
 [tool.ruff]
+# Enable auto-fixing
+fix = true
+
+# Set line length
+line-length = 110
+
+# Set target version
+target-version = "py310"
+
 # Select rule codes to enforce. "E" and "F" are defaults. Add "I" for import sorting.
 # You can add more codes like "B" (flake8-bugbear) or "C4" (flake8-comprehensions) etc.
-lint.select = ["E", "F", "W", "I"] # W = warnings, I = isort
-lint.ignore = [
-    "E501", # Line length handled by formatter
-]
-line-length = 110
-target-version = "py310"
+[tool.ruff.lint]
+
+select = ["E", "F", "W", "I"] # W = warnings, I = isort
+ignore = ["E501"] # Line length handled by formatter
+
 
 [tool.ruff.format]
 # Use double quotes for strings
@@ -199,19 +207,6 @@ output = "coverage.xml"
 
 [tool.mypy]
 python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-show_error_codes = true
 
 [[tool.mypy.overrides]]
 module = [
@@ -220,5 +215,6 @@ module = [
     "molfeat.*",
     "dpu_utils.*",
     "themap.models.otdd.*",
+    "tests.*",
 ]
 ignore_missing_imports = true

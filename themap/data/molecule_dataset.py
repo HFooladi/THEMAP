@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 from dpu_utils.utils import RichPath
+from numpy.typing import NDArray
 
 from themap.data.molecule_datapoint import MoleculeDatapoint
 from themap.utils.cache_utils import PersistentFeatureCache
@@ -16,7 +17,6 @@ logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
 
 # Type definitions for better type hints
-FeatureArray = np.ndarray  # Type alias for numpy feature arrays
 DatasetStats = Dict[str, Union[int, float]]  # Type for dataset statistics
 
 
@@ -46,13 +46,13 @@ class MoleculeDataset:
     Attributes:
         task_id (str): String describing the task this dataset is taken from.
         data (List[MoleculeDatapoint]): List of MoleculeDatapoint objects.
-        _features (Optional[FeatureArray]): Cached features for the dataset.
+        _features (Optional[NDArray[np.float32]]): Cached features for the dataset.
         _cache_info (Dict[str, Any]): Information about the feature caching.
     """
 
     task_id: str
     data: List[MoleculeDatapoint] = field(default_factory=list)
-    _features: Optional[FeatureArray] = None
+    _features: Optional[NDArray[np.float32]] = None
     _cache_info: Dict[str, Any] = field(default_factory=dict)
     _persistent_cache: Optional[PersistentFeatureCache] = field(default=None, repr=False)
 
@@ -83,7 +83,7 @@ class MoleculeDataset:
         n_jobs: Optional[int] = None,
         force_recompute: bool = False,
         batch_size: int = 1000,
-    ) -> FeatureArray:
+    ) -> NDArray[np.float32]:
         """Get the features for the entire dataset using a featurizer.
 
         Efficiently computes features for all molecules in the dataset using the
@@ -99,7 +99,7 @@ class MoleculeDataset:
                             when handling large datasets
 
         Returns:
-            FeatureArray: Features for the entire dataset, shape (n_samples, n_features)
+            NDArray[np.float32]: Features for the entire dataset, shape (n_samples, n_features)
 
         Raises:
             ValueError: If the generated features length doesn't match the dataset length
@@ -177,13 +177,13 @@ class MoleculeDataset:
                 )
 
             # Initialize features variable to satisfy mypy
-            unique_features: FeatureArray
+            unique_features: NDArray[np.float32]
 
             # Check if dataset is too large for memory-efficient processing
             if len(unique_smiles) > batch_size:
                 logger.info(f"Processing large dataset in batches of {batch_size}")
                 # Process in batches to avoid memory issues
-                all_features: List[FeatureArray] = []
+                all_features: List[NDArray[np.float32]] = []
 
                 for i in range(0, len(unique_smiles), batch_size):
                     batch = unique_smiles[i : i + batch_size]
@@ -246,7 +246,7 @@ class MoleculeDataset:
                 )
 
             # Create a mapping from unique SMILES to their features
-            smiles_to_features: Dict[str, FeatureArray] = {
+            smiles_to_features: Dict[str, NDArray[np.float32]] = {
                 smiles: unique_features[i] for i, smiles in enumerate(unique_smiles)
             }
 
@@ -398,7 +398,7 @@ class MoleculeDataset:
         n_jobs: Optional[int] = None,
         force_recompute: bool = False,
         batch_size: int = 1000,
-    ) -> FeatureArray:
+    ) -> NDArray[np.float32]:
         """Get dataset features with persistent caching enabled.
 
         This method provides the same functionality as get_dataset_embedding but with
@@ -481,7 +481,7 @@ class MoleculeDataset:
         self._cache_info.update(cache_info)
         return self._cache_info
 
-    def get_prototype(self, featurizer_name: str) -> Tuple[FeatureArray, FeatureArray]:
+    def get_prototype(self, featurizer_name: str) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
         """Get the prototype of the dataset.
 
         This method calculates the mean feature vector of positive and negative examples
@@ -491,7 +491,7 @@ class MoleculeDataset:
             featurizer_name (str): Name of the featurizer to use.
 
         Returns:
-            Tuple[FeatureArray, FeatureArray]: Tuple containing:
+            Tuple[NDArray[np.float32], NDArray[np.float32]]: Tuple containing:
                 - positive_prototype: Mean feature vector of positive examples
                 - negative_prototype: Mean feature vector of negative examples
 
@@ -557,18 +557,18 @@ class MoleculeDataset:
         return positive_prototype, negative_prototype
 
     @property
-    def get_features(self) -> Optional[FeatureArray]:
+    def get_features(self) -> Optional[NDArray[np.float32]]:
         """Get the cached features for the dataset.
 
         Returns:
-            Optional[FeatureArray]: Cached features for the dataset if available, None otherwise.
+            Optional[NDArray[np.float32]]: Cached features for the dataset if available, None otherwise.
         """
         if self._features is None:
             return None
         return np.array(self._features)
 
     @property
-    def get_labels(self) -> np.ndarray:
+    def get_labels(self) -> NDArray[np.int32]:
         return np.array([data.bool_label for data in self.data])
 
     @property

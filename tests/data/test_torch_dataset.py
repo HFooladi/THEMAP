@@ -1,8 +1,9 @@
 import torch
 
-from themap.data.molecule_dataset import MoleculeDataset
 from themap.data.molecule_datapoint import MoleculeDatapoint
-from themap.data.torch_dataset import TorchMoleculeDataset, MoleculeDataloader
+from themap.data.molecule_dataset import MoleculeDataset
+from themap.data.torch_dataset import MoleculeDataloader, TorchMoleculeDataset
+
 
 def test_TorchMoleculeDataset(dataset_CHEMBL2219358):
     """Test the TorchMoleculeDataset class."""
@@ -23,12 +24,13 @@ def test_TorchMoleculeDataset(dataset_CHEMBL2219358):
     # Test the __repr__ method
     assert str(torch_dataset) == f"TorchMoleculeDataset(task_id={dataset.task_id}, task_size=157)"
 
+
 def test_TorchMoleculeDataset_without_features():
     """Test TorchMoleculeDataset when dataset has no features."""
     # Create a dataset without features
     datapoints = [
         MoleculeDatapoint("test_task", "c1ccccc1", True),
-        MoleculeDatapoint("test_task", "c1ccccc1", False)
+        MoleculeDatapoint("test_task", "c1ccccc1", False),
     ]
     dataset = MoleculeDataset("test_task", datapoints)
 
@@ -40,12 +42,13 @@ def test_TorchMoleculeDataset_without_features():
     assert features.shape == (2,)  # Default shape when no features
     assert isinstance(label, torch.Tensor)
 
+
 def test_TorchMoleculeDataset_transforms():
     """Test TorchMoleculeDataset with transforms."""
     # Create a test dataset
     datapoints = [
         MoleculeDatapoint("test_task", "c1ccccc1", True),
-        MoleculeDatapoint("test_task", "c1ccccc1", False)
+        MoleculeDatapoint("test_task", "c1ccccc1", False),
     ]
     dataset = MoleculeDataset("test_task", datapoints)
 
@@ -58,15 +61,14 @@ def test_TorchMoleculeDataset_transforms():
 
     # Create dataset with transforms
     torch_dataset = TorchMoleculeDataset(
-        dataset,
-        transform=feature_transform,
-        target_transform=label_transform
+        dataset, transform=feature_transform, target_transform=label_transform
     )
 
     # Test transforms
     features, label = torch_dataset[0]
     assert features[0] == 2  # Original value was 1
     assert label.item() == 2  # Original value was 1
+
 
 def test_MoleculeDataloader(dataset_CHEMBL2219358):
     """Test the MoleculeDataloader function."""
@@ -88,24 +90,21 @@ def test_MoleculeDataloader(dataset_CHEMBL2219358):
         assert labels.shape[0] <= 32  # Batch size
         break
 
+
 def test_TorchMoleculeDataset_create_dataloader():
     """Test the create_dataloader classmethod."""
     # Create a test dataset
     datapoints = [
         MoleculeDatapoint("test_task", "c1ccccc1", True),
-        MoleculeDatapoint("test_task", "c1ccccc1", False)
+        MoleculeDatapoint("test_task", "c1ccccc1", False),
     ]
     dataset = MoleculeDataset("test_task", datapoints)
 
     # Create dataloader using classmethod
-    dataloader = TorchMoleculeDataset.create_dataloader(
-        dataset,
-        batch_size=2,
-        shuffle=False
-    )
+    dataloader = TorchMoleculeDataset.create_dataloader(dataset, batch_size=2, shuffle=False)
 
     # Test dataloader
     assert len(dataloader) == 1
     features, labels = next(iter(dataloader))
     assert features.shape == (2, 2)  # (batch_size, feature_dim)
-    assert labels.shape == (2,) 
+    assert labels.shape == (2,)
