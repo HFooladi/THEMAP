@@ -4,11 +4,10 @@ The protein embedding is computed using the ESM2 model. The distance is computed
 """
 
 import os
-import pickle
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import List, Tuple
+from typing import Tuple
 
 import pandas as pd
 import torch
@@ -31,7 +30,7 @@ from themap.utils import compute_task_hardness_from_distance_matrix, normalize
 ESM2_Models = ["esm2_t6_8M_UR50D",
                "esm2_t12_35M_UR50S",
                "esm2_t30_150M_UR50S",
-               "esm2_t33_650M_UR50D", 
+               "esm2_t33_650M_UR50D",
                "esm2_t36_3B_UR50D"],
 """
 

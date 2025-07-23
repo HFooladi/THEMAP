@@ -166,7 +166,7 @@ cython_debug/
 datasets/fsmol_hardness/
 
 # ignore assets folder
-assets/
+# assets/
 
 # ignore dev notebook
 notebooks/dev.ipynb

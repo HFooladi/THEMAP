@@ -1,14 +1,15 @@
-from themap.distance.distance import (
-    AbstractDatasetDistance,
+from themap.distance.tasks_distance import (
+    MOLECULE_DISTANCE_METHODS,
+    PROTEIN_DISTANCE_METHODS,
+    AbstractTasksDistance,
     MoleculeDatasetDistance,
     ProteinDatasetDistance,
     TaskDistance,
-    MOLECULE_DISTANCE_METHODS,
-    PROTEIN_DISTANCE_METHODS,
 )
 
 __all__ = [
-    "AbstractDatasetDistance",
+    # Legacy distance classes
+    "AbstractTasksDistance",
     "MoleculeDatasetDistance",
     "ProteinDatasetDistance",
     "TaskDistance",

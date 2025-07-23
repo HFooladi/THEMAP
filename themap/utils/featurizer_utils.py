@@ -1,13 +1,11 @@
-import datamol as dm
+from abc import ABC, abstractmethod
+from typing import List, Optional, Union
+
 import numpy as np
-from molfeat.calc import FPCalculator
 from molfeat.trans import MoleculeTransformer
-from molfeat.trans.fp import FPVecTransformer
 from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
 from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
 from rdkit import Chem
-from typing import List, Optional, Union, Dict, Any
-from abc import ABC, abstractmethod
 
 from themap.utils.logging import get_logger
 
@@ -16,21 +14,23 @@ logger = get_logger(__name__)
 
 class BaseFeaturizer(ABC):
     """Abstract base class for molecular featurizers."""
-    
+
     @abstractmethod
     def __call__(self, smiles: Union[str, List[str]]) -> np.ndarray:
         """Convert SMILES to feature vector(s).
-        
+
         Args:
             smiles: SMILES string or list of SMILES strings
-            
+
         Returns:
             np.ndarray: Feature vector(s)
         """
         pass
 
 
-def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_map: bool = False) -> Optional[Chem.Mol]:
+def make_mol(
+    smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_map: bool = False
+) -> Optional[Chem.Mol]:
     """
     Builds an RDKit molecule from a SMILES string.
 
@@ -44,7 +44,7 @@ def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_ma
         RDKit molecule.
     """
     params = Chem.SmilesParserParams()
-    params.removeHs = not keep_h
+    params.removeHs = not keep_h  # type: ignore
     mol = Chem.MolFromSmiles(smiles, params)
 
     if add_h:
@@ -63,7 +63,9 @@ def make_mol(smiles: str, keep_h: bool = True, add_h: bool = False, keep_atom_ma
     return mol
 
 
-def get_featurizer(featurizer: str, n_jobs: int = -1) -> Union[MoleculeTransformer, GraphormerTransformer, PretrainedHFTransformer, PretrainedDGLTransformer]:
+def get_featurizer(
+    featurizer: str, n_jobs: int = -1
+) -> Union[MoleculeTransformer, GraphormerTransformer, PretrainedHFTransformer, PretrainedDGLTransformer]:
     """
     Returns a featurizer object based on the input string.
 

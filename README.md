@@ -12,7 +12,7 @@
 **THEMAP is a Python library designed to calculate distances between chemical datasets** for molecular activity prediction tasks. The primary goal is to enable intelligent dataset selection for:
 
 - **Transfer Learning**: Identify the most relevant source datasets for your target prediction task
-- **Domain Adaptation**: Measure dataset similarity to guide model adaptation strategies  
+- **Domain Adaptation**: Measure dataset similarity to guide model adaptation strategies
 - **Task Hardness Assessment**: Quantify how difficult a prediction task will be based on dataset characteristics
 - **Dataset Curation**: Select optimal training datasets from large chemical databases like ChEMBL
 
@@ -25,6 +25,8 @@
 ### 📊 **Multiple Distance Metrics**
 - **OTDD (Optimal Transport Dataset Distance)**: Advanced optimal transport-based dataset comparison
 - **Protein distance**: Target-based similarity for bioactivity datasets
+- **Method-specific calculations**: Different distance methods for molecules, proteins, and metadata
+- **Combined distances**: Weighted combination of multiple data type distances
 
 ### 🧬 **Flexible Molecular Representations**
 - **GIN (Graph Isomorphism Network)**: Deep learning-based molecular embeddings
@@ -38,45 +40,156 @@
 
 ## 🚀 Quick Start
 
-### Installation
-`THEMAP` can be installed using pip. First, clone this repository, create a new conda environment with the required packages, and finally, install the repository using pip.
+### Installation Options
+
+THEMAP offers flexible installation options depending on your needs:
+
+#### Option 1: Minimal Installation (Recommended for Getting Started)
+For basic functionality without heavy ML dependencies:
+
+
+#### Option 1: Full Installation with GPU Support
+For complete functionality including OTDD and GPU acceleration:
 
 ```bash
+# Create full environment (requires CUDA)
 conda env create -f environment.yml
 conda activate themap
 
-pip install --no-deps git+https://github.com/HFooladi/otdd.git  
-pip install --no-deps -e .
+# Install with all features
+pip install -e . --no-deps
 ```
 
-## Getting Started
+#### Option 2: Custom Installation
+Install only the features you need:
 
-### Basic Usage - Calculate Dataset Distance
-  
+```bash
+# Minimal base
+pip install -e .
+
+# Add specific features as needed
+pip install -e ".[otdd]"     # For optimal transport distances
+pip install -e ".[protein]"  # For protein analysis
+pip install -e ".[ml-gpu]"   # For GPU-accelerated ML
+```
+
+
+### 🧪 Testing Installation
+
+Verify your installation works:
+
+```bash
+# Test basic functionality
+python -c "from themap.data.molecule_dataset import MoleculeDataset; print('✅ Core functionality works')"
+```
+
+### 🆕 Enhanced Distance Calculation Interface
+
+THEMAP now features an improved distance calculation system that supports:
+
+- **Tasks-based approach**: Organize datasets into train/validation/test splits using the `Tasks` collection
+- **Method-specific configuration**: Use different distance methods for molecules (`"otdd"`, `"euclidean"`, `"cosine"`), proteins (`"euclidean"`, `"cosine"`), and metadata (`"euclidean"`, `"cosine"`, `"jaccard"`, `"hamming"`)
+- **Unified API**: All distance classes (`MoleculeDatasetDistance`, `ProteinDatasetDistance`, `TaskDistance`) share the same interface
+- **Flexible combination strategies**: Combine distances from multiple data types using various strategies (`"average"`, `"weighted_average"`, `"min"`, `"max"`)
+- **Backward compatibility**: Existing code continues to work with the legacy interface
+
+### Basic Usage Examples
+
+#### Example 1: Dataset Loading and Basic Analysis (Works with Minimal Installation)
+
 ```python
 import os
 from dpu_utils.utils.richpath import RichPath
+from themap.data.molecule_dataset import MoleculeDataset
 
-from themap.data import MoleculeDataset
-from themap.distance import MoleculeDatasetDistance
-
-# Load source and target datasets
+# Load datasets
 source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
-target_dataset_path = RichPath.create(os.path.join("datasets", "test", "CHEMBL2219358.jsonl.gz"))
 source_dataset = MoleculeDataset.load_from_file(source_dataset_path)
-target_dataset = MoleculeDataset.load_from_file(target_dataset_path)
 
-# Calculate molecular embeddings
-molecule_featurizer = "gin_supervised_infomax"
-source_features = source_dataset.get_dataset_embedding(molecule_featurizer)
-target_features = target_dataset.get_dataset_embedding(molecule_featurizer)
+# Basic dataset analysis (works with minimal installation)
+print(f"Dataset size: {len(source_dataset)}")
+print(f"Positive ratio: {source_dataset.get_ratio}")
+print(f"Dataset statistics: {source_dataset.get_statistics()}")
 
-# Compute dataset distance using OTDD
-Dist = MoleculeDatasetDistance(D1=source_dataset, D2=target_dataset, method="otdd")
-distance = Dist.get_distance()
+# Validate dataset integrity
+try:
+    source_dataset.validate_dataset_integrity()
+    print("✅ Dataset is valid")
+except ValueError as e:
+    print(f"❌ Dataset validation failed: {e}")
+```
 
-print(distance)
-# Output: {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
+#### Example 2: Advanced ML Features (Requires ML Installation)
+
+```python
+# Only works with pip install -e ".[ml]" or higher
+from themap.data.molecule_dataset import MoleculeDataset
+dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
+
+# Load dataset
+dataset = MoleculeDataset.load_from_file(dataset_path)
+
+# Calculate molecular embeddings (requires ML dependencies)
+try:
+    features = dataset.get_dataset_embedding("ecfp")
+    print(f"Features shape: {features.shape}")
+except ImportError:
+    print("❌ ML dependencies not installed. Use: pip install -e '.[ml]'")
+```
+
+#### Example 3: Advanced Distance Calculation (Requires Full Installation)
+
+```python
+# Only works with pip install -e ".[all]" 
+from themap.data.tasks import Tasks, Task
+from themap.distance.tasks_distance import MoleculeDatasetDistance, TaskDistance
+
+# Create Tasks collection from your datasets
+source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
+source_dataset = MoleculeDataset.load_from_file(source_dataset_path)
+target_dataset_path = RichPath.create(os.path.join("datasets", "test", "CHEMBL2219358.jsonl.gz"))
+target_dataset = MoleculeDataset.load_from_file(source_dataset_path)
+source_task = Task(task_id="CHEMBL1023359", molecule_dataset=source_dataset)
+target_task = Task(task_id="CHEMBL2219358", molecule_dataset=target_dataset)
+
+# Option 1: Create Tasks collection with train/test split
+tasks = Tasks(train_tasks=[source_task], test_tasks=[target_task])
+
+# Option 2: Compute molecule distance with method-specific configuration
+try:
+    # Use different methods for different data types
+    mol_dist = MoleculeDatasetDistance(
+        tasks=tasks,
+        molecule_method="otdd",     # OTDD for molecules
+    )
+    mol_dist._compute_features()
+    distance = mol_dist.get_distance()
+    print(distance)
+    # Output: {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
+    
+    # Option 3: Use TaskDistance for comprehensive analysis
+    task_dist = TaskDistance(
+        tasks=tasks,
+        molecule_method="otdd",
+        protein_method="cosine"
+    )
+    
+    # Compute different types of distances
+    molecule_distances = task_dist.compute_molecule_distance()
+    # protein_distances = task_dist.compute_protein_distance()  # If protein data available
+    
+    # Or compute all distances at once
+    all_distances = task_dist.compute_all_distances(
+        molecule_method="otdd",
+        combination_strategy="weighted_average",
+        molecule_weight=0.7,
+        protein_weight=0.3
+    )
+    print("Molecule distances:", all_distances["molecule"])
+    print("Combined distances:", all_distances["combined"])
+    
+except ImportError:
+    print("❌ Distance calculation dependencies not installed. Use: pip install -e '.[all]'")
 ```
 
 
@@ -127,20 +240,70 @@ For the FS-Mol dataset, molecular embeddings and distance matrices have been pre
 
 ## 🛠️ Development
 
-### Tests
+### Setting Up Development Environment
+
+For development, use the minimal installation with development tools:
+
 ```bash
-pytest
+# Create development environment
+conda env create -f environment-minimal.yml
+conda activate themap-minimal
+
+# Install in development mode with dev tools
+pip install -e ".[dev,test]"
 ```
 
-### Code Style
+### Running Tests
+
 ```bash
+# Run pytest (if no import conflicts)
+pytest
+
+# Run tests with coverage
+pytest --cov=themap
+```
+
+### Code Quality
+
+```bash
+# Check code style
 ruff check
 ruff format
+
+# Type checking
+mypy themap/
+
+# Run all quality checks
+ruff check && ruff format && mypy themap/
 ```
 
 ### Documentation
+
 ```bash
+# Serve documentation locally
 mkdocs serve
+
+# Build documentation
+mkdocs build
+```
+
+### 🔧 Handling Import Issues During Development
+
+If you encounter PyTorch/CUDA import issues during development:
+
+1. **Use isolated testing**: `python run_isolated_tests.py`
+2. **Avoid importing the full package**: Import modules directly
+3. **Use minimal environment**: Develop with `environment-minimal.yml`
+4. **Add lazy imports**: For heavy dependencies in your code
+
+```python
+# Example of lazy import pattern
+def get_heavy_dependency():
+    try:
+        import heavy_ml_library
+        return heavy_ml_library
+    except ImportError:
+        raise ImportError("Please install with: pip install -e '.[ml]'")
 ```
 
 ## 📚 Citation

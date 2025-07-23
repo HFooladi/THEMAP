@@ -1,3 +1,4 @@
+from themap.utils.cache_utils import GlobalMoleculeCache, PersistentFeatureCache
 from themap.utils.distance_utils import (
     calculate_task_hardness_weight,
     compute_class_prototypes,
@@ -23,6 +24,7 @@ from themap.utils.distance_utils import (
     similar_dissimilar_indices,
 )
 from themap.utils.featurizer_utils import get_featurizer, make_mol
+from themap.utils.memory_utils import MemoryEfficientFeatureStorage
 from themap.utils.protein_utils import (
     get_protein_accession,
     get_protein_sequence,

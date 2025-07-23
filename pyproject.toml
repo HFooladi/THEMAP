@@ -19,34 +19,110 @@ dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
-    "seaborn",
+    "seaborn", 
     "scikit-learn",
-    "torch",  
     "dpu-utils>=0.2.13",
-    "rdkit",  
+    "rdkit",
     "datamol",
-    "molfeat",
+    "tqdm",
+    "adjustText",
+    "h5py",
+    "pytz",
+    "pydantic",
+    "chembl-webresource-client",
+    "biopython",
 ]
 
 [project.optional-dependencies]
+# Core ML functionality
+ml = [
+  "torch==2.4.0",
+  "torchvision==0.19.0",
+  "torchaudio==2.4.0",
+  "molfeat==0.11.0",
+]
+
+# Advanced ML with GPU support
+ml-gpu = [
+  "torch==2.4.0",
+  "torchvision==0.19.0",
+  "torchaudio==2.4.0",
+  "molfeat==0.11.0",
+  "dgl<=2.0",
+  "dgllife>=0.3.2",
+  "pytorch_geometric",
+  "fcd_torch",
+]
+
+# Protein analysis
+protein = [
+  "biopython",
+  "esm",
+]
+
+# Optimal transport distances  
+otdd = [
+  "torch==2.4.0",
+  "torchvision==0.19.0",
+  "torchaudio==2.4.0",
+  "pot",
+  "pykeops",
+  "geomloss",
+  "opentsne",
+  "munkres",
+]
+
+# All features
+all = [
+  "torch==2.4.0",
+  "torchvision==0.19.0",
+  "torchaudio==2.4.0",
+  "molfeat==0.11.0",
+  "dgl<=2.0", 
+  "dgllife>=0.3.2",
+  "pytorch_geometric",
+  "fcd_torch",
+  "biopython",
+  "esm",
+  "pot",
+  "pykeops",
+  "geomloss",
+  "opentsne",
+  "munkres",
+]
+
 test = [
-  "pytest",
+  "pytest>=6.0",
+  "pytest-dotenv",
   "pytest-cov",
+  "pytest-timeout",
+  "pytest-xdist",
 ]
 
 dev = [
-  "ruff",
-  "black",
+  "ruff==0.12.4",
+  "mypy==1.17.0",
+  "pre-commit",
+  "jupyterlab",
+  "nbconvert",
+  "ipywidgets",
   "isort",
-  "mypy",
+  "celluloid",
+  "ipycache",
+  "watermark",
 ]
 
 docs = [
   "mkdocs",
-  "mkdocs-material",
+  "mkdocs-material>=7.1.1",
   "mkdocs-material-extensions",
   "mkdocstrings",
   "mkdocstrings-python",
+  "mkdocs-jupyter",
+  "markdown-include",
+  "mdx_truly_sane_lists",
+  "nbconvert",
+  "mike>=1.0.0",
 ]
 
 [project.urls]
@@ -75,25 +151,32 @@ exclude = [
     "*.pyc",
 ]
 
-[tool.black]
-line-length = 110
-target-version = ['py310', 'py311']
-
 [tool.ruff]
 # Select rule codes to enforce. "E" and "F" are defaults. Add "I" for import sorting.
 # You can add more codes like "B" (flake8-bugbear) or "C4" (flake8-comprehensions) etc.
 lint.select = ["E", "F", "W", "I"] # W = warnings, I = isort
 lint.ignore = [
-    "E501", # Line length handled by Black
+    "E501", # Line length handled by formatter
 ]
 line-length = 110
 target-version = "py310"
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Use spaces around operators
+indent-style = "space"
+# Respect magic trailing commas
+skip-magic-trailing-comma = false
+# Line length matches linting
+line-ending = "auto"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [
     "F401", # imported but unused
     "E402", # Module level import not at top of file
 ]
+
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -113,3 +196,29 @@ omit = ["themap/__init__.py"]
 
 [tool.coverage.xml]
 output = "coverage.xml"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "rdkit.*",
+    "datamol.*",
+    "molfeat.*",
+    "dpu_utils.*",
+    "themap.models.otdd.*",
+]
+ignore_missing_imports = true

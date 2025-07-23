@@ -45,16 +45,26 @@ class MoleculeDatapoint:
         ...     bool_label=True,
         ...     numeric_label=0.8
         ... )
-        >>> 
+        >>>
         >>> # Access molecular properties
         >>> print(f"Number of atoms: {datapoint.number_of_atoms}")
-        Number of atoms: 3
+        # Number of atoms: 3
         >>> print(f"Molecular weight: {datapoint.molecular_weight:.2f}")
-        Molecular weight: 46.04
-        >>> 
+        # Molecular weight: 46.04
+        >>> print(f"LogP: {datapoint.logp:.2f}")
+        # LogP: 1.70
+        >>> print(f"Number of rotatable bonds: {datapoint.num_rotatable_bonds}")
+        # Number of rotatable bonds: 1
+        >>> print(f"SMILES canonical: {datapoint.smiles_canonical}")
+        # SMILES canonical: CCO
+        >>>
         >>> # Get molecular features
         >>> fingerprint = datapoint.get_fingerprint()
-        >>> features = datapoint.get_features(featurizer="ecfp")
+        >>> print(f"Fingerprint shape: {fingerprint.shape if fingerprint is not None else None}")
+        # Fingerprint shape: (2048,)
+        >>> features = datapoint.get_features(featurizer_name="ecfp")
+        >>> print(f"Features shape: {features.shape if features is not None else None}")
+        # Features shape: (2048,)
     """
 
     task_id: str
@@ -78,16 +88,16 @@ class MoleculeDatapoint:
 
     def __repr__(self) -> str:
         return f"MoleculeDatapoint(task_id={self.task_id}, smiles={self.smiles}, bool_label={self.bool_label}, numeric_label={self.numeric_label})"
-    
+
     def to_dict(self) -> dict:
         """Convert datapoint to dictionary for serialization."""
         return {
             "task_id": self.task_id,
             "smiles": self.smiles,
             "bool_label": self.bool_label,
-            "numeric_label": self.numeric_label
+            "numeric_label": self.numeric_label,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "MoleculeDatapoint":
         """Create datapoint from dictionary."""
@@ -95,7 +105,7 @@ class MoleculeDatapoint:
             task_id=data["task_id"],
             smiles=data["smiles"],
             bool_label=data["bool_label"],
-            numeric_label=data.get("numeric_label")
+            numeric_label=data.get("numeric_label"),
         )
 
     def get_fingerprint(self, force_recompute: bool = False) -> Optional[np.ndarray]:
@@ -126,7 +136,9 @@ class MoleculeDatapoint:
         logger.debug(f"Successfully generated fingerprint for molecule {self.smiles}")
         return self._fingerprint
 
-    def get_features(self, featurizer_name: Optional[str] = None, force_recompute: bool = False) -> Optional[np.ndarray]:
+    def get_features(
+        self, featurizer_name: Optional[str] = None, force_recompute: bool = False
+    ) -> Optional[np.ndarray]:
         """Get features for a molecule using a featurizer model.
 
         This method computes molecular features using the specified featurizer model.
@@ -182,7 +194,7 @@ class MoleculeDatapoint:
         mol = self.rdkit_mol
         if mol is None:
             raise ValueError("Failed to create RDKit molecule")
-        return len(mol.GetAtoms())
+        return mol.GetNumAtoms()
 
     @property
     def number_of_bonds(self) -> int:
@@ -194,7 +206,7 @@ class MoleculeDatapoint:
         mol = self.rdkit_mol
         if mol is None:
             raise ValueError("Failed to create RDKit molecule")
-        return len(mol.GetBonds())
+        return mol.GetNumBonds()
 
     @property
     def molecular_weight(self) -> float:
@@ -206,38 +218,42 @@ class MoleculeDatapoint:
         mol = self.rdkit_mol
         if mol is None:
             raise ValueError("Failed to create RDKit molecule")
-        return Chem.Descriptors.ExactMolWt(mol)  # type: ignore[attr-defined]
+        return float(Chem.Descriptors.ExactMolWt(mol))  # type: ignore[attr-defined]
 
     @property
     def logp(self) -> float:
         """Calculate octanol-water partition coefficient.
-        
+
         Returns:
             float: LogP value of the molecule.
         """
         mol = self.rdkit_mol
         if mol is None:
             raise ValueError("Failed to create RDKit molecule")
-        return Chem.Descriptors.MolLogP(mol)  # type: ignore[attr-defined]
+        return float(Chem.Descriptors.MolLogP(mol))  # type: ignore[attr-defined]
 
     @property
     def num_rotatable_bonds(self) -> int:
         """Get number of rotatable bonds.
-        
+
         Returns:
             int: Number of rotatable bonds in the molecule.
+        Raises:
+            ValueError: If the molecule cannot be created.
         """
         mol = self.rdkit_mol
         if mol is None:
             raise ValueError("Failed to create RDKit molecule")
-        return Chem.Descriptors.NumRotatableBonds(mol)  # type: ignore[attr-defined]
+        return int(Chem.Descriptors.NumRotatableBonds(mol))  # type: ignore[attr-defined]
 
     @property
     def smiles_canonical(self) -> str:
         """Get canonical SMILES representation.
-        
+
         Returns:
             str: Canonical SMILES string for the molecule.
+        Raises:
+            ValueError: If the molecule cannot be created.
         """
         mol = self.rdkit_mol
         if mol is None:

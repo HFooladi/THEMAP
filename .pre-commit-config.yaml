@@ -1,7 +1,42 @@
 repos:
--   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.9  # This should match your pyproject.toml version
+  # Ruff - replaces flake8, isort, black, and more
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.4  # Use latest stable version
     hooks:
-    -   id: ruff
-        args: [--fix]
-    -   id: ruff-format
+      - id: ruff
+        args: [--fix]  # Automatically fix what can be fixed
+      - id: ruff-format
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests]
+        args: [--ignore-missing-imports]
+        exclude: ^(scripts/|third_party/|themap/models/otdd/)
+
+  # Basic file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']  # Prevent large files
+
+  # Optional: Run tests (can be slow, consider making it optional)
+  # Uncomment if you want tests to run on every commit
+  # - repo: local
+  #   hooks:
+  #     - id: pytest
+  #       name: pytest
+  #       entry: pytest
+  #       language: system
+  #       types: [python]
+  #       args: [tests/, --maxfail=1, -x]  # Stop on first failure
+  #       pass_filenames: false

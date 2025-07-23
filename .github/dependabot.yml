@@ -16,4 +16,4 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
-      - "github_actions" 
+      - "github_actions"
