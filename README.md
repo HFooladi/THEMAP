@@ -23,8 +23,8 @@ A Python library for calculating distances between chemical datasets to enable i
 - [Use Cases](#use-cases)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
-- [📚 Citation](#citation)
-- [📄 License](#license)
+- [Citation](#citation)
+- [License](#license)
 
 ## Overview
 
