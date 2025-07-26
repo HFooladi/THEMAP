@@ -284,7 +284,7 @@ ruff check && ruff format  # linting and formatting
 mypy themap/               # type checking
 ```
 
-## 📚 Citation
+## Citation
 
 If you use THEMAP in your research, please cite our paper:
 
@@ -301,7 +301,7 @@ If you use THEMAP in your research, please cite our paper:
 }
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
@@ -309,7 +309,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
  - 📖 [Documentation](https://themap.readthedocs.io)
  - 🐛 [Issue Tracker](https://github.com/HFooladi/THEMAP/issues)
- 💬 [Discussions](https://github.com/HFooladi/THEMAP/discussions)
+ - 💬 [Discussions](https://github.com/HFooladi/THEMAP/discussions)
 ---
 
 **Ready to optimize your chemical dataset selection for machine learning?** Start with THEMAP today! 🚀
