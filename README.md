@@ -16,7 +16,6 @@ A Python library for calculating distances between chemical datasets to enable i
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Usage Examples](#usage-examples)
@@ -35,27 +34,6 @@ THEMAP is a Python library designed to calculate distances between chemical data
 - **Task Hardness Assessment**: Quantify how difficult a prediction task will be based on dataset characteristics
 - **Dataset Curation**: Select optimal training datasets from large chemical databases like ChEMBL
 
-## Key Features
-
-### 🔬 **Multi-Level Distance Calculation**
-- **Dataset-level distances**: Assess overall similarity between entire chemical datasets
-- **Protein target distances**: Compare biological targets for bioactivity prediction tasks
-
-### 📊 **Multiple Distance Metrics**
-- **OTDD (Optimal Transport Dataset Distance)**: Advanced optimal transport-based dataset comparison
-- **Protein distance**: Target-based similarity for bioactivity datasets
-- **Method-specific calculations**: Different distance methods for molecules, proteins, and metadata
-- **Combined distances**: Weighted combination of multiple data type distances
-
-### 🧬 **Flexible Molecular Representations**
-- **GIN (Graph Isomorphism Network)**: Deep learning-based molecular embeddings
-- **Traditional fingerprints**: Support for various molecular fingerprint methods
-- **Custom embeddings**: Integrate your own molecular representation methods
-
-### 🏗️ **Ready-to-Use Datasets**
-- **FS-Mol integration**: Pre-computed distances for Few-Shot Molecular property prediction datasets
-- **ChEMBL compatibility**: Direct integration with ChEMBL bioactivity data
-- **Custom dataset support**: Easy integration with your own chemical datasets
 
 ## Installation
 
@@ -63,6 +41,16 @@ THEMAP is a Python library designed to calculate distances between chemical data
 
 - Python 3.10 or higher
 - For GPU features: CUDA-compatible GPU and drivers
+
+### Conda Environment (Recommended)
+
+For complete functionality including OTDD and GPU acceleration:
+
+```bash
+conda env create -f environment.yml
+conda activate themap
+pip install -e . --no-deps
+```
 
 ### Basic Installation
 
@@ -93,17 +81,6 @@ pip install -e ".[protein]"   # Protein analysis
 pip install -e ".[dev]"       # Development tools
 pip install -e ".[test]"      # Testing framework
 ```
-
-### Conda Environment (Recommended for GPU)
-
-For complete functionality including OTDD and GPU acceleration:
-
-```bash
-conda env create -f environment.yml
-conda activate themap
-pip install -e . --no-deps
-```
-
 
 ### Verify Installation
 
@@ -251,7 +228,7 @@ Pre-computed molecular embeddings and distance matrices for the FS-Mol dataset a
 
 ## Documentation
 
-Full documentation is available at [themap.readthedocs.io](https://themap.readthedocs.io) (if published) or can be built locally:
+Full documentation is available at [themap.readthedocs.io](https://hfooladi.github.io/THEMAP/) or can be built locally:
 
 ```bash
 mkdocs serve  # Serve locally at http://127.0.0.1:8000
@@ -306,7 +283,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🤝 Support
 
- - 📖 [Documentation](https://themap.readthedocs.io)
+ - 📖 [Documentation](https://hfooladi.github.io/THEMAP/)
  - 🐛 [Issue Tracker](https://github.com/HFooladi/THEMAP/issues)
  - 💬 [Discussions](https://github.com/HFooladi/THEMAP/discussions)
 ---

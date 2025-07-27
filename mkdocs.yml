@@ -69,16 +69,23 @@ markdown_extensions:
   - tables
   - pymdownx.details
   - pymdownx.superfences
-  - pymdownx.superfences
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
+  - pymdownx.blocks:
+      types:
+        - name: cards
+          class: grid cards
+        - name: columns
+          class: grid
+        - name: column
+          class: grid card
+  - pymdownx.emoji
 
 watch:
   - themap/

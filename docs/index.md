@@ -206,11 +206,15 @@ THEMAP is optimized for both accuracy and computational efficiency:
 If you use THEMAP in your research, please cite:
 
 ```bibtex
-@software{themap2024,
-  title={THEMAP: Task Hardness Estimation for Molecular Activity Prediction},
-  author={Hosein Fooladi},
+@article{fooladi2024quantifying,
+  title={Quantifying the hardness of bioactivity prediction tasks for transfer learning},
+  author={Fooladi, Hosein and Hirte, Steffen and Kirchmair, Johannes},
+  journal={Journal of Chemical Information and Modeling},
+  volume={64},
+  number={10},
+  pages={4031-4046},
   year={2024},
-  url={https://github.com/HFooladi/THEMAP}
+  publisher={ACS Publications}
 }
 ```
 
