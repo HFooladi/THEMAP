@@ -129,7 +129,7 @@ def MoleculeDataloader(
         >>>     load_metadata=False,
         >>>     cache_dir="./cache"
         >>> )
-        >>> dataset_loader = MoleculeDataloader(tasks[0][0].molecule_dataset, batch_size=10, shuffle=True)
+        >>> dataset_loader = MoleculeDataloader(tasks.get_task("TASK_ID").molecule_dataset, batch_size=10, shuffle=True)
         >>> for batch in dataset_loader:
         >>>     print(batch)
         >>>     break
