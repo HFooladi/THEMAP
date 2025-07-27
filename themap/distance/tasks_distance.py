@@ -10,6 +10,8 @@ The module supports both single dataset comparisons and batch comparisons
 across multiple datasets.
 """
 
+import logging
+import multiprocessing
 import pickle
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,21 +27,58 @@ from themap.data.tasks import Tasks
 from themap.data.torch_dataset import MoleculeDataloader
 from themap.utils.distance_utils import get_configure
 
-# Lazy import to avoid PyTorch conflicts during package initialization
-DatasetDistance = None
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Configuration constants
+DEFAULT_MAX_SAMPLES = 1000
+DEFAULT_N_JOBS = min(8, multiprocessing.cpu_count())
+
+
+class DistanceComputationError(Exception):
+    """Custom exception for distance computation errors."""
+
+    pass
+
+
+class DataValidationError(Exception):
+    """Custom exception for data validation errors."""
+
+    pass
+
+
+def _validate_and_extract_task_id(task_name: str) -> str:
+    """Safely extract task ID from task name with validation.
+
+    Args:
+        task_name: Task name in format 'fold_task_id'
+
+    Returns:
+        Extracted task ID
+
+    Raises:
+        DataValidationError: If task name format is invalid
+    """
+    if not isinstance(task_name, str):
+        raise DataValidationError(f"Task name must be string, got {type(task_name)}")
+
+    parts = task_name.split("_", 1)
+    if len(parts) < 2:
+        logger.warning(f"Task name '{task_name}' doesn't follow expected format 'fold_task_id', using as-is")
+        return task_name
+
+    return parts[1]
 
 
 def _get_dataset_distance() -> Any:
-    """Lazy import of DatasetDistance to avoid PyTorch conflicts."""
-    global DatasetDistance
-    if DatasetDistance is None:
-        try:
-            from themap.models.otdd.src.distance import DatasetDistance as _DatasetDistance
+    """Lazy import of DatasetDistance with proper error handling."""
+    try:
+        from themap.models.otdd.src.distance import DatasetDistance
 
-            DatasetDistance = _DatasetDistance
-        except ImportError as e:
-            raise ImportError(f"Failed to import OTDD DatasetDistance: {e}") from e
-    return DatasetDistance
+        return DatasetDistance
+    except ImportError as e:
+        logger.error(f"Failed to import OTDD DatasetDistance: {e}")
+        raise ImportError(f"OTDD dependencies not available. Please install required packages: {e}") from e
 
 
 MOLECULE_DISTANCE_METHODS = ["otdd", "euclidean", "cosine"]
@@ -116,6 +155,15 @@ class AbstractTasksDistance:
             # No valid or test data, use source as target
             self.target = self.source
             self.symmetric_tasks = True
+
+    def get_num_tasks(self) -> Tuple[int, int]:
+        """Get the number of source and target tasks."""
+        if self.source is None or self.target is None:
+            return 0, 0
+
+        source_num = len(self.source)
+        target_num = len(self.target)
+        return source_num, target_num
 
     def get_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute the distance between datasets.
@@ -310,8 +358,7 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
         elif data_type == "protein":
             return PROTEIN_DISTANCE_METHODS.copy()
         elif data_type == "metadata":
-            # TODO: Define metadata distance methods
-            return ["euclidean", "cosine"]
+            return ["euclidean", "cosine", "jaccard", "hamming"]
         else:
             raise ValueError(f"Unknown data type: {data_type}")
 
@@ -327,6 +374,11 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
             The outer dictionary is keyed by target task IDs, and the inner dictionary
             is keyed by source task IDs with distance values.
         """
+        source_features, target_features, source_names, target_names = self._compute_features()
+
+        if not source_features or not target_features:
+            return {}
+
         chem_distances: Dict[str, Dict[str, float]] = {}
         hopts = self.get_hopts(data_type="molecule")
         loaders_src = [MoleculeDataloader(d) for d in self.source_molecule_datasets]
@@ -334,10 +386,26 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
         for i, tgt in enumerate(loaders_tgt):
             chem_distance: Dict[str, float] = {}
             for j, src in enumerate(loaders_src):
-                DatasetDistanceClass = _get_dataset_distance()
-                dist = DatasetDistanceClass(src, tgt, **hopts)
-                d = dist.distance(maxsamples=1000)
-                chem_distance[self.source_task_ids[j]] = d.cpu().item()
+                try:
+                    DatasetDistanceClass = _get_dataset_distance()
+                    dist = DatasetDistanceClass(src, tgt, **hopts)
+                    d = dist.distance(maxsamples=hopts.get("maxsamples", DEFAULT_MAX_SAMPLES))  # type: ignore
+
+                    # Safe device handling for tensor conversion
+                    if hasattr(d, "device"):
+                        d_cpu = d.cpu() if d.device.type != "cpu" else d
+                    else:
+                        d_cpu = d
+
+                    distance_value = float(d_cpu.item() if hasattr(d_cpu, "item") else d_cpu)
+                    chem_distance[self.source_task_ids[j]] = distance_value
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to compute OTDD distance between {self.source_task_ids[j]} and {self.target_task_ids[i]}: {e}"
+                    )
+                    # Use a default high distance value as fallback
+                    chem_distance[self.source_task_ids[j]] = 1.0
             chem_distances[self.target_task_ids[i]] = chem_distance
         return chem_distances
 
@@ -352,30 +420,61 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
             Dictionary containing Euclidean distances between source and target datasets.
             The outer dictionary is keyed by target task IDs, and the inner dictionary
             is keyed by source task IDs with distance values.
+
+        Raises:
+            DistanceComputationError: If feature computation fails
         """
-        # Compute features for all tasks
-        source_features, target_features, source_names, target_names = self._compute_features()
+        try:
+            # Compute features for all tasks
+            source_features, target_features, source_names, target_names = self._compute_features()
 
-        if not source_features or not target_features:
-            return {}
+            if not source_features or not target_features:
+                logger.warning("No features available for euclidean distance computation")
+                return {}
 
-        # Convert to numpy arrays for efficient computation
-        source_features_array = np.array(source_features)
-        target_features_array = np.array(target_features)
+            if len(source_features) != len(source_names) or len(target_features) != len(target_names):
+                raise DistanceComputationError("Mismatch between features and names lengths")
 
-        # Compute pairwise euclidean distances
-        distances = cdist(target_features_array, source_features_array, metric="euclidean")
+            # Convert to numpy arrays for efficient computation
+            source_features_array = np.array(source_features)
+            target_features_array = np.array(target_features)
 
-        # Organize results in the expected format
-        result: Dict[str, Dict[str, float]] = {}
-        for i, target_name in enumerate(target_names):
-            target_task_id = target_name.split("_", 1)[1]  # Remove fold prefix
-            result[target_task_id] = {}
-            for j, source_name in enumerate(source_names):
-                source_task_id = source_name.split("_", 1)[1]  # Remove fold prefix
-                result[target_task_id][source_task_id] = float(distances[i, j])
+            # Validate array shapes
+            if source_features_array.ndim != 2 or target_features_array.ndim != 2:
+                raise DistanceComputationError("Feature arrays must be 2-dimensional")
 
-        return result
+            if source_features_array.shape[1] != target_features_array.shape[1]:
+                raise DistanceComputationError(
+                    f"Feature dimension mismatch: source={source_features_array.shape[1]}, "
+                    f"target={target_features_array.shape[1]}"
+                )
+
+            # Compute pairwise euclidean distances
+            distances = cdist(target_features_array, source_features_array, metric="euclidean")
+
+            # Organize results in the expected format
+            result: Dict[str, Dict[str, float]] = {}
+            for i, target_name in enumerate(target_names):
+                target_task_id = _validate_and_extract_task_id(target_name)
+                result[target_task_id] = {}
+                for j, source_name in enumerate(source_names):
+                    source_task_id = _validate_and_extract_task_id(source_name)
+                    distance_value = float(distances[i, j])
+
+                    # Validate distance value
+                    if np.isnan(distance_value) or np.isinf(distance_value):
+                        logger.warning(
+                            f"Invalid distance value between {source_task_id} and {target_task_id}: {distance_value}"
+                        )
+                        distance_value = 1.0  # Use default high distance
+
+                    result[target_task_id][source_task_id] = distance_value
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to compute euclidean distances: {e}")
+            raise DistanceComputationError(f"Euclidean distance computation failed: {e}") from e
 
     def cosine_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute cosine distance between molecule datasets.
@@ -404,10 +503,10 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
         # Organize results in the expected format
         result: Dict[str, Dict[str, float]] = {}
         for i, target_name in enumerate(target_names):
-            target_task_id = target_name.split("_", 1)[1]  # Remove fold prefix
+            target_task_id = _validate_and_extract_task_id(target_name)
             result[target_task_id] = {}
             for j, source_name in enumerate(source_names):
-                source_task_id = source_name.split("_", 1)[1]  # Remove fold prefix
+                source_task_id = _validate_and_extract_task_id(source_name)
                 result[target_task_id][source_task_id] = float(distances[i, j])
 
         return result
@@ -436,10 +535,31 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
         Args:
             path: Path to the file containing pre-computed distances
 
-        Note:
-            This method is currently a placeholder and needs to be implemented.
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            ValueError: If the file format is invalid
         """
-        return None
+        try:
+            with open(path, "rb") as f:
+                data = pickle.load(f)
+
+            if not isinstance(data, dict):
+                raise ValueError("Distance file must contain a dictionary")
+
+            # Validate the structure
+            for target_id, source_distances in data.items():
+                if not isinstance(source_distances, dict):
+                    raise ValueError(f"Invalid format for target {target_id}")
+
+            self.distance = data
+            logger.info(f"Successfully loaded distances from {path}")
+
+        except FileNotFoundError:
+            logger.error(f"Distance file not found: {path}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to load distances from {path}: {e}")
+            raise ValueError(f"Invalid distance file format: {e}") from e
 
     def to_pandas(self) -> pd.DataFrame:
         """Convert the distance matrix to a pandas DataFrame.
@@ -595,8 +715,7 @@ class ProteinDatasetDistance(AbstractTasksDistance):
         elif data_type == "protein":
             return PROTEIN_DISTANCE_METHODS.copy()
         elif data_type == "metadata":
-            # TODO: Define metadata distance methods
-            return ["euclidean", "cosine"]
+            return ["euclidean", "cosine", "jaccard", "hamming"]
         else:
             raise ValueError(f"Unknown data type: {data_type}")
 
@@ -627,10 +746,10 @@ class ProteinDatasetDistance(AbstractTasksDistance):
         # Organize results in the expected format
         result: Dict[str, Dict[str, float]] = {}
         for i, target_name in enumerate(target_names):
-            target_task_id = target_name.split("_", 1)[1]  # Remove fold prefix
+            target_task_id = _validate_and_extract_task_id(target_name)
             result[target_task_id] = {}
             for j, source_name in enumerate(source_names):
-                source_task_id = source_name.split("_", 1)[1]  # Remove fold prefix
+                source_task_id = _validate_and_extract_task_id(source_name)
                 result[target_task_id][source_task_id] = float(distances[i, j])
 
         return result
@@ -662,10 +781,10 @@ class ProteinDatasetDistance(AbstractTasksDistance):
         # Organize results in the expected format
         result: Dict[str, Dict[str, float]] = {}
         for i, target_name in enumerate(target_names):
-            target_task_id = target_name.split("_", 1)[1]  # Remove fold prefix
+            target_task_id = _validate_and_extract_task_id(target_name)
             result[target_task_id] = {}
             for j, source_name in enumerate(source_names):
-                source_task_id = source_name.split("_", 1)[1]  # Remove fold prefix
+                source_task_id = _validate_and_extract_task_id(source_name)
                 result[target_task_id][source_task_id] = float(distances[i, j])
 
         return result
@@ -674,15 +793,17 @@ class ProteinDatasetDistance(AbstractTasksDistance):
         """Compute sequence identity-based distance between protein datasets.
 
         This method calculates distances based on protein sequence identity.
-        Currently a placeholder for future implementation.
 
         Returns:
             Dictionary containing sequence identity-based distances between datasets.
 
-        Note:
-            This method is currently a placeholder and needs to be implemented.
+        Raises:
+            NotImplementedError: This method is not yet implemented
         """
-        return {}
+        raise NotImplementedError(
+            "Sequence identity distance computation is not yet implemented. "
+            "Use 'euclidean' or 'cosine' methods instead."
+        )
 
     def get_distance(self) -> Dict[str, Dict[str, float]]:
         """Compute the distance between protein datasets using the specified method.
@@ -706,10 +827,31 @@ class ProteinDatasetDistance(AbstractTasksDistance):
         Args:
             path: Path to the file containing pre-computed distances
 
-        Note:
-            This method is currently a placeholder and needs to be implemented.
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            ValueError: If the file format is invalid
         """
-        pass
+        try:
+            with open(path, "rb") as f:
+                data = pickle.load(f)
+
+            if not isinstance(data, dict):
+                raise ValueError("Distance file must contain a dictionary")
+
+            # Validate the structure
+            for target_id, source_distances in data.items():
+                if not isinstance(source_distances, dict):
+                    raise ValueError(f"Invalid format for target {target_id}")
+
+            self.distance = data
+            logger.info(f"Successfully loaded distances from {path}")
+
+        except FileNotFoundError:
+            logger.error(f"Distance file not found: {path}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to load distances from {path}: {e}")
+            raise ValueError(f"Invalid distance file format: {e}") from e
 
     def to_pandas(self) -> pd.DataFrame:
         """Convert the distance matrix to a pandas DataFrame.
@@ -913,8 +1055,6 @@ class TaskDistance(AbstractTasksDistance):
         mol_distance = MoleculeDatasetDistance(
             tasks=self.tasks,
             molecule_method=actual_method,
-            protein_method=self.protein_method,
-            metadata_method=self.metadata_method,
         )
         self.molecule_distances = mol_distance.get_distance()
         return self.molecule_distances
@@ -1104,10 +1244,23 @@ class TaskDistance(AbstractTasksDistance):
         Returns:
             Dictionary containing chemical space distances between tasks.
 
-        Note:
-            This method is currently a placeholder and needs to be implemented.
+        Raises:
+            NotImplementedError: If external chemical space is not provided
         """
-        return {}
+        if self.external_chemical_space is None:
+            raise NotImplementedError(
+                "External chemical space matrix not provided. "
+                "Use compute_molecule_distance() for direct computation."
+            )
+
+        # Convert external matrix to expected format
+        result: Dict[str, Dict[str, float]] = {}
+        for i, target_id in enumerate(self.target_task_ids):
+            result[target_id] = {}
+            for j, source_id in enumerate(self.source_task_ids):
+                result[target_id][source_id] = float(self.external_chemical_space[i, j])
+
+        return result
 
     def compute_ext_prot_distance(self, method: str) -> Dict[str, Dict[str, float]]:
         """Compute protein space distances between tasks using external matrices.
@@ -1118,10 +1271,23 @@ class TaskDistance(AbstractTasksDistance):
         Returns:
             Dictionary containing protein space distances between tasks.
 
-        Note:
-            This method is currently a placeholder and needs to be implemented.
+        Raises:
+            NotImplementedError: If external protein space is not provided
         """
-        return {}
+        if self.external_protein_space is None:
+            raise NotImplementedError(
+                "External protein space matrix not provided. "
+                "Use compute_protein_distance() for direct computation."
+            )
+
+        # Convert external matrix to expected format
+        result: Dict[str, Dict[str, float]] = {}
+        for i, target_id in enumerate(self.target_task_ids):
+            result[target_id] = {}
+            for j, source_id in enumerate(self.source_task_ids):
+                result[target_id][source_id] = float(self.external_protein_space[i, j])
+
+        return result
 
     @staticmethod
     def load_ext_chem_distance(path: str) -> "TaskDistance":

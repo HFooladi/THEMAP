@@ -40,14 +40,6 @@ ml = [
   "torchvision==0.19.0",
   "torchaudio==2.4.0",
   "molfeat==0.11.0",
-]
-
-# Advanced ML with GPU support
-ml-gpu = [
-  "torch==2.4.0",
-  "torchvision==0.19.0",
-  "torchaudio==2.4.0",
-  "molfeat==0.11.0",
   "dgl<=2.0",
   "dgllife>=0.3.2",
   "pytorch_geometric",
@@ -58,6 +50,7 @@ ml-gpu = [
 protein = [
   "biopython",
   "esm",
+  "sentence-transformers",
 ]
 
 # Optimal transport distances
@@ -89,6 +82,7 @@ all = [
   "geomloss",
   "opentsne",
   "munkres",
+  "sentence-transformers",
 ]
 
 test = [
@@ -188,11 +182,39 @@ line-ending = "auto"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "serial",
-]
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Output options
+addopts = [
+    "-v",                    # Verbose output
+    "--tb=short",           # Short traceback format
+    "--strict-markers",     # Require markers to be defined
+    "--color=yes",          # Colored output
+    "--durations=10",       # Show 10 slowest tests
+    "--disable-warnings",   # Disable warnings in output
+]
+
+# Markers for test categorization
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for component interactions",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gpu: Tests requiring GPU hardware",
+    "network: Tests requiring network access",
+    "serial: Tests that must run serially",
+]
+
+# Warning filters
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::FutureWarning:torch.*",
+    "ignore::UserWarning:scipy.*",
+    "ignore::UserWarning:rdkit.*",
+]
 
 [tool.coverage.run]
 source = ["themap/"]

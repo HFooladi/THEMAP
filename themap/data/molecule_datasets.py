@@ -7,7 +7,7 @@ import numpy as np
 from dpu_utils.utils import RichPath
 
 from themap.data.molecule_dataset import MoleculeDataset, get_task_name_from_path
-from themap.utils.cache_utils import GlobalMoleculeCache
+from themap.utils.cache_utils import CacheKey, GlobalMoleculeCache, get_global_feature_cache
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -297,28 +297,37 @@ class MoleculeDatasets:
                 n_jobs=n_jobs,
             )
 
-            # Distribute features back to datasets
+            # Distribute features back to datasets using proper interfaces
             results = {}
+            global_cache = get_global_feature_cache()
+
             for dataset_idx, (dataset_name, dataset) in enumerate(zip(dataset_names, dataset_list)):
                 logger.info(f"Distributing features to dataset {dataset_name}")
 
-                # Create feature array for this dataset
+                # Create feature array for this dataset and store in global cache
                 dataset_features = []
                 for mol in dataset.data:
                     canonical_smiles = self.global_cache._canonicalize_smiles(mol.smiles)
                     if canonical_smiles in smiles_to_features:
-                        dataset_features.append(smiles_to_features[canonical_smiles])
+                        feature_vector = smiles_to_features[canonical_smiles]
+                        dataset_features.append(feature_vector)
+
+                        # Store in global cache using proper interface
+                        cache_key = CacheKey(smiles=mol.smiles, featurizer_name=featurizer_name)
+                        global_cache.store(cache_key, feature_vector)
                     else:
                         # Fallback: zero features if SMILES not found
                         feature_dim = len(next(iter(smiles_to_features.values())))
-                        dataset_features.append(np.zeros(feature_dim))
+                        zero_features = np.zeros(feature_dim)
+                        dataset_features.append(zero_features)
+
+                        cache_key = CacheKey(smiles=mol.smiles, featurizer_name=featurizer_name)
+                        global_cache.store(cache_key, zero_features)
 
                 dataset_features_array = np.array(dataset_features)
 
-                # Update dataset cache
-                dataset._features = dataset_features_array
-                for i, mol in enumerate(dataset.data):
-                    mol._features = dataset_features_array[i]
+                # Update dataset to track current featurizer (proper interface)
+                dataset._current_featurizer = featurizer_name
 
                 results[dataset_name] = dataset_features_array
 

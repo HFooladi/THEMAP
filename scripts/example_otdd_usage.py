@@ -1,141 +1,190 @@
 #!/usr/bin/env python3
 """
-Example script demonstrating how to use OTDD task distance computation.
+Example script demonstrating how to use task distance computation with the tasks_distance module.
 
 This script shows how to:
 1. Load tasks from a directory
-2. Compute OTDD distances between N source and M target tasks
+2. Compute various types of distances between tasks (OTDD, Euclidean, Cosine)
 3. Analyze the results using the built-in analysis functions
-4. Compare different approaches (OTDD vs standard distance metrics)
+4. Compare different approaches (molecule vs protein vs combined distances)
 """
 
-from themap.data.metadata import DataFold
+import numpy as np
+
 from themap.data.tasks import Tasks
-from themap.distance import OTDDTaskDistance
+from themap.distance import MoleculeDatasetDistance, ProteinDatasetDistance, TaskDistance
+from themap.utils.logging import get_logger, setup_logging
+
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 def main():
     # Replace this with your actual data directory
     data_dir = "datasets/"
+    sample_tasks_list = "datasets/sample_tasks_list.json"
 
     # Load tasks from directory
-    print("Loading tasks from directory...")
+    logger.info("Loading tasks from directory...")
     tasks = Tasks.from_directory(
         directory=data_dir,
         load_molecules=True,
-        load_proteins=False,  # OTDD only works with molecules
+        load_proteins=True,  # Also load proteins for comprehensive comparison
         load_metadata=False,
         cache_dir="./cache",
+        task_list_file=sample_tasks_list,
     )
 
-    print(f"Loaded tasks: {tasks}")
+    logger.info(f"Loaded tasks: {tasks}")
 
-    # Example 1: Quick OTDD computation using convenience function
-    print("\n=== Example 1: Quick OTDD computation ===")
+    # Example 1: OTDD distance computation using MoleculeDatasetDistance
+    logger.info("\n=== Example 1: OTDD distance computation ===")
 
     try:
-        matrix, source_names, target_names, calculator = compute_task_distance_matrix(
-            tasks=tasks,
-            distance_type="otdd",
-            source_fold=DataFold.TRAIN,
-            target_folds=[DataFold.VALIDATION, DataFold.TEST],
-            chunk_size=100,  # Smaller chunks for OTDD
-            n_jobs=4,  # Use 4 parallel jobs
-            maxsamples=500,  # Limit samples for faster computation
-            cache_dir="./cache",
-            force_recompute=False,
-        )
+        # Create OTDD calculator for molecule datasets
+        otdd_calc = MoleculeDatasetDistance(tasks=tasks, molecule_method="otdd")
 
-        print(f"OTDD distance matrix shape: {matrix.shape}")
-        print(f"Number of source tasks: {len(source_names)}")
-        print(f"Number of target tasks: {len(target_names)}")
-        print(f"Distance range: {matrix.min():.4f} - {matrix.max():.4f}")
+        # Compute OTDD distances
+        otdd_distances = otdd_calc.get_distance()
 
-        # Analyze task hardness using OTDD distances
-        hardness = calculator.compute_task_hardness(
-            distance_matrix=matrix, target_names=target_names, k=5, aggregation="mean"
-        )
+        if otdd_distances:
+            print("OTDD distances computed successfully")
+            print(f"Number of target tasks: {len(otdd_distances)}")
 
-        print("\nTop 5 hardest tasks (highest average OTDD distance):")
-        sorted_hardness = sorted(hardness.items(), key=lambda x: x[1], reverse=True)
-        for task_name, hardness_score in sorted_hardness[:5]:
-            print(f"  {task_name}: {hardness_score:.4f}")
+            # Calculate matrix statistics
+            all_distances = []
+            for target_id, source_distances in otdd_distances.items():
+                print(f"Target {target_id}: {len(source_distances)} source tasks")
+                all_distances.extend(source_distances.values())
 
-        # Find nearest neighbors using OTDD
-        nearest = calculator.get_k_nearest_tasks(
-            distance_matrix=matrix, source_names=source_names, target_names=target_names, k=3
-        )
+            if all_distances:
+                print(f"Distance range: {min(all_distances):.4f} - {max(all_distances):.4f}")
+                print(f"Mean distance: {np.mean(all_distances):.4f}")
 
-        print("\nNearest source tasks for first 3 target tasks:")
-        for i, target_name in enumerate(target_names[:3]):
-            print(f"  {target_name}:")
-            for source_name, distance in nearest[target_name]:
-                print(f"    {source_name}: {distance:.4f}")
+        else:
+            print("No OTDD distances computed - check if molecule data is available")
 
     except Exception as e:
         print(f"Error in OTDD computation: {e}")
         print("This might be due to missing OTDD dependencies or insufficient data")
 
-    # Example 2: Advanced OTDD computation with custom settings
-    print("\n=== Example 2: Advanced OTDD computation ===")
+    # Example 2: Protein distance computation
+    print("\n=== Example 2: Protein distance computation ===")
 
     try:
-        # Create OTDD calculator with custom settings
-        otdd_calc = OTDDTaskDistance(
-            tasks=tasks,
-            maxsamples=1000,  # Use more samples for better accuracy
-            chunk_size=50,  # Smaller chunks for memory efficiency
-            n_jobs=2,  # Conservative parallelization
-            cache_dir="./cache",
-        )
+        # Create protein distance calculator
+        protein_calc = ProteinDatasetDistance(tasks=tasks, protein_method="euclidean")
 
-        # Compute distances between training and validation sets only
-        matrix, source_names, target_names = otdd_calc.compute_distance_matrix(
-            source_fold=DataFold.TRAIN,
-            target_folds=[DataFold.VALIDATION],
-            force_recompute=False,
-            save_cache=True,
-        )
+        protein_distances = protein_calc.get_distance()
 
-        print(f"Advanced OTDD matrix shape: {matrix.shape}")
-        print(f"Cache info: {otdd_calc.get_cache_info()}")
+        if protein_distances:
+            print("Protein distances computed successfully")
+            all_distances = []
+            for target_id, source_distances in protein_distances.items():
+                all_distances.extend(source_distances.values())
+
+            if all_distances:
+                print(f"Distance range: {min(all_distances):.4f} - {max(all_distances):.4f}")
+                print(f"Mean distance: {np.mean(all_distances):.4f}")
+
+        else:
+            print("No protein distances computed - check if protein data is available")
 
     except Exception as e:
-        print(f"Error in advanced OTDD computation: {e}")
+        print(f"Error in protein distance computation: {e}")
 
-    # Example 3: Compare OTDD with standard molecular features
-    print("\n=== Example 3: Comparison with standard molecular features ===")
+    # Example 3: Combined task distance computation
+    print("\n=== Example 3: Combined task distance computation ===")
 
     try:
-        # Compute using standard molecular features (Morgan fingerprints + Euclidean)
-        matrix_std, source_names_std, target_names_std, calc_std = compute_task_distance_matrix(
+        # Create unified task distance calculator
+        task_calc = TaskDistance(
             tasks=tasks,
-            distance_type="molecule",
-            molecule_featurizer="morgan_fingerprints",
-            distance_metric="euclidean",
-            source_fold=DataFold.TRAIN,
-            target_folds=[DataFold.VALIDATION],
-            cache_dir="./cache",
+            molecule_method="otdd",  # Use OTDD for faster computation
+            protein_method="euclidean",
         )
 
-        print(f"Standard molecular distance matrix shape: {matrix_std.shape}")
-        print(f"Standard distance range: {matrix_std.min():.4f} - {matrix_std.max():.4f}")
+        # Compute all distance types
+        all_distances = task_calc.compute_all_distances(
+            molecule_method="otdd", protein_method="euclidean", combination_strategy="average"
+        )
 
-        # Compare task rankings
-        if matrix.shape == matrix_std.shape:
-            from scipy.stats import spearmanr
+        print(f"Available distance types: {list(all_distances.keys())}")
 
-            # Flatten matrices and compute correlation
-            otdd_flat = matrix.flatten()
-            std_flat = matrix_std.flatten()
+        for distance_type, distances in all_distances.items():
+            if distances:
+                all_vals = []
+                for target_id, source_distances in distances.items():
+                    all_vals.extend(source_distances.values())
 
-            correlation, p_value = spearmanr(otdd_flat, std_flat)
-            print(
-                f"Spearman correlation between OTDD and standard distances: {correlation:.4f} (p={p_value:.4e})"
-            )
+                if all_vals:
+                    print(f"{distance_type.title()} distances:")
+                    print(f"  Range: {min(all_vals):.4f} - {max(all_vals):.4f}")
+                    print(f"  Mean: {np.mean(all_vals):.4f}")
 
     except Exception as e:
-        print(f"Error in comparison: {e}")
+        print(f"Error in combined distance computation: {e}")
+
+    # Example 5: Task analysis using computed distances
+    print("\n=== Example 5: Task analysis ===")
+
+    try:
+        # Use the TaskDistance for comprehensive analysis
+        task_calc = TaskDistance(tasks=tasks, molecule_method="otdd", protein_method="euclidean")
+
+        # Get the default distance (will try combined, then molecule, then protein)
+        distances = task_calc.get_distance()
+
+        if distances:
+            print(f"Analysis using {len(distances)} target tasks")
+
+            # Simple task hardness analysis
+            hardness_scores = {}
+            for target_id, source_distances in distances.items():
+                if source_distances:
+                    # Task hardness = average distance to all source tasks
+                    hardness_scores[target_id] = np.mean(list(source_distances.values()))
+
+            if hardness_scores:
+                print("\nTop 5 most challenging tasks (highest average distance):")
+                sorted_hardness = sorted(hardness_scores.items(), key=lambda x: x[1], reverse=True)
+                for i, (task_name, hardness_score) in enumerate(sorted_hardness[:5]):
+                    print(f"  {i + 1}. {task_name}: {hardness_score:.4f}")
+
+                # Simple nearest neighbor analysis
+                print("\nNearest source tasks for first 3 target tasks:")
+                for i, (target_id, source_distances) in enumerate(list(distances.items())[:3]):
+                    print(f"  {target_id}:")
+                    # Sort by distance and show top 3 nearest
+                    sorted_sources = sorted(source_distances.items(), key=lambda x: x[1])
+                    for j, (source_id, distance) in enumerate(sorted_sources[:3]):
+                        print(f"    {j + 1}. {source_id}: {distance:.4f}")
+
+    except Exception as e:
+        print(f"Error in task analysis: {e}")
+
+    # Example 6: Convert to pandas DataFrame for further analysis
+    print("\n=== Example 6: DataFrame conversion ===")
+
+    try:
+        task_calc = TaskDistance(tasks=tasks, molecule_method="otdd")
+
+        # Compute molecule distances
+        task_calc.compute_molecule_distance()
+
+        # Convert to pandas DataFrame
+        df = task_calc.to_pandas(distance_type="molecule")
+
+        if df is not None and not df.empty:
+            print(f"Distance matrix shape: {df.shape}")
+            print("Sample of the distance matrix:")
+            print(df.iloc[: min(5, len(df)), : min(5, len(df.columns))])
+        else:
+            print("Could not create distance matrix DataFrame")
+
+    except Exception as e:
+        print(f"Error in DataFrame conversion: {e}")
 
 
 if __name__ == "__main__":

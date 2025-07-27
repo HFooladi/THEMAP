@@ -60,7 +60,7 @@ class ProteinDataset:
         return f"ProteinDataset(task_id={self.task_id}, uniprot_id={self.uniprot_id}, seq_len={len(self.sequence)})"
 
     def get_features(
-        self, featurizer_name: str = "esm2_t33_650M_UR50D", layer: int = 33
+        self, featurizer_name: str = "esm3_sm_open_v1", layer: Optional[int] = None
     ) -> NDArray[np.float32]:
         """Get protein features using the specified featurizer.
 
@@ -425,8 +425,8 @@ class ProteinDatasets:
 
     def compute_all_features_with_deduplication(
         self,
-        featurizer_name: str = "esm2_t33_650M_UR50D",
-        layer: int = 33,
+        featurizer_name: str = "esm3_sm_open_v1",
+        layer: Optional[int] = None,
         folds: Optional[List[DataFold]] = None,
         batch_size: int = 100,
         force_recompute: bool = False,
@@ -504,8 +504,8 @@ class ProteinDatasets:
 
     def get_distance_computation_ready_features(
         self,
-        featurizer_name: str = "esm2_t33_650M_UR50D",
-        layer: int = 33,
+        featurizer_name: str = "esm3_sm_open_v1",
+        layer: Optional[int] = None,
         source_fold: DataFold = DataFold.TRAIN,
         target_folds: Optional[List[DataFold]] = None,
     ) -> Tuple[List[NDArray[np.float32]], List[NDArray[np.float32]], List[str], List[str]]:
@@ -562,8 +562,8 @@ class ProteinDatasets:
     def save_features_to_file(
         self,
         output_path: Union[str, Path],
-        featurizer_name: str = "esm2_t33_650M_UR50D",
-        layer: int = 33,
+        featurizer_name: str = "esm3_sm_open_v1",
+        layer: Optional[int] = None,
         folds: Optional[List[DataFold]] = None,
     ) -> None:
         """Save computed features to a pickle file for efficient loading.

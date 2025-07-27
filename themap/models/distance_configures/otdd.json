@@ -10,7 +10,7 @@
     "ignore_source_labels" : false,
     "ignore_target_labels" : false,
     "loss" : "sinkhorn",
-    "λ_x" : 1.0, 
+    "λ_x" : 1.0,
     "λ_y" : 1.0,
     "inner_ot_loss" : "sinkhorn",
     "inner_ot_debiased" : false,

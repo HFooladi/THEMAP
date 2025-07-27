@@ -3,7 +3,6 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
-import esm
 import numpy as np
 import pandas as pd
 import requests as r
@@ -182,36 +181,173 @@ def get_task_name_from_uniprot(
 
 
 def get_protein_features(
-    protein_dict: Dict[str, str], featurizer: str = "esm2_t33_650M_UR50D", layer: int = 33
+    protein_dict: Dict[str, str], featurizer: str = "esm2_t33_650M_UR50D", layer: Optional[int] = None
 ) -> np.ndarray:
-    """Returns a featurizer object based on the input string.
+    """Computes protein sequence embeddings using a pre-trained language model.
+
+    This function takes a dictionary of protein sequences and computes fixed-length embeddings
+    using a pre-trained ESM-2 protein language model. It averages the per-residue embeddings
+    to get a single vector representation for each sequence.
 
     Args:
-        protein_dict: Dictionary containing the protein sequences.
-        featurizer: String specifying the featurizer to use.
-        layer: Layer of the ESM2 model to be used.
+        protein_dict: Dictionary mapping protein IDs to their amino acid sequences.
+        featurizer: Name of the pre-trained model to use. Currently only supports ESM2.
+        layer: Which transformer layer to extract embeddings from. If None, uses final embeddings.
 
     Returns:
-        np.ndarray: Array containing the protein features.
+        np.ndarray: Array of shape (num_proteins, embedding_dim) containing the computed
+            protein embeddings.
+
+    Note:
+        - For using this function, you need to install the fair-esm package and import esm from this package.
+        - If layer is None, uses final embeddings.
+        - It downloads the model from the internet (to your local .cache), so it may take a while to load.
     """
-    featurizer_dict = {"esm2_t33_650M_UR50D": esm.pretrained.esm2_t33_650M_UR50D()}
-    # Load ESM-2 model
-    model, alphabet = featurizer_dict[featurizer]
+
+    # Available ESM2 models
+    available_models = ["esm2_t12_35M_UR50D", "esm2_t33_650M_UR50D"]
+
+    if featurizer not in available_models:
+        raise ValueError(f"Unsupported ESM2 featurizer: {featurizer}. Available models: {available_models}")
+
+    # Load ESM-2 model and prepare batch converter
+    model, alphabet = torch.hub.load("facebookresearch/esm", featurizer)
     batch_converter = alphabet.get_batch_converter()
     model.eval()  # disables dropout for deterministic results
 
-    # Prepare data (first 2 sequences from ESMStructuralSplitDataset superfamily / 4)
+    # Convert protein dictionary to list of (id, sequence) tuples
     data = list(protein_dict.items())
     batch_labels, batch_strs, batch_tokens = batch_converter(data)
+
+    # Calculate sequence lengths excluding padding tokens
     batch_lens = (batch_tokens != alphabet.padding_idx).sum(1)
 
-    # Extract per-residue representations (on CPU)
-    with torch.no_grad():
-        results = model(batch_tokens, repr_layers=[33], return_contacts=True)
-    token_representations = results["representations"][33]
+    if layer is None:
+        layer = model.cfg.layers
 
+    # Extract embeddings from specified layer
+    with torch.no_grad():
+        results = model(batch_tokens, repr_layers=[layer], return_contacts=True)
+    token_representations = results["representations"][layer]
+
+    # Average the per-residue embeddings for each sequence
+    # Skip the special start/end tokens using slice 1:-1
     sequence_representations = []
     for i, tokens_len in enumerate(batch_lens):
         sequence_representations.append(token_representations[i, 1 : tokens_len - 1].mean(0))
 
     return torch.stack(sequence_representations).numpy()
+
+
+def get_protein_features_esm3(
+    protein_dict: Dict[str, str], featurizer: str = "esm3_sm_open_v1", layer: Optional[int] = None
+) -> np.ndarray:
+    """Computes protein sequence embeddings using ESM3 models.
+
+    This function takes a dictionary of protein sequences and computes fixed-length embeddings
+    using a pre-trained ESM3 protein language model. It averages the per-residue embeddings
+    to get a single vector representation for each sequence.
+
+    Args:
+        protein_dict: Dictionary mapping protein IDs to their amino acid sequences.
+        featurizer: Name of the ESM3 model to use. Supported models:
+            - "esm3_sm_open_v1": ESM3 small model (open source)
+            - "esm3_open_small": ESM3 small model (alternative name)
+        layer: Which transformer layer to extract embeddings from. If None, uses final embeddings.
+
+    Returns:
+        np.ndarray: Array of shape (num_proteins, embedding_dim) containing the computed
+            protein embeddings.
+
+    Raises:
+        ValueError: If the specified featurizer is not supported.
+        ImportError: If ESM3 is not properly installed.
+        RuntimeError: If protein processing fails.
+
+    Note: For using this function, you need to install the esm package and import esm from this package.
+    """
+    try:
+        from esm.models.esm3 import ESM3
+        from esm.sdk.api import ESM3InferenceClient, ESMProtein, LogitsConfig
+    except ImportError as e:
+        raise ImportError(
+            "ESM3 not found. Please install the esm package with ESM3 support: pip install esm"
+        ) from e
+
+    # Available ESM3 models
+    available_models = ["esm3_sm_open_v1", "esm3_open_small"]
+
+    if featurizer not in available_models:
+        raise ValueError(f"Unsupported ESM3 featurizer: {featurizer}. Available models: {available_models}")
+
+    # Initialize ESM3 inference client
+    model_name = featurizer
+    try:
+        client: ESM3InferenceClient = ESM3.from_pretrained(model_name).to("cuda")
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize ESM3 model {model_name}: {e}") from e
+
+    sequence_representations = []
+
+    # Process each protein sequence
+    for protein_id, sequence in protein_dict.items():
+        if not sequence or not isinstance(sequence, str):
+            raise ValueError(f"Invalid sequence for protein {protein_id}: {sequence}")
+
+        try:
+            # Create ESMProtein object from sequence
+            protein = ESMProtein(sequence=sequence)
+
+            # Encode the protein to get internal representation
+            protein_tensor = client.encode(protein)
+
+            # Configure to get sequence embeddings
+            logits_config = LogitsConfig(sequence=True)
+
+            # Get embeddings from the model
+            embeddings = client.logits(protein_tensor, logits_config)
+
+            # Extract sequence embeddings
+            if hasattr(embeddings, "sequence_logits") and embeddings.sequence_logits is not None:
+                # Use sequence logits if available
+                sequence_logits = embeddings.sequence_logits
+                # Average over sequence dimension to get a single vector per protein
+                protein_embedding = sequence_logits.mean(dim=1).squeeze()
+
+                # Convert to numpy if it's a torch tensor
+                if hasattr(protein_embedding, "numpy"):
+                    protein_embedding = protein_embedding.numpy()
+                elif hasattr(protein_embedding, "detach"):
+                    protein_embedding = protein_embedding.detach().numpy()
+
+                sequence_representations.append(protein_embedding)
+            else:
+                # Fallback: try to get hidden states from the encoded tensor
+                if hasattr(protein_tensor, "sequence") and protein_tensor.sequence is not None:
+                    hidden_states = protein_tensor.sequence
+                    # Average over sequence dimension
+                    protein_embedding = hidden_states.mean(dim=1).squeeze()
+
+                    # Convert to numpy if it's a torch tensor
+                    if hasattr(protein_embedding, "numpy"):
+                        protein_embedding = protein_embedding.numpy()
+                    elif hasattr(protein_embedding, "detach"):
+                        protein_embedding = protein_embedding.detach().numpy()
+
+                    sequence_representations.append(protein_embedding)
+                else:
+                    raise ValueError(f"Could not extract embeddings for protein {protein_id}")
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Error processing protein {protein_id} with sequence '{sequence[:50]}...': {e}"
+            ) from e
+
+    if not sequence_representations:
+        raise ValueError("No protein embeddings were successfully computed")
+
+    # Stack all embeddings into a single array
+    try:
+        return np.stack(sequence_representations)
+    except Exception as e:
+        raise RuntimeError(f"Failed to stack protein embeddings: {e}") from e

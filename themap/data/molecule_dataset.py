@@ -1,4 +1,3 @@
-import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,12 +8,11 @@ from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
 from themap.data.molecule_datapoint import MoleculeDatapoint
-from themap.utils.cache_utils import PersistentFeatureCache
+from themap.utils.cache_utils import CacheKey, PersistentFeatureCache, get_global_feature_cache
 from themap.utils.featurizer_utils import get_featurizer
 from themap.utils.logging import get_logger
 
 logger = get_logger(__name__)
-logger.setLevel(logging.INFO)
 
 # Type definitions for better type hints
 DatasetStats = Dict[str, Union[int, float]]  # Type for dataset statistics
@@ -52,7 +50,7 @@ class MoleculeDataset:
 
     task_id: str
     data: List[MoleculeDatapoint] = field(default_factory=list)
-    _features: Optional[NDArray[np.float32]] = None
+    _current_featurizer: Optional[str] = field(default=None, repr=False)
     _cache_info: Dict[str, Any] = field(default_factory=dict)
     _persistent_cache: Optional[PersistentFeatureCache] = field(default=None, repr=False)
 
@@ -126,10 +124,13 @@ class MoleculeDataset:
         # Start timing for performance measurement
         start_time = time.time()
 
-        # Return cached features if available and not forcing recompute
-        if self._features is not None and not force_recompute:
-            logger.info(f"Using cached dataset features for {self.task_id}")
-            return self._features
+        # Check if we have features for this featurizer
+        if self._current_featurizer == featurizer_name and not force_recompute:
+            # Try to get all features from global cache
+            cached_features = self._get_cached_dataset_features(featurizer_name)
+            if cached_features is not None:
+                logger.info(f"Using cached dataset features for {self.task_id} with {featurizer_name}")
+                return cached_features
 
         logger.info(f"Generating embeddings for dataset {self.task_id} with {len(self.data)} molecules")
 
@@ -261,13 +262,14 @@ class MoleculeDataset:
                     f"Feature length ({len(features)}) does not match data length ({len(self.data)})"
                 )
 
-            # Update individual molecule features for efficient access later
+            # Store in global cache - no need to store in individual molecules
+            cache = get_global_feature_cache()
             for i, molecule in enumerate(self.data):
-                # Use a view instead of a copy when possible to save memory
-                molecule._features = features[i]
+                cache_key = CacheKey(smiles=molecule.smiles, featurizer_name=featurizer_name)
+                cache.store(cache_key, features[i])
 
-            # Cache at dataset level
-            self._features = features
+            # Track current featurizer
+            self._current_featurizer = featurizer_name
 
             elapsed_time = time.time() - start_time
             logger.info(
@@ -286,6 +288,30 @@ class MoleculeDataset:
             if original_n_jobs is not None and hasattr(featurizer, "n_jobs"):
                 featurizer.n_jobs = original_n_jobs
                 logger.info(f"Restored featurizer to original setting of {original_n_jobs} jobs")
+
+    def _get_cached_dataset_features(self, featurizer_name: str) -> Optional[NDArray[np.float32]]:
+        """Get cached features for the entire dataset from global cache.
+
+        Args:
+            featurizer_name: Name of the featurizer to get features for
+
+        Returns:
+            Cached features if all molecules have cached features, None otherwise
+        """
+        cache = get_global_feature_cache()
+
+        # Use batch retrieval for better performance
+        cache_keys = [
+            CacheKey(smiles=molecule.smiles, featurizer_name=featurizer_name) for molecule in self.data
+        ]
+
+        cached_features = cache.batch_get(cache_keys)
+
+        # Check if all features are available
+        if any(feature is None for feature in cached_features):
+            return None  # Not all molecules have cached features
+
+        return np.array(cached_features) if cached_features else None
 
     def validate_dataset_integrity(self) -> bool:
         """Validate the integrity of the dataset.
@@ -328,10 +354,8 @@ class MoleculeDataset:
             "datapoints": sum(get_size_mb(dp) for dp in self.data),
         }
 
-        if self._features is not None:
-            memory_stats["cached_features"] = get_size_mb(self._features)
-        else:
-            memory_stats["cached_features"] = 0.0
+        # Features are now stored in global cache, not in the dataset
+        memory_stats["cached_features"] = 0.0
 
         memory_stats["total"] = sum(memory_stats.values())
 
@@ -345,15 +369,12 @@ class MoleculeDataset:
         """
         initial_memory = self.get_memory_usage()["total"]
 
-        # Clear individual molecule feature caches if dataset features are available
-        if self._features is not None:
-            cleared_count = 0
-            for molecule in self.data:
-                if hasattr(molecule, "_features") and molecule._features is not None:
-                    molecule._features = None
-                    cleared_count += 1
-
-            logger.info(f"Cleared {cleared_count} individual molecule feature caches")
+        # No need to clear individual caches since we use global cache
+        cleared_count = 0
+        if self._current_featurizer:
+            logger.info(f"Dataset was using featurizer: {self._current_featurizer}")
+            cleared_count = len(self.data)
+            logger.info(f"Cleared {cleared_count} cached features for dataset {self.task_id}")
 
         # Clear cache info that might be outdated
         self._cache_info.clear()
@@ -374,13 +395,17 @@ class MoleculeDataset:
 
         return optimization_results
 
-    # Helper method to clear cache for benchmarking
     def clear_cache(self) -> None:
-        """Clear all cached features."""
-        self._features = None
-        for molecule in self.data:
-            molecule._features = None
-        logger.info(f"Cleared cache for dataset {self.task_id}")
+        """Clear cached features for this dataset from global cache."""
+        if self._current_featurizer:
+            cache = get_global_feature_cache()
+            cleared_count = 0
+            for molecule in self.data:
+                cache_key = CacheKey(smiles=molecule.smiles, featurizer_name=self._current_featurizer)
+                if cache.evict(cache_key):
+                    cleared_count += 1
+            logger.info(f"Cleared {cleared_count} cached features for dataset {self.task_id}")
+        self._current_featurizer = None
 
     def enable_persistent_cache(self, cache_dir: Union[str, Path]) -> None:
         """Enable persistent caching for this dataset.
@@ -426,12 +451,14 @@ class MoleculeDataset:
             cached_features = self._persistent_cache.get(cache_key)
             if cached_features is not None:
                 logger.info(f"Using persistent cache for dataset {self.task_id}")
-                self._features = cached_features
 
-                # Update individual molecule features
+                # Store in global cache for future access
+                cache = get_global_feature_cache()
                 for i, molecule in enumerate(self.data):
-                    molecule._features = cached_features[i]
+                    cache_key_individual = CacheKey(smiles=molecule.smiles, featurizer_name=featurizer_name)
+                    cache.store(cache_key_individual, cached_features[i])
 
+                self._current_featurizer = featurizer_name
                 return cached_features
 
         # Compute features using the standard method
@@ -468,14 +495,23 @@ class MoleculeDataset:
     # Method to measure cache efficiency
     def get_cache_info(self) -> Dict[str, Any]:
         """Get information about the current cache state."""
-        molecules_cached = sum(1 for dp in self.data if dp._features is not None)
-        dataset_cached = self._features is not None
+        cache = get_global_feature_cache()
+        molecules_cached = 0
+
+        if self._current_featurizer:
+            for molecule in self.data:
+                cache_key = CacheKey(smiles=molecule.smiles, featurizer_name=self._current_featurizer)
+                if cache.get(cache_key) is not None:
+                    molecules_cached += 1
+
+        dataset_cached = molecules_cached == len(self.data) and len(self.data) > 0
 
         cache_info = {
             "dataset_cached": dataset_cached,
             "molecules_cached": molecules_cached,
             "total_molecules": len(self.data),
             "cache_ratio": molecules_cached / len(self.data) if len(self.data) > 0 else 0,
+            "current_featurizer": self._current_featurizer,
         }
         logger.info(f"Cache info for dataset {self.task_id}: {cache_info}")
         self._cache_info.update(cache_info)
@@ -563,9 +599,9 @@ class MoleculeDataset:
         Returns:
             Optional[NDArray[np.float32]]: Cached features for the dataset if available, None otherwise.
         """
-        if self._features is None:
+        if self._current_featurizer is None:
             return None
-        return np.array(self._features)
+        return self._get_cached_dataset_features(self._current_featurizer)
 
     @property
     def get_labels(self) -> NDArray[np.int32]:
@@ -602,26 +638,12 @@ class MoleculeDataset:
         logger.info(f"Loading dataset from {path}")
         samples = []
         for raw_sample in path.read_by_file_suffix():
-            fingerprint_raw = raw_sample.get("fingerprints")
-            if fingerprint_raw is not None:
-                fingerprint: Optional[np.ndarray] = np.array(fingerprint_raw, dtype=np.int32)
-            else:
-                fingerprint = None
-
-            descriptors_raw = raw_sample.get("descriptors")
-            if descriptors_raw is not None:
-                descriptors: Optional[np.ndarray] = np.array(descriptors_raw, dtype=np.float32)
-            else:
-                descriptors = None
-
             samples.append(
                 MoleculeDatapoint(
                     task_id=get_task_name_from_path(path),
                     smiles=raw_sample["SMILES"],
                     bool_label=bool(float(raw_sample["Property"])),
                     numeric_label=float(raw_sample.get("RegressionProperty") or "nan"),
-                    _fingerprint=fingerprint,
-                    _features=descriptors,
                 )
             )
 

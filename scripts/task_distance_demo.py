@@ -1,13 +1,12 @@
 """
 Demonstration script for the optimized task distance module.
 
-This script shows how to use the new TaskDistanceCalculator classes to efficiently
+This script shows how to use the TaskDistance class to efficiently
 compute N×M distance matrices for large task collections, with support for:
 - Combined multi-modal features (molecules + proteins + metadata)
 - Single-modality distances (molecules only, proteins only, metadata only)
-- Memory-efficient chunking for large datasets (>1000 tasks)
-- Parallel processing and caching
-- Task hardness analysis and k-nearest neighbor searches
+- Memory-efficient processing for large datasets
+- Task distance analysis
 
 Usage:
     python scripts/task_distance_demo.py
@@ -22,18 +21,33 @@ import numpy as np
 from themap.data.metadata import DataFold
 from themap.data.tasks import Tasks
 from themap.distance import (
-    CombinedTaskDistance,
-    MoleculeTaskDistance,
-    ProteinTaskDistance,
-    compute_task_distance_matrix,
-    create_task_distance_calculator,
+    MoleculeDatasetDistance,
+    ProteinDatasetDistance,
+    TaskDistance,
 )
-from themap.utils.logging import get_logger
+from themap.utils.logging import get_logger, setup_logging
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 
-def demo_combined_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -> None:
+def convert_distance_dict_to_matrix(distance_dict, source_names, target_names):
+    """Convert distance dictionary to matrix format with names."""
+    n_source = len(source_names)
+    n_target = len(target_names)
+    matrix = np.zeros((n_source, n_target))
+
+    for i, target_name in enumerate(target_names):
+        if target_name in distance_dict:
+            for j, source_name in enumerate(source_names):
+                if source_name in distance_dict[target_name]:
+                    matrix[j, i] = distance_dict[target_name][source_name]
+
+    return matrix
+
+
+def demo_combined_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -> TaskDistance:
     """Demonstrate combined multi-modal task distance computation."""
     logger.info("\n" + "=" * 70)
     logger.info("🔄 DEMO 1: Combined Multi-Modal Task Distances")
@@ -41,30 +55,36 @@ def demo_combined_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) 
 
     try:
         # Create combined distance calculator
-        calculator = CombinedTaskDistance(
+        calculator = TaskDistance(
             tasks=tasks,
-            molecule_featurizer="ecfp",
-            protein_featurizer="esm2_t33_650M_UR50D",
-            combination_method="concatenate",
-            distance_metric="euclidean",
-            cache_dir=cache_dir,
-            chunk_size=50,  # Small for demo
-            n_jobs=2,
+            molecule_method="euclidean",
+            protein_method="euclidean",
         )
 
-        logger.info(f"📊 Calculator info: {calculator.get_cache_info()}")
+        source_num, target_num = calculator.source_task_ids, calculator.target_task_ids
+        logger.info(
+            f"📊 Calculator created for tasks with {len(source_num)}/{len(target_num)} source/target tasks"
+        )
 
-        # Compute distance matrix
+        # Compute combined distance matrix
         logger.info("🔄 Computing combined distance matrix...")
         start_time = time.time()
 
-        distance_matrix, source_names, target_names = calculator.compute_distance_matrix(
-            source_fold=DataFold.TRAIN,
-            target_folds=[DataFold.TEST],
-            save_cache=True,
+        distance_dict = calculator.compute_combined_distance(
+            molecule_method="euclidean",
+            protein_method="euclidean",
+            combination_strategy="average",
         )
 
         elapsed_time = time.time() - start_time
+
+        # Get task names
+        target_names = list(distance_dict.keys())
+        source_names = list(distance_dict[target_names[0]].keys()) if target_names else []
+
+        # Convert to matrix for analysis
+        distance_matrix = convert_distance_dict_to_matrix(distance_dict, source_names, target_names)
+
         logger.info(f"✅ Computed {distance_matrix.shape} distance matrix in {elapsed_time:.2f}s")
         logger.info(f"📏 Distance range: {distance_matrix.min():.4f} - {distance_matrix.max():.4f}")
 
@@ -76,25 +96,14 @@ def demo_combined_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) 
             f"   📊 Matrix sparsity: {(distance_matrix == 0).sum() / distance_matrix.size * 100:.1f}%"
         )
 
-        # Compute task hardness
-        hardness_scores = calculator.compute_task_hardness(
-            distance_matrix, target_names, k=min(5, len(source_names)), aggregation="mean"
-        )
-        logger.info(f"   💪 Average task hardness: {np.mean(list(hardness_scores.values())):.4f}")
-
-        # Find k-nearest neighbors
-        k_nearest = calculator.get_k_nearest_tasks(
-            distance_matrix, source_names, target_names, k=min(3, len(source_names))
-        )
-
-        # Show example nearest neighbors
-        logger.info("\n🔍 Example K-Nearest Neighbors:")
-        for i, (target_name, nearest_list) in enumerate(k_nearest.items()):
-            if i >= 2:  # Show only first 2 examples
-                break
+        # Show example distances
+        logger.info("\n🔍 Example distances:")
+        for i, target_name in enumerate(target_names[:2]):  # Show first 2 targets
             logger.info(f"   {target_name}:")
-            for rank, (source_name, distance) in enumerate(nearest_list, 1):
-                logger.info(f"     {rank}. {source_name}: {distance:.4f}")
+            target_distances = [(source, dist) for source, dist in distance_dict[target_name].items()]
+            target_distances.sort(key=lambda x: x[1])  # Sort by distance
+            for j, (source_name, distance) in enumerate(target_distances[:3]):  # Show 3 nearest
+                logger.info(f"     {j + 1}. {source_name}: {distance:.4f}")
 
         return calculator
 
@@ -103,10 +112,10 @@ def demo_combined_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) 
         import traceback
 
         traceback.print_exc()
-        return None
+        raise
 
 
-def demo_molecule_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -> None:
+def demo_molecule_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -> MoleculeDatasetDistance:
     """Demonstrate molecule-only task distance computation."""
     logger.info("\n" + "=" * 70)
     logger.info("🧪 DEMO 2: Molecule-Only Task Distances")
@@ -114,29 +123,30 @@ def demo_molecule_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) 
 
     try:
         # Create molecule distance calculator
-        calculator = MoleculeTaskDistance(
+        calculator = MoleculeDatasetDistance(
             tasks=tasks,
-            molecule_featurizer="ecfp",
-            distance_metric="cosine",
-            cache_dir=cache_dir,
-            chunk_size=50,
-            n_jobs=1,
+            molecule_method="cosine",
         )
 
         # Compute distance matrix
         logger.info("🔄 Computing molecular distance matrix...")
-        distance_matrix, source_names, target_names = calculator.compute_distance_matrix()
+        distance_dict = calculator.get_distance()
+
+        # Get task names and convert to matrix
+        target_names = list(distance_dict.keys())
+        source_names = list(distance_dict[target_names[0]].keys()) if target_names else []
+        distance_matrix = convert_distance_dict_to_matrix(distance_dict, source_names, target_names)
 
         logger.info(f"✅ Molecular distances computed: {distance_matrix.shape}")
         logger.info(f"📏 Distance range: {distance_matrix.min():.4f} - {distance_matrix.max():.4f}")
 
-        # Test caching
-        logger.info("🔄 Testing cache performance...")
+        # Test repeat computation (should be fast due to caching)
+        logger.info("🔄 Testing repeat computation...")
         start_time = time.time()
-        cached_matrix, _, _ = calculator.compute_distance_matrix()
+        cached_dict = calculator.get_distance()
         cache_time = time.time() - start_time
         logger.info(
-            f"✅ Cache retrieval in {cache_time:.4f}s (matrix equal: {np.array_equal(distance_matrix, cached_matrix)})"
+            f"✅ Repeat computation in {cache_time:.4f}s (result equal: {distance_dict == cached_dict})"
         )
 
         return calculator
@@ -146,10 +156,10 @@ def demo_molecule_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) 
         import traceback
 
         traceback.print_exc()
-        return None
+        raise
 
 
-def demo_protein_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -> None:
+def demo_protein_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -> ProteinDatasetDistance:
     """Demonstrate protein-only task distance computation."""
     logger.info("\n" + "=" * 70)
     logger.info("🧬 DEMO 3: Protein-Only Task Distances")
@@ -157,17 +167,19 @@ def demo_protein_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -
 
     try:
         # Create protein distance calculator
-        calculator = ProteinTaskDistance(
+        calculator = ProteinDatasetDistance(
             tasks=tasks,
-            protein_featurizer="esm2_t33_650M_UR50D",
-            layer=33,
-            distance_metric="euclidean",
-            cache_dir=cache_dir,
+            protein_method="euclidean",
         )
 
         # Compute distance matrix
         logger.info("🔄 Computing protein distance matrix...")
-        distance_matrix, source_names, target_names = calculator.compute_distance_matrix()
+        distance_dict = calculator.get_distance()
+
+        # Get task names and convert to matrix
+        target_names = list(distance_dict.keys())
+        source_names = list(distance_dict[target_names[0]].keys()) if target_names else []
+        distance_matrix = convert_distance_dict_to_matrix(distance_dict, source_names, target_names)
 
         logger.info(f"✅ Protein distances computed: {distance_matrix.shape}")
         logger.info(f"📏 Distance range: {distance_matrix.min():.4f} - {distance_matrix.max():.4f}")
@@ -179,109 +191,128 @@ def demo_protein_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) -
         import traceback
 
         traceback.print_exc()
-        return None
+        raise
 
 
-def demo_convenience_functions(tasks: Tasks, cache_dir: Optional[Path] = None) -> None:
-    """Demonstrate convenience functions for quick distance computation."""
+def demo_task_distance_methods(tasks: Tasks, cache_dir: Optional[Path] = None) -> TaskDistance:
+    """Demonstrate different TaskDistance computation methods."""
     logger.info("\n" + "=" * 70)
-    logger.info("⚡ DEMO 4: Convenience Functions")
+    logger.info("⚡ DEMO 4: TaskDistance Methods")
     logger.info("=" * 70)
 
     try:
-        # Quick distance calculation using convenience function
-        logger.info("🔄 Using compute_task_distance_matrix convenience function...")
-
-        matrix, source_names, target_names, calculator = compute_task_distance_matrix(
+        # Create main task distance calculator
+        calculator = TaskDistance(
             tasks=tasks,
-            distance_type="molecule",  # Use molecule only for faster demo
-            distance_metric="euclidean",
-            chunk_size=50,
-            cache_dir=cache_dir,
-            molecule_featurizer="ecfp",
+            molecule_method="euclidean",
+            protein_method="euclidean",
         )
 
-        logger.info(f"✅ Quick computation complete: {matrix.shape}")
+        logger.info("🔄 Computing all distance types...")
 
-        # Analyze task hardness
-        hardness = calculator.compute_task_hardness(matrix, target_names, k=min(5, len(source_names)))
-        sorted_hardness = sorted(hardness.items(), key=lambda x: x[1], reverse=True)
+        # Compute all distances at once
+        all_distances = calculator.compute_all_distances(
+            molecule_method="euclidean",
+            protein_method="euclidean",
+            combination_strategy="average",
+        )
 
-        logger.info("\n💪 Task Hardness Analysis:")
-        for i, (task_name, hardness_score) in enumerate(sorted_hardness):
-            logger.info(f"   {i + 1}. {task_name}: {hardness_score:.4f}")
+        # Analyze each distance type
+        for distance_type, distance_dict in all_distances.items():
+            if distance_dict:  # Only process non-empty results
+                target_names = list(distance_dict.keys())
+                source_names = list(distance_dict[target_names[0]].keys()) if target_names else []
+                matrix = convert_distance_dict_to_matrix(distance_dict, source_names, target_names)
 
-        # Test different distance calculators
-        logger.info("\n🔧 Testing different calculator types...")
+                logger.info(f"\n💡 {distance_type.title()} Distance Analysis:")
+                logger.info(f"   📊 Matrix shape: {matrix.shape}")
+                logger.info(f"   📏 Distance range: {matrix.min():.4f} - {matrix.max():.4f}")
+                logger.info(f"   📈 Mean distance: {matrix.mean():.4f}")
 
-        for distance_type in ["molecule", "protein"]:
+        # Test different combination strategies
+        logger.info("\n🔧 Testing different combination strategies...")
+
+        for strategy in ["average", "weighted_average", "min", "max"]:
             try:
-                calc = create_task_distance_calculator(
-                    tasks,
-                    distance_type=distance_type,
-                    cache_dir=cache_dir,
+                combined_dict = calculator.compute_combined_distance(
+                    combination_strategy=strategy,
+                    molecule_weight=0.7,
+                    protein_weight=0.3,
                 )
-                logger.info(f"   ✅ {distance_type} calculator created successfully")
+                target_names = list(combined_dict.keys())
+                if target_names:
+                    # Just get one sample distance
+                    sample_distance = list(combined_dict[target_names[0]].values())[0]
+                    logger.info(f"   ✅ {strategy}: sample distance = {sample_distance:.4f}")
             except Exception as e:
-                logger.warning(f"   ⚠️ {distance_type} calculator failed: {e}")
+                logger.warning(f"   ⚠️ {strategy} failed: {e}")
 
         return calculator
 
     except Exception as e:
-        logger.error(f"❌ Convenience functions demo failed: {e}")
+        logger.error(f"❌ TaskDistance methods demo failed: {e}")
         import traceback
 
         traceback.print_exc()
-        return None
+        raise
 
 
-def demo_performance_optimization(tasks: Tasks, cache_dir: Optional[Path] = None) -> None:
+def demo_performance_optimization(tasks: Tasks, cache_dir: Optional[Path] = None) -> TaskDistance:
     """Demonstrate performance optimization features."""
     logger.info("\n" + "=" * 70)
     logger.info("🚀 DEMO 5: Performance Optimization")
     logger.info("=" * 70)
 
     try:
-        # Test different chunk sizes
-        logger.info("🔄 Testing different chunk sizes...")
+        # Test different methods
+        logger.info("🔄 Testing different distance methods...")
 
-        for chunk_size in [25, 50]:  # Smaller for demo
-            calculator = MoleculeTaskDistance(
+        molecule_methods = ["euclidean", "cosine"]
+        protein_methods = ["euclidean", "cosine"]
+
+        for mol_method in molecule_methods:
+            mol_calculator = MoleculeDatasetDistance(
                 tasks=tasks,
-                molecule_featurizer="ecfp",
-                chunk_size=chunk_size,
-                cache_dir=cache_dir,
+                molecule_method=mol_method,
             )
 
             start_time = time.time()
-            distance_matrix, _, _ = calculator.compute_distance_matrix(force_recompute=True)
+            distance_dict = mol_calculator.get_distance()
             elapsed_time = time.time() - start_time
 
-            logger.info(f"   Chunk size {chunk_size}: {elapsed_time:.3f}s, shape: {distance_matrix.shape}")
+            target_count = len(distance_dict.keys())
+            logger.info(f"   Molecule {mol_method}: {elapsed_time:.3f}s, {target_count} targets")
 
-        # Test parallel vs sequential
-        logger.info("\n⚡ Testing parallel processing...")
-
-        for n_jobs in [1, 2]:
-            calculator = MoleculeTaskDistance(
+        for prot_method in protein_methods:
+            prot_calculator = ProteinDatasetDistance(
                 tasks=tasks,
-                molecule_featurizer="ecfp",
-                n_jobs=n_jobs,
-                cache_dir=cache_dir,
+                protein_method=prot_method,
             )
 
             start_time = time.time()
-            distance_matrix, _, _ = calculator.compute_distance_matrix(force_recompute=True)
+            distance_dict = prot_calculator.get_distance()
             elapsed_time = time.time() - start_time
 
-            job_type = "sequential" if n_jobs == 1 else f"parallel ({n_jobs} jobs)"
-            logger.info(f"   {job_type}: {elapsed_time:.3f}s")
+            target_count = len(distance_dict.keys())
+            logger.info(f"   Protein {prot_method}: {elapsed_time:.3f}s, {target_count} targets")
 
-        # Cache statistics
-        logger.info("\n💾 Cache Statistics:")
-        cache_info = calculator.get_cache_info()
-        for key, value in cache_info.items():
-            logger.info(f"   {key}: {value}")
+        # Test caching benefits
+        logger.info("\n💾 Cache Performance:")
+        calculator = TaskDistance(tasks=tasks)
+
+        # First computation
+        start_time = time.time()
+        calculator.compute_molecule_distance()
+        first_time = time.time() - start_time
+
+        # Second computation (should use cached results)
+        start_time = time.time()
+        calculator.compute_molecule_distance()
+        second_time = time.time() - start_time
+
+        logger.info(f"   First computation: {first_time:.3f}s")
+        logger.info(f"   Cached computation: {second_time:.3f}s")
+        logger.info(f"   Speedup: {first_time / second_time:.1f}x")
 
         return calculator
 
@@ -290,7 +321,7 @@ def demo_performance_optimization(tasks: Tasks, cache_dir: Optional[Path] = None
         import traceback
 
         traceback.print_exc()
-        return None
+        raise
 
 
 def main() -> None:
@@ -331,8 +362,8 @@ def main() -> None:
         # Demo 3: Protein-only distances
         demo_protein_task_distance(tasks, cache_dir)
 
-        # Demo 4: Convenience functions
-        demo_convenience_functions(tasks, cache_dir)
+        # Demo 4: TaskDistance methods
+        demo_task_distance_methods(tasks, cache_dir)
 
         # Demo 5: Performance optimization
         demo_performance_optimization(tasks, cache_dir)
@@ -342,17 +373,16 @@ def main() -> None:
 
         # Show final usage summary
         logger.info("\n💡 Usage Summary:")
-        logger.info("# Quick distance computation:")
-        logger.info("matrix, source_names, target_names, calc = compute_task_distance_matrix(")
-        logger.info("    tasks=tasks,")
-        logger.info("    distance_type='combined',")
-        logger.info("    molecule_featurizer='ecfp',")
-        logger.info("    protein_featurizer='esm2_t33_650M_UR50D'")
-        logger.info(")")
+        logger.info("# Create distance calculator:")
+        logger.info("calculator = TaskDistance(tasks=tasks)")
         logger.info("")
-        logger.info("# Analysis:")
-        logger.info("hardness = calc.compute_task_hardness(matrix, target_names)")
-        logger.info("nearest = calc.get_k_nearest_tasks(matrix, source_names, target_names)")
+        logger.info("# Compute distances:")
+        logger.info("molecule_distances = calculator.compute_molecule_distance()")
+        logger.info("protein_distances = calculator.compute_protein_distance()")
+        logger.info("combined_distances = calculator.compute_combined_distance()")
+        logger.info("")
+        logger.info("# Or compute all at once:")
+        logger.info("all_distances = calculator.compute_all_distances()")
 
     except Exception as e:
         logger.error(f"❌ Demo failed: {e}")

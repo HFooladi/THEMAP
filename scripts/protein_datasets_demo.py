@@ -17,15 +17,13 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Add repository root to path
-REPO_PATH = Path(__file__).parent.parent.absolute()
-sys.path.insert(0, str(REPO_PATH))
-
 import numpy as np
 
 from themap.data.protein_datasets import DataFold, ProteinDatasets
-from themap.utils.logging import get_logger
+from themap.utils.logging import get_logger, setup_logging
 
+# Initialize logging
+setup_logging()
 logger = get_logger(__name__)
 
 
@@ -37,6 +35,9 @@ def main() -> None:
     print("=" * 60)
 
     # Configuration
+    # Add repository root to path
+    REPO_PATH = Path(__file__).parent.parent.absolute()
+    sys.path.insert(0, str(REPO_PATH))  # noqa: E402
     task_list_file = REPO_PATH / "datasets" / "sample_tasks_list.json"
     output_dir = REPO_PATH / "datasets"
     uniprot_mapping_file = REPO_PATH / "datasets" / "uniprot_mapping.csv"
@@ -44,7 +45,7 @@ def main() -> None:
 
     print(f"📋 Task list: {task_list_file}")
     print(f"📁 Output directory: {output_dir}")
-    print(f"🗂️  UniProt mapping: {uniprot_mapping_file}")
+    print(f"🗂️ UniProt mapping: {uniprot_mapping_file}")
 
     # Step 1: Create FASTA files from CHEMBL task list
     print("\n" + "=" * 50)

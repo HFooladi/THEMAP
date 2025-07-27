@@ -88,7 +88,6 @@ pip install -e ".[all]"
 
 # Specific feature sets
 pip install -e ".[ml]"        # Core ML functionality
-pip install -e ".[ml-gpu]"    # ML with GPU support
 pip install -e ".[otdd]"      # Optimal transport distances
 pip install -e ".[protein]"   # Protein analysis
 pip install -e ".[dev]"       # Development tools

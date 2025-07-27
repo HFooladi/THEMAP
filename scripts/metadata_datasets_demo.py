@@ -44,7 +44,7 @@ def create_sample_metadata_files(temp_dir: Path) -> None:
 
     # Sample task IDs (matching our protein dataset tasks)
     train_tasks = ["CHEMBL2219236", "CHEMBL3991889", "CHEMBL4439485"]
-    test_tasks = ["CHEMBL235", "CHEMBL244", "CHEMBL264"]
+    # test_tasks = ["CHEMBL235", "CHEMBL244", "CHEMBL264"]
 
     # Create directory structure
     for fold in ["train", "test"]:

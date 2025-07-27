@@ -14,7 +14,7 @@ class LoggingConfig:
     log_file: Optional[str] = None
 
     # Log format string
-    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format: str = "%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
 
     # Date format string
     date_format: str = "%Y-%m-%d %H:%M:%S"

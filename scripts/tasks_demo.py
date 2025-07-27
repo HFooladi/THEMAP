@@ -23,14 +23,12 @@ from sklearn.metrics.pairwise import cosine_distances
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import logging
-
 from themap.data.protein_datasets import DataFold
 from themap.data.tasks import Tasks
-from themap.utils.logging import get_logger
+from themap.utils.logging import get_logger, setup_logging
 
-# Configure logging to show INFO level messages
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+# Initialize logging
+setup_logging()
 logger = get_logger(__name__)
 
 
@@ -127,9 +125,13 @@ def demo_tasks_from_directory():
 
         return tasks
 
-    except Exception as e:
-        logger.warning(f"❌ Could not load tasks from directory: {e}")
+    except FileNotFoundError as e:
+        logger.warning(f"❌ Dataset directory or files not found: {e}")
         logger.info("💡 This is expected if datasets/ directory is not set up")
+        return None
+    except Exception as e:
+        logger.error(f"❌ Unexpected error loading tasks: {e}")
+        logger.info("💡 Check your dataset configuration and file permissions")
         return None
 
 
@@ -179,6 +181,10 @@ def demo_combined_feature_computation(tasks):
 
         return all_features
 
+    except ImportError as e:
+        logger.error(f"❌ Missing required dependencies for feature computation: {e}")
+        logger.info("💡 Install required packages or check your environment")
+        return None
     except Exception as e:
         logger.error(f"❌ Failed to compute combined features: {e}")
         logger.info("💡 This is expected if the required data/models are not available")
@@ -240,6 +246,12 @@ def demo_distance_computation(tasks):
         else:
             logger.warning("⚠️ No features available for distance computation")
 
+    except ImportError as e:
+        logger.error(f"❌ Missing required dependencies for distance computation: {e}")
+        logger.info("💡 Install required packages (sklearn, numpy) or check your environment")
+    except ValueError as e:
+        logger.error(f"❌ Invalid data for distance computation: {e}")
+        logger.info("💡 Check your feature extraction configuration")
     except Exception as e:
         logger.error(f"❌ Failed to compute task distances: {e}")
         logger.info("💡 This is expected if the required data/models are not available")
@@ -309,8 +321,12 @@ def demo_feature_persistence(tasks):
             for name, features in list(loaded_features.items())[:2]:
                 logger.info(f"  🎯 {name}: loaded feature shape {features.shape}")
 
+    except PermissionError as e:
+        logger.error(f"❌ Permission denied for feature persistence: {e}")
+        logger.info("💡 Check write permissions for the cache directory")
     except Exception as e:
         logger.error(f"❌ Failed to save/load features: {e}")
+        logger.info("💡 Check available disk space and file system permissions")
 
 
 def demo_cache_statistics(tasks):
@@ -375,7 +391,7 @@ def main():
     tasks = demo_tasks_from_directory()
 
     # Demo feature computation (if tasks loaded)
-    all_features = demo_combined_feature_computation(tasks)
+    _ = demo_combined_feature_computation(tasks)
 
     # Demo distance computation
     demo_distance_computation(tasks)

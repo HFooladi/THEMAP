@@ -13,8 +13,11 @@ analysis tools for understanding dataset relationships and task difficulty.
 
 import heapq
 import json
+import logging
+import multiprocessing
 import os
 import pickle
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -23,6 +26,13 @@ import torch
 from joblib import Parallel, delayed
 from scipy.spatial import distance
 from tqdm import tqdm
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Configuration constants
+DEFAULT_N_JOBS = min(8, multiprocessing.cpu_count())
+MAX_FILE_SIZE_MB = 100
 
 
 def normalize(x: np.ndarray) -> np.ndarray:
@@ -151,7 +161,8 @@ def inter_distance(test_tasks: List[Any], train_tasks: List[Any]) -> List[float]
     Returns:
         List of inter-task distances
     """
-    inter_dist = Parallel(n_jobs=32)(
+    n_jobs = min(DEFAULT_N_JOBS, multiprocessing.cpu_count())
+    inter_dist = Parallel(n_jobs=n_jobs)(
         delayed(compute_similarities_mean_nearest)(test_tasks[i].samples, train_tasks[j].samples)
         for i in tqdm(range(len(test_tasks)))
         for j in range(len(train_tasks))
@@ -172,7 +183,8 @@ def intra_distance(tasks_pos: List[Any], tasks_neg: List[Any]) -> List[np.ndarra
     Returns:
         List of similarity matrices between positive and negative samples
     """
-    intra_dist = Parallel(n_jobs=16)(
+    n_jobs = min(DEFAULT_N_JOBS // 2, multiprocessing.cpu_count())
+    intra_dist = Parallel(n_jobs=n_jobs)(
         delayed(compute_fps_similarity)(tasks_pos[i].samples, tasks_neg[i].samples)
         for i in tqdm(range(len(tasks_pos)))
     )
@@ -459,10 +471,18 @@ def otdd_hardness(
     Returns:
         DataFrame containing task hardness values and assay IDs
     """
-    with open(path_to_otdd, "rb") as f:
-        data: Dict[str, Any] = pickle.load(f)
+    # Validate file size before loading
+    file_size_mb = os.path.getsize(path_to_otdd) / (1024 * 1024)
+    if file_size_mb > MAX_FILE_SIZE_MB:
+        logger.warning(f"Large file detected: {file_size_mb:.1f}MB. This may consume significant memory.")
 
-    print(data.keys())
+    try:
+        with open(path_to_otdd, "rb") as f:
+            data: Dict[str, Any] = pickle.load(f)
+        logger.info(f"Loaded OTDD data with keys: {list(data.keys())}")
+    except Exception as e:
+        logger.error(f"Failed to load OTDD data from {path_to_otdd}: {e}")
+        raise
 
     if isinstance(data["distance_matrices"], list):
         distance_matrix = torch.stack(data["distance_matrices"])
@@ -482,7 +502,9 @@ def otdd_hardness(
     else:
         results = torch.mean(distance_matrix_sorted[:k, :], dim=0)
 
-    print("Number of NaN values in the hardness matrix: ", torch.isnan(results).sum().item())
+    nan_count = torch.isnan(results).sum().item()
+    if nan_count > 0:
+        logger.warning(f"Found {nan_count} NaN values in hardness matrix, replacing with mean")
     results = torch.nan_to_num(results, nan=torch.nanmean(results).item())
 
     hardness_df = pd.DataFrame({"hardness": results, "assay": data["test_chembl_ids"]})
@@ -511,10 +533,18 @@ def prototype_hardness(
     Returns:
         DataFrame containing task hardness values and assay IDs
     """
-    with open(path_to_prototypes_distance, "rb") as f:
-        data: Dict[str, Any] = pickle.load(f)
+    # Validate file size before loading
+    file_size_mb = os.path.getsize(path_to_prototypes_distance) / (1024 * 1024)
+    if file_size_mb > MAX_FILE_SIZE_MB:
+        logger.warning(f"Large file detected: {file_size_mb:.1f}MB. This may consume significant memory.")
 
-    print(data.keys())
+    try:
+        with open(path_to_prototypes_distance, "rb") as f:
+            data: Dict[str, Any] = pickle.load(f)
+        logger.info(f"Loaded prototype data with keys: {list(data.keys())}")
+    except Exception as e:
+        logger.error(f"Failed to load prototype data from {path_to_prototypes_distance}: {e}")
+        raise
 
     distance_matrix = data["distance_matrix"]
     distance_matrix_sorted, distance_matrix_indices = torch.sort(distance_matrix, dim=0)
@@ -530,7 +560,9 @@ def prototype_hardness(
     else:
         results = torch.mean(distance_matrix_sorted[:k, :], dim=0)
 
-    print("Number of NaN values in the hardness matrix: ", torch.isnan(results).sum().item())
+    nan_count = torch.isnan(results).sum().item()
+    if nan_count > 0:
+        logger.warning(f"Found {nan_count} NaN values in hardness matrix, replacing with mean")
     results = torch.nan_to_num(results, nan=torch.nanmean(results).item())
 
     hardness_df = pd.DataFrame({"hardness": results, "assay": data["test_task_name"]})
@@ -611,13 +643,34 @@ def get_configure(distance: str) -> Optional[Dict[str, Any]]:
 
     Returns:
         Dictionary containing distance metric configuration, or None if not found
-    """
-    source_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(source_path, "models", "distance_configures", f"{distance}.json")
 
-    if not os.path.exists(config_path):
+    Raises:
+        ValueError: If distance name contains invalid characters
+    """
+    # Validate distance name to prevent path traversal
+    if not distance.replace("_", "").replace("-", "").isalnum():
+        raise ValueError(f"Invalid distance name: {distance}")
+
+    # Use pathlib for safer path construction
+    source_path = Path(__file__).parent.parent
+    config_path = source_path / "models" / "distance_configures" / f"{distance}.json"
+
+    # Ensure the path is within the expected directory
+    try:
+        config_path.resolve().relative_to(source_path.resolve())
+    except ValueError:
+        logger.error(f"Attempted path traversal with distance name: {distance}")
         return None
 
-    with open(config_path, "r") as f:
-        config: Dict[str, Any] = json.load(f)
-    return config
+    if not config_path.exists():
+        logger.warning(f"Configuration file not found for distance: {distance}")
+        return None
+
+    try:
+        with open(config_path, "r") as f:
+            config: Dict[str, Any] = json.load(f)
+        logger.debug(f"Loaded configuration for distance: {distance}")
+        return config
+    except Exception as e:
+        logger.error(f"Failed to load configuration for {distance}: {e}")
+        return None

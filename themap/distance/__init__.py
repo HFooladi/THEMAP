@@ -1,4 +1,4 @@
-from themap.distance.tasks_distance import (
+from .tasks_distance import (
     MOLECULE_DISTANCE_METHODS,
     PROTEIN_DISTANCE_METHODS,
     AbstractTasksDistance,

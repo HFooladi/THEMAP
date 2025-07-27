@@ -1,12 +1,11 @@
-from themap.distance.tasks_distance import (
+from ._version import __version__
+from .distance.tasks_distance import (
     AbstractTasksDistance,
     MoleculeDatasetDistance,
     ProteinDatasetDistance,
     TaskDistance,
 )
-from themap.hardness import TaskHardness
-
-from ._version import __version__
+from .hardness import TaskHardness
 
 __all__ = [
     "__version__",

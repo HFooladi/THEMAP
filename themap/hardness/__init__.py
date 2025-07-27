@@ -1,4 +1,4 @@
-from themap.hardness.hardness import TaskHardness
+from .hardness import TaskHardness
 
 __all__ = [
     "TaskHardness",

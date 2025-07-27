@@ -1,5 +1,7 @@
 import hashlib
+import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -11,6 +13,85 @@ if TYPE_CHECKING:
     from themap.utils.memory_utils import MemoryEfficientFeatureStorage
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class CacheKey:
+    """Immutable cache key for molecular features."""
+
+    smiles: str
+    featurizer_name: str
+
+    def __post_init__(self):
+        if not self.smiles.strip():
+            raise ValueError("SMILES cannot be empty")
+        if not self.featurizer_name.strip():
+            raise ValueError("Featurizer name cannot be empty")
+
+
+class GlobalFeatureCache:
+    """Thread-safe global cache for molecular features."""
+
+    def __init__(self):
+        self._features: Dict[CacheKey, np.ndarray] = {}
+        self._lock = threading.RLock()
+        self._stats = {"hits": 0, "misses": 0, "stores": 0}
+
+    def get(self, cache_key: CacheKey) -> Optional[np.ndarray]:
+        """Get features from cache."""
+        with self._lock:
+            if cache_key in self._features:
+                self._stats["hits"] += 1
+                return self._features[cache_key].copy()
+            else:
+                self._stats["misses"] += 1
+                return None
+
+    def store(self, cache_key: CacheKey, features: np.ndarray) -> None:
+        """Store features in cache."""
+        if features is None:
+            raise ValueError("Cannot store None features")
+
+        with self._lock:
+            self._features[cache_key] = features.copy()
+            self._stats["stores"] += 1
+
+    def evict(self, cache_key: CacheKey) -> bool:
+        """Remove features from cache."""
+        with self._lock:
+            if cache_key in self._features:
+                del self._features[cache_key]
+                return True
+            return False
+
+    def batch_get(self, cache_keys: List[CacheKey]) -> List[Optional[np.ndarray]]:
+        """Get multiple features in a single call for better performance."""
+        with self._lock:
+            results = []
+            for cache_key in cache_keys:
+                if cache_key in self._features:
+                    self._stats["hits"] += 1
+                    results.append(self._features[cache_key].copy())
+                else:
+                    self._stats["misses"] += 1
+                    results.append(None)
+            return results
+
+    def get_stats(self) -> Dict[str, Union[int, float]]:
+        """Get cache statistics."""
+        with self._lock:
+            total_requests = self._stats["hits"] + self._stats["misses"]
+            hit_rate = self._stats["hits"] / total_requests if total_requests > 0 else 0.0
+            return {**self._stats.copy(), "hit_rate": hit_rate, "cache_size": len(self._features)}
+
+
+# Global cache instance
+_global_cache = GlobalFeatureCache()
+
+
+def get_global_feature_cache() -> GlobalFeatureCache:
+    """Get the global feature cache instance."""
+    return _global_cache
 
 
 class PersistentFeatureCache:

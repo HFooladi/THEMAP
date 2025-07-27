@@ -7,24 +7,18 @@ import os
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import pandas as pd
 import torch
 from tqdm import tqdm
 
-# Setting up local details:
-# This should be the location of the checkout of the THEMAP repository:
-repo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CHECKOUT_PATH = repo_path
-DATASET_PATH = os.path.join(repo_path, "datasets")
-PROTONET_PATH = os.path.join(DATASET_PATH, "fsmol_hardness", "FSMol_Eval_ProtoNet")
-
-os.chdir(CHECKOUT_PATH)
-sys.path.insert(0, CHECKOUT_PATH)
-
-
 from themap.utils import compute_task_hardness_from_distance_matrix, normalize
+from themap.utils.logging import get_logger, setup_logging
+
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
 
 """
 ESM2_Models = ["esm2_t6_8M_UR50D",
@@ -50,7 +44,13 @@ def parse_args():
     return args
 
 
-def get_protein_embedding(esm2_model: str = "esm2_t36_3B_UR50D", layer: int = 36) -> Tuple:
+def get_protein_embedding(
+    esm2_model: str = "esm2_t36_3B_UR50D", layer: int = 36, repo_path: Optional[str] = None
+) -> Tuple:
+    if repo_path is None:
+        raise ValueError("repo_path cannot be None")
+
+    DATASET_PATH = os.path.join(repo_path, "datasets")
     ESM_EMBEDDING_PATH = os.path.join(DATASET_PATH, "targets", "esm2_output", esm2_model)
     target_train_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "train_proteins.csv"))
     target_valid_df = pd.read_csv(os.path.join(DATASET_PATH, "targets", "valid_proteins.csv"))
@@ -140,6 +140,16 @@ def get_protein_embedding(esm2_model: str = "esm2_t36_3B_UR50D", layer: int = 36
 
 
 def main():
+    # Setting up local details:
+    # This should be the location of the checkout of the THEMAP repository:
+    REPO_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    CHECKOUT_PATH = REPO_PATH
+    DATASET_PATH = os.path.join(REPO_PATH, "datasets")
+    PROTONET_PATH = os.path.join(DATASET_PATH, "fsmol_hardness", "FSMol_Eval_ProtoNet")
+
+    os.chdir(CHECKOUT_PATH)
+    sys.path.insert(0, CHECKOUT_PATH)
+
     args = parse_args()
     (
         train_emb_tensor,
@@ -148,7 +158,7 @@ def main():
         train_accession_ids,
         valid_accession_ids,
         test_accession_ids,
-    ) = get_protein_embedding(args.esm2_model, args.layer)
+    ) = get_protein_embedding(args.esm2_model, args.layer, REPO_PATH)
 
     ##ToDO: This is just reprs for unique proteins in the train set.
     ## I should add reprs for all the other proteins in the training set.

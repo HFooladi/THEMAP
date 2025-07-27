@@ -15,13 +15,11 @@ Usage:
 import sys
 from pathlib import Path
 
-# Add repository root to path
-REPO_PATH = Path(__file__).parent.parent.absolute()
-sys.path.insert(0, str(REPO_PATH))
-
 from themap.data.protein_datasets import DataFold, ProteinDatasets
-from themap.utils.logging import get_logger
+from themap.utils.logging import get_logger, setup_logging
 
+# Initialize logging
+setup_logging()
 logger = get_logger(__name__)
 
 
@@ -29,6 +27,10 @@ def main():
     """Main function demonstrating ProteinDatasets functionality."""
 
     logger.info("🧬 Starting protein datasets example")
+
+    # Add repository root to path
+    REPO_PATH = Path(__file__).parent.parent.absolute()
+    sys.path.insert(0, str(REPO_PATH))  # noqa: E402
 
     # Define paths
     task_list_file = REPO_PATH / "datasets" / "sample_tasks_list.json"

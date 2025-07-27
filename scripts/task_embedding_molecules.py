@@ -41,15 +41,17 @@ sys.path.insert(0, str(CHECKOUT_PATH))
 
 try:
     from themap.data import DataFold, MoleculeDataset, MoleculeDatasets
-    from themap.utils.cache_utils import GlobalMoleculeCache, PersistentFeatureCache
+    from themap.utils.cache_utils import GlobalMoleculeCache
     from themap.utils.featurizer_utils import get_featurizer
-    from themap.utils.logging import get_logger
+    from themap.utils.logging import get_logger, setup_logging
     from themap.utils.memory_utils import MemoryEfficientFeatureStorage
 except ImportError as e:
     print(f"Failed to import required modules: {e}")
     print("Make sure you're running from the correct directory and all dependencies are installed.")
     sys.exit(1)
 
+# Setup logging
+setup_logging()
 # Configure logging
 logger = get_logger(__name__)
 
@@ -226,6 +228,8 @@ class MolecularEmbeddingGenerator:
 
         try:
             # Get all datasets for this fold
+            if self.dataset is None:
+                raise ValueError("Dataset not initialized. Call setup() first.")
             all_datasets = self.dataset.load_datasets([data_fold])
 
             # Filter to get only datasets from this fold
@@ -236,7 +240,7 @@ class MolecularEmbeddingGenerator:
                 for dataset_name, dataset in fold_datasets.items():
                     try:
                         # Add name attribute for compatibility
-                        dataset.name = dataset_name.replace(fold_prefix, "")
+                        setattr(dataset, "name", dataset_name.replace(fold_prefix, ""))
                         tasks.append(dataset)
                         self.stats["processed_tasks"] += 1
                         pbar.update(1)
@@ -336,9 +340,6 @@ class MolecularEmbeddingGenerator:
         logger.info(f"🎯 Computing features for {len(tasks)} {task_type} tasks")
 
         # Process tasks with progress bar
-        successful_tasks = []
-        failed_tasks = []
-
         # Create progress bar
         progress_bar = tqdm(tasks, desc=f"🔥 Processing {task_type} tasks", unit="task", leave=True)
 
