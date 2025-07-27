@@ -13,12 +13,27 @@ docs_dir: "docs"
 strict: true
 
 nav:
-  - Getting started: index.md
-  #- Tutorials:
-      #- The Basics: tutorials/The_Basics.ipynb
+  - Home: index.md
 
-  #- API:
-      #- themap: api/themap.md
+  - User Guide:
+      - Getting Started: user-guide/getting-started.md
+      - Distance Computation: user-guide/distance-computation.md
+      - Unified Task System: UNIFIED_TASK_SYSTEM.md
+
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - Getting Started: tutorials/getting-started.md
+      - Basic Distance Computation: tutorials/basic-distance-computation.md
+      - Working with Tasks: tutorials/working-with-tasks.md
+      - Performance Optimization: tutorials/performance-optimization.md
+      - The Basics: tutorials/Basics.ipynb
+
+  - Examples:
+      - Code Examples: examples/index.md
+
+  - API Reference:
+      - Data Module: api/data.md
+      - Distance Module: api/distance.md
 
 theme:
   name: material
