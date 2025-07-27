@@ -169,3 +169,9 @@ assets/figures/
 
 # ignore dev notebook
 notebooks/dev.ipynb
+
+# ignore cache
+cache/
+
+# ignonore package-lock.json
+package-lock.json
