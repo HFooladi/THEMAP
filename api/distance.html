@@ -2379,7 +2379,7 @@
 <p>The distance computation system consists of three main classes:</p>
 <ul>
 <li><strong><code>MoleculeDatasetDistance</code></strong> - Computes distances between molecule datasets</li>
-<li><strong><code>ProteinDatasetDistance</code></strong> - Computes distances between protein datasets  </li>
+<li><strong><code>ProteinDatasetDistance</code></strong> - Computes distances between protein datasets</li>
 <li><strong><code>TaskDistance</code></strong> - Unified interface for computing combined task distances</li>
 </ul>
 <h2 id="core-classes">Core Classes</h2>
@@ -6028,7 +6028,7 @@ otherwise uses molecule distance, then protein distance as fallback.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Available distance methods for molecule datasets</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">MOLECULE_DISTANCE_METHODS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;otdd&quot;</span><span class="p">,</span> <span class="s2">&quot;euclidean&quot;</span><span class="p">,</span> <span class="s2">&quot;cosine&quot;</span><span class="p">]</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Available distance methods for protein datasets  </span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Available distance methods for protein datasets</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">PROTEIN_DISTANCE_METHODS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;euclidean&quot;</span><span class="p">,</span> <span class="s2">&quot;cosine&quot;</span><span class="p">]</span>
 </span></code></pre></div>
 <h2 id="usage-examples">Usage Examples</h2>
@@ -6084,7 +6084,7 @@ otherwise uses molecule distance, then protein distance as fallback.</p>
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
 </span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="c1"># Access specific distance types</span>
 </span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">molecule_distances</span> <span class="o">=</span> <span class="n">all_distances</span><span class="p">[</span><span class="s2">&quot;molecule&quot;</span><span class="p">]</span>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">protein_distances</span> <span class="o">=</span> <span class="n">all_distances</span><span class="p">[</span><span class="s2">&quot;protein&quot;</span><span class="p">]</span> 
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">protein_distances</span> <span class="o">=</span> <span class="n">all_distances</span><span class="p">[</span><span class="s2">&quot;protein&quot;</span><span class="p">]</span>
 </span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="n">combined_distances</span> <span class="o">=</span> <span class="n">all_distances</span><span class="p">[</span><span class="s2">&quot;combined&quot;</span><span class="p">]</span>
 </span></code></pre></div>
 <h3 id="working-with-external-distance-matrices">Working with External Distance Matrices</h3>

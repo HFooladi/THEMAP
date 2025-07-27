@@ -1512,7 +1512,7 @@
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">distances</span> <span class="o">=</span> <span class="n">mol_distance</span><span class="o">.</span><span class="n">get_distance</span><span class="p">()</span>
 </span></code></pre></div>
 <p><strong>When to use Euclidean:</strong>
-- ✅ Large datasets (&gt; 10,000 molecules)<br />
+- ✅ Large datasets (&gt; 10,000 molecules)
 - ✅ Fast computation requirements
 - ✅ Feature magnitude is important
 - ❌ High-dimensional sparse features</p>
@@ -1608,7 +1608,7 @@
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">folds</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;TRAIN&quot;</span><span class="p">,</span> <span class="s2">&quot;TEST&quot;</span><span class="p">]</span>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Protein features  </span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Protein features</span>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">prot_features</span> <span class="o">=</span> <span class="n">tasks</span><span class="o">.</span><span class="n">compute_all_task_features</span><span class="p">(</span>
 </span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">protein_featurizer</span><span class="o">=</span><span class="s2">&quot;esm2_t33_650M_UR50D&quot;</span><span class="p">,</span>
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="n">combination_method</span><span class="o">=</span><span class="s2">&quot;concatenate&quot;</span>
@@ -1658,7 +1658,7 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Load chemical space distances</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">chem_distances</span> <span class="o">=</span> <span class="n">TaskDistance</span><span class="o">.</span><span class="n">load_ext_chem_distance</span><span class="p">(</span><span class="s2">&quot;external_chem_dist.pkl&quot;</span><span class="p">)</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Load protein space distances  </span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Load protein space distances</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">prot_distances</span> <span class="o">=</span> <span class="n">TaskDistance</span><span class="o">.</span><span class="n">load_ext_prot_distance</span><span class="p">(</span><span class="s2">&quot;external_prot_dist.pkl&quot;</span><span class="p">)</span>
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Initialize with external matrices</span>
@@ -1676,7 +1676,7 @@
 <p>External distance files should contain:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="s2">&quot;source_task_ids&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CHEMBL001&quot;</span><span class="p">,</span> <span class="s2">&quot;CHEMBL002&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>    <span class="c1"># or train_chembl_ids</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;target_task_ids&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CHEMBL100&quot;</span><span class="p">,</span> <span class="s2">&quot;CHEMBL101&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>    <span class="c1"># or test_chembl_ids  </span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;target_task_ids&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CHEMBL100&quot;</span><span class="p">,</span> <span class="s2">&quot;CHEMBL101&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>    <span class="c1"># or test_chembl_ids</span>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="s2">&quot;distance_matrices&quot;</span><span class="p">:</span> <span class="n">numpy_array_or_tensor</span>              <span class="c1"># Shape: (n_targets, n_sources)</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">}</span>
 </span></code></pre></div>
