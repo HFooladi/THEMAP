@@ -7,9 +7,11 @@ from rdkit.Chem import Descriptors
 
 from ..utils.cache_utils import CacheKey, get_global_feature_cache
 from ..utils.featurizer_utils import get_featurizer, make_mol
-from ..utils.logging import get_logger
+from ..utils.logging import get_logger, setup_logging
 from .exceptions import FeaturizationError, InvalidSMILESError
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 
