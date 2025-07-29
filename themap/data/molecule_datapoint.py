@@ -47,22 +47,22 @@ class MoleculeDatapoint:
         >>> # Create a molecule datapoint
         >>> datapoint = MoleculeDatapoint(
         ...     task_id="toxicity_prediction",
-        ...     smiles="CCO",  # ethanol
+        ...     smiles="CCCO",  # propanol
         ...     bool_label=True,
         ...     numeric_label=0.8
         ... )
         >>>
         >>> # Access molecular properties
-        >>> print(f"Number of atoms: {datapoint.number_of_atoms}")
-        # Number of atoms: 9
+        >>> print(f"Number of heavy atoms: {datapoint.number_of_atoms}")
+        # Number of heavy atoms: 4
         >>> print(f"Molecular weight: {datapoint.molecular_weight:.2f}")
-        # Molecular weight: 46.07
+        # Molecular weight: 60.06
         >>> print(f"LogP: {datapoint.logp:.2f}")
-        # LogP: -0.31
+        # LogP: 0.39
         >>> print(f"Number of rotatable bonds: {datapoint.num_rotatable_bonds}")
-        # Number of rotatable bonds: 0
+        # Number of rotatable bonds: 1
         >>> print(f"SMILES canonical: {datapoint.smiles_canonical}")
-        # SMILES canonical: CCO
+        # SMILES canonical: CCCO
         >>>
         >>> # Get molecular features
         >>> fingerprint = datapoint.get_fingerprint()
@@ -133,6 +133,9 @@ class MoleculeDatapoint:
             Optional[np.ndarray]: Morgan fingerprint for the molecule (r=2, nbits=2048).
                 The fingerprint is a binary vector representing the molecular structure.
                 Returns None if fingerprint generation fails.
+
+        Note:
+            dtype of the fingerprint is np.uint8.
         """
         cache_key = CacheKey(smiles=self.smiles, featurizer_name="ecfp")
         cache = get_global_feature_cache()
@@ -177,6 +180,10 @@ class MoleculeDatapoint:
         Returns:
             Optional[np.ndarray]: Features for the molecule. The shape and content depend on
                 the featurizer used. Returns None if feature generation fails or featurizer_name is None.
+
+        Note:
+            dtype of the features is different for different featurizers.
+            For example, ecfp and fcfp dtype is np.uint8, while mordred dtype is np.float64.
         """
         if featurizer_name is None:
             return None
