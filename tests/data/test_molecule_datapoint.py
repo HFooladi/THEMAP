@@ -578,3 +578,7 @@ def test_MoleculeDatapoint_validation():
             bool_label=True,
             numeric_label="invalid",  # Should be number or None
         )
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "--cov=themap.data.molecule_datapoint", "--cov-report=term-missing"])

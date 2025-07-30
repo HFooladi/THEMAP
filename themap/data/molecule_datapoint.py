@@ -134,6 +134,9 @@ class MoleculeDatapoint:
                 The fingerprint is a binary vector representing the molecular structure.
                 Returns None if fingerprint generation fails.
 
+        Raises:
+            FeaturizationError: If computing fingerprint for molecule fails.
+
         Note:
             dtype of the fingerprint is np.uint8.
         """
@@ -184,6 +187,9 @@ class MoleculeDatapoint:
         Note:
             dtype of the features is different for different featurizers.
             For example, ecfp and fcfp dtype is np.uint8, while mordred dtype is np.float64.
+
+        Raises:
+            FeaturizationError: If computing features for molecule fails.
         """
         if featurizer_name is None:
             return None
@@ -307,4 +313,4 @@ class MoleculeDatapoint:
         mol = self.rdkit_mol
         if mol is None:
             raise ValueError("Failed to create RDKit molecule")
-        return Chem.MolToSmiles(mol, isomericSmiles=True)
+        return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)

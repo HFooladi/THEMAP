@@ -8,12 +8,14 @@ import numpy as np
 from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
-from themap.data.metadata import DataFold, MetadataDatasets, TextMetadataDataset
-from themap.data.molecule_dataset import MoleculeDataset
-from themap.data.protein_datasets import ProteinDataset, ProteinDatasets
-from themap.utils.cache_utils import GlobalMoleculeCache
-from themap.utils.logging import get_logger
+from ..utils.cache_utils import GlobalMoleculeCache
+from ..utils.logging import get_logger, setup_logging
+from .metadata import DataFold, MetadataDatasets, TextMetadataDataset
+from .molecule_dataset import MoleculeDataset
+from .protein_datasets import ProteinDataset, ProteinDatasets
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 

@@ -4,9 +4,11 @@ import numpy as np
 import torch
 import torch.utils.data.dataloader as dataloader
 
-from themap.data.molecule_dataset import MoleculeDataset
-from themap.utils.logging import get_logger
+from ..utils.logging import get_logger, setup_logging
+from .molecule_dataset import MoleculeDataset
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 

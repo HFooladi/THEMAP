@@ -11,15 +11,17 @@ from Bio import SeqIO
 from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
-from themap.utils.cache_utils import GlobalMoleculeCache
-from themap.utils.logging import get_logger
-from themap.utils.protein_utils import (
+from ..utils.cache_utils import GlobalMoleculeCache
+from ..utils.logging import get_logger, setup_logging
+from ..utils.protein_utils import (
     convert_fasta_to_dict,
     get_protein_accession,
     get_protein_features,
     get_protein_sequence,
 )
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 

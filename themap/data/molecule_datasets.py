@@ -6,10 +6,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from dpu_utils.utils import RichPath
 
-from themap.data.molecule_dataset import MoleculeDataset, get_task_name_from_path
-from themap.utils.cache_utils import CacheKey, GlobalMoleculeCache, get_global_feature_cache
-from themap.utils.logging import get_logger
+from ..utils.cache_utils import CacheKey, GlobalMoleculeCache, get_global_feature_cache
+from ..utils.logging import get_logger, setup_logging
+from .molecule_dataset import MoleculeDataset, get_task_name_from_path
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 

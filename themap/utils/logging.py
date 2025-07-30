@@ -4,7 +4,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, Optional
 
-from themap.utils.config import LoggingConfig, default_logging_config
+from .config import LoggingConfig, default_logging_config
 
 
 class ColorizedFormatter(logging.Formatter):

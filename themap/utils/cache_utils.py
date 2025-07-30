@@ -7,17 +7,23 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from themap.utils.logging import get_logger
+from .logging import get_logger
 
 if TYPE_CHECKING:
-    from themap.utils.memory_utils import MemoryEfficientFeatureStorage
+    from .memory_utils import MemoryEfficientFeatureStorage
+
 
 logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
 class CacheKey:
-    """Immutable cache key for molecular features."""
+    """Immutable cache key for molecular features.
+
+    Args:
+        smiles (str): SMILES string of the molecule.
+        featurizer_name (str): Name of the featurizer used.
+    """
 
     smiles: str
     featurizer_name: str
@@ -128,7 +134,7 @@ class PersistentFeatureCache:
 
         # Initialize memory-efficient storage if requested
         if use_memory_efficient_storage:
-            from themap.utils.memory_utils import MemoryEfficientFeatureStorage
+            from .memory_utils import MemoryEfficientFeatureStorage
 
             compression_level = 6 if enable_compression else 0
             self._memory_storage: Optional["MemoryEfficientFeatureStorage"] = MemoryEfficientFeatureStorage(
@@ -440,7 +446,7 @@ class GlobalMoleculeCache:
         Returns:
             Dictionary mapping SMILES to computed features
         """
-        from themap.utils.featurizer_utils import get_featurizer
+        from .featurizer_utils import get_featurizer
 
         # Check cache first
         cache_key = None

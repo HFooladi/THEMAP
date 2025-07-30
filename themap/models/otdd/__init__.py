@@ -1,3 +1,19 @@
+"""
+This is the OTTD model, based on the following implementation:
+https://github.com/microsoft/otdd.
+
+If you use this model, please cite the corresponding paper:
+@article{alvarez2020geometric,
+  title={Geometric dataset distances via optimal transport},
+  author={Alvarez-Melis, David and Fusi, Nicolo},
+  journal={Advances in Neural Information Processing Systems},
+  volume={33},
+  pages={21428--21439},
+  year={2020}
+}
+
+"""
+
 import logging
 import os
 from os.path import abspath, dirname

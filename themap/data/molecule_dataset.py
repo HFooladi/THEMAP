@@ -7,11 +7,13 @@ import numpy as np
 from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
-from themap.data.molecule_datapoint import MoleculeDatapoint
-from themap.utils.cache_utils import CacheKey, PersistentFeatureCache, get_global_feature_cache
-from themap.utils.featurizer_utils import get_featurizer
-from themap.utils.logging import get_logger
+from ..utils.cache_utils import CacheKey, PersistentFeatureCache, get_global_feature_cache
+from ..utils.featurizer_utils import get_featurizer
+from ..utils.logging import get_logger, setup_logging
+from .molecule_datapoint import MoleculeDatapoint
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 # Type definitions for better type hints
@@ -44,8 +46,23 @@ class MoleculeDataset:
     Attributes:
         task_id (str): String describing the task this dataset is taken from.
         data (List[MoleculeDatapoint]): List of MoleculeDatapoint objects.
-        _features (Optional[NDArray[np.float32]]): Cached features for the dataset.
+        _current_featurizer (Optional[str]): Name of the current featurizer.
         _cache_info (Dict[str, Any]): Information about the feature caching.
+        _persistent_cache (Optional[PersistentFeatureCache]): Persistent feature cache.
+
+    Examples:
+    # Lets load a dataset from a file:
+    >>> dataset = MoleculeDataset.load_from_file("datasets/test/CHEMBL2219358.jsonl.gz")
+    >>> print(dataset)
+    MoleculeDataset(task_id=CHEMBL2219358, task_size=157)
+    # compute the dataset embedding:
+    >>> dataset.get_dataset_embedding(featurizer_name="fcfp", n_jobs=1)
+    # compute the prototype:
+    >>> dataset.get_prototype(featurizer_name="fcfp")
+    # compute the dataset statistics:
+    >>> dataset.get_statistics()
+    # filter the dataset:
+    >>> dataset.filter(lambda x: x.bool_label == 1)
     """
 
     task_id: str
@@ -81,7 +98,7 @@ class MoleculeDataset:
         n_jobs: Optional[int] = None,
         force_recompute: bool = False,
         batch_size: int = 1000,
-    ) -> NDArray[np.float32]:
+    ) -> np.ndarray:
         """Get the features for the entire dataset using a featurizer.
 
         Efficiently computes features for all molecules in the dataset using the
@@ -97,13 +114,18 @@ class MoleculeDataset:
                             when handling large datasets
 
         Returns:
-            NDArray[np.float32]: Features for the entire dataset, shape (n_samples, n_features)
+            np.ndarray: Features for the entire dataset, shape (n_samples, n_features)
+            if the features are already computed, they are loaded from the cache.
+            if the features are not computed, they are computed and cached.
 
         Raises:
             ValueError: If the generated features length doesn't match the dataset length
             TypeError: If featurizer_name is not a string
             RuntimeError: If featurization fails
             IndexError: If dataset is empty
+
+        Notes:
+            - Output dtype is different for each featurizer.
         """
         # Input validation
         if not isinstance(featurizer_name, str):
@@ -535,6 +557,10 @@ class MoleculeDataset:
             ValueError: If there are no positive or negative examples in the dataset
             TypeError: If featurizer_name is not a string
             RuntimeError: If feature computation fails
+
+        Notes:
+            - It assumes there are two positive and two negative examples in the dataset.
+            - Output dtype is different for each featurizer.
         """
         # Input validation
         if not isinstance(featurizer_name, str):
@@ -605,7 +631,7 @@ class MoleculeDataset:
 
     @property
     def get_labels(self) -> NDArray[np.int32]:
-        return np.array([data.bool_label for data in self.data])
+        return np.array([data.bool_label for data in self.data], dtype=np.int32)
 
     @property
     def get_smiles(self) -> List[str]:

@@ -7,8 +7,9 @@ from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransfo
 from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
 from rdkit import Chem
 
-from themap.utils.logging import get_logger
+from .logging import get_logger
 
+# Setup logging
 logger = get_logger(__name__)
 
 
@@ -41,7 +42,7 @@ def make_mol(
         keep_atom_map: Boolean whether to keep the original atom mapping.
 
     Returns:
-        RDKit molecule.
+        RDKit molecule or None if the molecule is invalid.
     """
     params = Chem.SmilesParserParams()
     params.removeHs = not keep_h  # type: ignore
@@ -70,8 +71,8 @@ def get_featurizer(
     Returns a featurizer object based on the input string.
 
     Args:
-        featurizer: String specifying the featurizer to use.
-        n_jobs: Number of jobs to use for parallel processing.
+        featurizer (str): String specifying the featurizer to use.
+        n_jobs (int): Number of jobs to use for parallel processing.
 
     Returns:
         Featurizer object.
@@ -79,6 +80,9 @@ def get_featurizer(
     Raises:
         ValueError: If the specified featurizer is not found.
     """
+    assert isinstance(featurizer, str), "Featurizer must be a string"
+    assert isinstance(n_jobs, int), "Number of jobs must be an integer"
+
     if featurizer in ["ecfp", "fcfp", "mordred", "desc2D", "desc3D", "maccs", "usrcat"]:
         transformer = MoleculeTransformer(featurizer, n_jobs=n_jobs)
 

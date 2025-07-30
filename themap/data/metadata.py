@@ -10,10 +10,12 @@ import pandas as pd
 from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
-from themap.data.protein_datasets import DataFold
-from themap.utils.cache_utils import GlobalMoleculeCache
-from themap.utils.logging import get_logger
+from ..utils.cache_utils import GlobalMoleculeCache
+from ..utils.logging import get_logger, setup_logging
+from .protein_datasets import DataFold
 
+# Setup logging
+setup_logging()
 logger = get_logger(__name__)
 
 
