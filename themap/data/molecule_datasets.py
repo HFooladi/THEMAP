@@ -179,7 +179,7 @@ class MoleculeDatasets:
                 # Use fold-specific task list if available, otherwise use general task list
                 if fold_task_lists:
                     applicable_tasks = fold_task_lists.get(data_fold_name, [])
-                    if not applicable_tasks or task_name in applicable_tasks:
+                    if task_name in applicable_tasks:
                         rich_paths.append(rich_path)
                 elif task_list is None or task_name in task_list:
                     rich_paths.append(rich_path)
@@ -269,10 +269,6 @@ class MoleculeDatasets:
         Returns:
             Dictionary mapping dataset names to computed features
 
-        Note:
-            This method has side effects:
-            - It modifies the datasets in place by adding features to the dataset objects
-            - It modifies the molecules in place by adding features to the molecule objects
         """
         start_time = time.time()
 
@@ -382,6 +378,9 @@ class MoleculeDatasets:
             - target_features: List of feature arrays for target datasets
             - source_names: List of source dataset names
             - target_names: List of target dataset names
+
+        Notes:
+            if you dont provide target_folds, it will use the validation and test folds as default target folds.
         """
         if target_folds is None:
             target_folds = [DataFold.VALIDATION, DataFold.TEST]

@@ -54,7 +54,7 @@ class MoleculeDataset:
     # Lets load a dataset from a file:
     >>> dataset = MoleculeDataset.load_from_file("datasets/test/CHEMBL2219358.jsonl.gz")
     >>> print(dataset)
-    MoleculeDataset(task_id=CHEMBL2219358, task_size=157)
+    # MoleculeDataset(task_id=CHEMBL2219358, task_size=157)
     # compute the dataset embedding:
     >>> dataset.get_dataset_embedding(featurizer_name="fcfp", n_jobs=1)
     # compute the prototype:

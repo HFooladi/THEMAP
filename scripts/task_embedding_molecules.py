@@ -61,6 +61,7 @@ AVAILABLE_FEATURIZERS = {
     "fingerprints": [
         "ecfp",  # Extended-Connectivity Fingerprints
         "maccs",  # MACCS structural keys fingerprint
+        "fcfp",  # FCFP fingerprint
     ],
     "descriptors": [
         "mordred",  # Mordred molecular descriptors
