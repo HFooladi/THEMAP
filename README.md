@@ -137,20 +137,20 @@ except ImportError:
 ```python
 # Only works with pip install -e ".[all]"
 from themap.data.tasks import Tasks, Task
-from themap.distance.tasks_distance import MoleculeDatasetDistance, TaskDistance
+from themap.distance.tasks_distance import MoleculeDatasetDistance, ProteinDatasetDistance, TaskDistance
 
 # Create Tasks collection from your datasets
 source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
 source_dataset = MoleculeDataset.load_from_file(source_dataset_path)
 target_dataset_path = RichPath.create(os.path.join("datasets", "test", "CHEMBL2219358.jsonl.gz"))
-target_dataset = MoleculeDataset.load_from_file(source_dataset_path)
+target_dataset = MoleculeDataset.load_from_file(target_dataset_path)
 source_task = Task(task_id="CHEMBL1023359", molecule_dataset=source_dataset)
 target_task = Task(task_id="CHEMBL2219358", molecule_dataset=target_dataset)
 
-# Option 1: Create Tasks collection with train/test split
+# Step 1: Create Tasks collection with train/test split
 tasks = Tasks(train_tasks=[source_task], test_tasks=[target_task])
 
-# Option 2: Compute molecule distance with method-specific configuration
+# Step 2: Compute molecule distance with method-specific configuration
 try:
     # Use different methods for different data types
     mol_dist = MoleculeDatasetDistance(
@@ -160,28 +160,6 @@ try:
     mol_dist._compute_features()
     distance = mol_dist.get_distance()
     print(distance)
-    # Output: {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
-
-    # Option 3: Use TaskDistance for comprehensive analysis
-    task_dist = TaskDistance(
-        tasks=tasks,
-        molecule_method="otdd",
-        protein_method="cosine"
-    )
-
-    # Compute different types of distances
-    molecule_distances = task_dist.compute_molecule_distance()
-    # protein_distances = task_dist.compute_protein_distance()  # If protein data available
-
-    # Or compute all distances at once
-    all_distances = task_dist.compute_all_distances(
-        molecule_method="otdd",
-        combination_strategy="weighted_average",
-        molecule_weight=0.7,
-        protein_weight=0.3
-    )
-    print("Molecule distances:", all_distances["molecule"])
-    print("Combined distances:", all_distances["combined"])
 
 except ImportError:
     print("❌ Distance calculation dependencies not installed. Use: pip install -e '.[all]'")
