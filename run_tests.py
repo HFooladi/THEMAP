@@ -78,10 +78,10 @@ def main():
 
     # Add test type specific options
     if args.test_type == "unit":
-        cmd.extend(["-m", "unit"])
+        cmd.append("tests/unit/")
         description = "Running unit tests"
     elif args.test_type == "integration":
-        cmd.extend(["-m", "integration"])
+        cmd.append("tests/integration/")
         description = "Running integration tests"
     elif args.test_type == "distance":
         cmd.extend(["tests/distance/"])
