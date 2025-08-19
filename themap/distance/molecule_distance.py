@@ -24,7 +24,6 @@ from .base import (
     PROTEIN_DISTANCE_METHODS,
     AbstractTasksDistance,
     _get_dataset_distance,
-    _validate_and_extract_task_id,
 )
 from .exceptions import DistanceComputationError
 
@@ -221,11 +220,14 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
             chem_distances[self.target_task_ids[i]] = chem_distance
         return chem_distances
 
-    def euclidean_distance(self) -> Dict[str, Dict[str, float]]:
+    def euclidean_distance(self, featurizer_name: str = "ecfp") -> Dict[str, Dict[str, float]]:
         """Compute Euclidean distance between molecule datasets.
 
         This method computes the dataset-level Euclidean distance by comparing
         individual molecules between datasets, similar to how OTDD works.
+
+        Args:
+            featurizer_name: Name of the molecular featurizer to use (e.g., "ecfp", "maccs", "desc2D")
 
         Returns:
             Dictionary containing Euclidean distances between source and target datasets.
@@ -241,63 +243,62 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
                 return {}
 
             chem_distances: Dict[str, Dict[str, float]] = {}
-            
+
             # Compute distances between each target and source dataset pair
             for i, tgt_dataset in enumerate(self.target_molecule_datasets):
                 chem_distance: Dict[str, float] = {}
-                
+
                 for j, src_dataset in enumerate(self.source_molecule_datasets):
                     try:
-                        # Get features for both datasets using the configured featurizer
-                        # Use the first available featurizer from the pipeline config
-                        featurizer_name = "ecfp"  # default fallback
-                        if hasattr(self, '_current_featurizer'):
-                            featurizer_name = self._current_featurizer
-                        
                         src_features = src_dataset.get_features(featurizer_name=featurizer_name)
                         tgt_features = tgt_dataset.get_features(featurizer_name=featurizer_name)
-                        
+
                         if src_features.size == 0 or tgt_features.size == 0:
-                            logger.warning(f"Empty features for {self.source_task_ids[j]} or {self.target_task_ids[i]}")
+                            logger.warning(
+                                f"Empty features for {self.source_task_ids[j]} or {self.target_task_ids[i]}"
+                            )
                             chem_distance[self.source_task_ids[j]] = 1.0
                             continue
-                        
+
                         # Compute pairwise distances between all molecules in the two datasets
                         pairwise_distances = cdist(tgt_features, src_features, metric="euclidean")
-                        
+
                         # Use mean of all pairwise distances as the dataset distance
                         # This is a common approach for dataset-level distance computation
                         dataset_distance = float(np.mean(pairwise_distances))
-                        
+
                         # Validate distance value
                         if np.isnan(dataset_distance) or np.isinf(dataset_distance):
                             logger.warning(
                                 f"Invalid distance value between {self.source_task_ids[j]} and {self.target_task_ids[i]}: {dataset_distance}"
                             )
                             dataset_distance = 1.0  # Use default high distance
-                        
+
                         chem_distance[self.source_task_ids[j]] = dataset_distance
-                        
+
                     except Exception as e:
                         logger.error(
                             f"Failed to compute euclidean distance between {self.source_task_ids[j]} and {self.target_task_ids[i]}: {e}"
                         )
                         # Use a default high distance value as fallback
                         chem_distance[self.source_task_ids[j]] = 1.0
-                
+
                 chem_distances[self.target_task_ids[i]] = chem_distance
-            
+
             return chem_distances
 
         except Exception as e:
             logger.error(f"Failed to compute euclidean distances: {e}")
             raise DistanceComputationError(f"Euclidean distance computation failed: {e}") from e
 
-    def cosine_distance(self) -> Dict[str, Dict[str, float]]:
+    def cosine_distance(self, featurizer_name: str = "ecfp") -> Dict[str, Dict[str, float]]:
         """Compute cosine distance between molecule datasets.
 
         This method computes the dataset-level cosine distance by comparing
         individual molecules between datasets, similar to how OTDD works.
+
+        Args:
+            featurizer_name: Name of the molecular featurizer to use (e.g., "ecfp", "maccs", "desc2D")
 
         Returns:
             Dictionary containing cosine distances between source and target datasets.
@@ -310,60 +311,58 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
                 return {}
 
             chem_distances: Dict[str, Dict[str, float]] = {}
-            
+
             # Compute distances between each target and source dataset pair
             for i, tgt_dataset in enumerate(self.target_molecule_datasets):
                 chem_distance: Dict[str, float] = {}
-                
+
                 for j, src_dataset in enumerate(self.source_molecule_datasets):
                     try:
-                        # Get features for both datasets using the configured featurizer
-                        # Use the first available featurizer from the pipeline config
-                        featurizer_name = "ecfp"  # default fallback
-                        if hasattr(self, '_current_featurizer'):
-                            featurizer_name = self._current_featurizer
-                        
                         src_features = src_dataset.get_features(featurizer_name=featurizer_name)
                         tgt_features = tgt_dataset.get_features(featurizer_name=featurizer_name)
-                        
+
                         if src_features.size == 0 or tgt_features.size == 0:
-                            logger.warning(f"Empty features for {self.source_task_ids[j]} or {self.target_task_ids[i]}")
+                            logger.warning(
+                                f"Empty features for {self.source_task_ids[j]} or {self.target_task_ids[i]}"
+                            )
                             chem_distance[self.source_task_ids[j]] = 1.0
                             continue
-                        
+
                         # Compute pairwise cosine distances between all molecules in the two datasets
                         pairwise_distances = cdist(tgt_features, src_features, metric="cosine")
-                        
+
                         # Use mean of all pairwise distances as the dataset distance
                         dataset_distance = float(np.mean(pairwise_distances))
-                        
+
                         # Validate distance value
                         if np.isnan(dataset_distance) or np.isinf(dataset_distance):
                             logger.warning(
                                 f"Invalid distance value between {self.source_task_ids[j]} and {self.target_task_ids[i]}: {dataset_distance}"
                             )
                             dataset_distance = 1.0  # Use default high distance
-                        
+
                         chem_distance[self.source_task_ids[j]] = dataset_distance
-                        
+
                     except Exception as e:
                         logger.error(
                             f"Failed to compute cosine distance between {self.source_task_ids[j]} and {self.target_task_ids[i]}: {e}"
                         )
                         # Use a default high distance value as fallback
                         chem_distance[self.source_task_ids[j]] = 1.0
-                
+
                 chem_distances[self.target_task_ids[i]] = chem_distance
-            
+
             return chem_distances
 
         except Exception as e:
             logger.error(f"Failed to compute cosine distances: {e}")
             return {}
 
-
-    def get_distance(self) -> Dict[str, Dict[str, float]]:
+    def get_distance(self, featurizer_name: str = "ecfp") -> Dict[str, Dict[str, float]]:
         """Compute the distance between molecule datasets using the specified method.
+
+        Args:
+            featurizer_name: Name of the molecular featurizer to use (e.g., "ecfp", "maccs", "desc2D")
 
         Returns:
             Dictionary containing distance matrix between source and target datasets.
@@ -373,9 +372,9 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
         if self.molecule_method == "otdd":
             self.distance = self.otdd_distance()
         elif self.molecule_method == "euclidean":
-            self.distance = self.euclidean_distance()
+            self.distance = self.euclidean_distance(featurizer_name=featurizer_name)
         elif self.molecule_method == "cosine":
-            self.distance = self.cosine_distance()
+            self.distance = self.cosine_distance(featurizer_name=featurizer_name)
         else:
             raise ValueError(f"Unknown molecule method: {self.molecule_method}")
         return self.distance

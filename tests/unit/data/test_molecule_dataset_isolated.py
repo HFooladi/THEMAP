@@ -167,7 +167,7 @@ class TestMoleculeDatasetProperties:
     @patch("themap.data.molecule_dataset.get_global_feature_cache")
     def test_get_features_no_featurizer(self, mock_get_cache, sample_dataset):
         """Test get_features when no current featurizer."""
-        result = sample_dataset.get_features
+        result = sample_dataset.get_computed_features
         assert result is None
         mock_get_cache.assert_not_called()
 
@@ -181,7 +181,7 @@ class TestMoleculeDatasetProperties:
         mock_cache.batch_get.return_value = mock_features
         mock_get_cache.return_value = mock_cache
 
-        result = sample_dataset.get_features
+        result = sample_dataset.get_computed_features
 
         assert isinstance(result, np.ndarray)
         assert result.shape == (3, 3)
@@ -535,8 +535,8 @@ class TestMoleculeDatasetPersistentCache:
         assert result["cache_size"]["size_mb"] == 5.2
 
 
-class TestMoleculeDatasetGetDatasetEmbedding:
-    """Test MoleculeDataset get_dataset_embedding method in isolation."""
+class TestMoleculeDatasetGetFeatures:
+    """Test MoleculeDataset get_features method in isolation."""
 
     @pytest.fixture
     def sample_dataset(self):
@@ -547,62 +547,60 @@ class TestMoleculeDatasetGetDatasetEmbedding:
         ]
         return MoleculeDataset("test_task", datapoints)
 
-    def test_get_dataset_embedding_input_validation_type(self, sample_dataset):
+    def test_get_features_input_validation_type(self, sample_dataset):
         """Test input validation for featurizer_name type."""
         with pytest.raises(TypeError, match="featurizer_name must be a string"):
-            sample_dataset.get_dataset_embedding(123)
+            sample_dataset.get_features(123)
 
-    def test_get_dataset_embedding_input_validation_empty(self, sample_dataset):
+    def test_get_features_input_validation_empty(self, sample_dataset):
         """Test input validation for empty featurizer_name."""
         with pytest.raises(ValueError, match="featurizer_name cannot be empty"):
-            sample_dataset.get_dataset_embedding("   ")
+            sample_dataset.get_features("   ")
 
-    def test_get_dataset_embedding_empty_dataset(self):
+    def test_get_features_empty_dataset(self):
         """Test with empty dataset."""
         dataset = MoleculeDataset("test_task", [])
 
         with pytest.raises(IndexError, match="Cannot compute features for empty dataset"):
-            dataset.get_dataset_embedding("test_featurizer")
+            dataset.get_features("test_featurizer")
 
-    def test_get_dataset_embedding_invalid_batch_size(self, sample_dataset):
+    def test_get_features_invalid_batch_size(self, sample_dataset):
         """Test with invalid batch_size."""
         with pytest.raises(ValueError, match="batch_size must be positive"):
-            sample_dataset.get_dataset_embedding("test_featurizer", batch_size=-1)
+            sample_dataset.get_features("test_featurizer", batch_size=-1)
 
-    def test_get_dataset_embedding_invalid_n_jobs_zero(self, sample_dataset):
+    def test_get_features_invalid_n_jobs_zero(self, sample_dataset):
         """Test with n_jobs=0."""
         with pytest.raises(ValueError, match="n_jobs cannot be 0"):
-            sample_dataset.get_dataset_embedding("test_featurizer", n_jobs=0)
+            sample_dataset.get_features("test_featurizer", n_jobs=0)
 
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_featurizer_load_failure(self, mock_get_featurizer, sample_dataset):
+    def test_get_features_featurizer_load_failure(self, mock_get_featurizer, sample_dataset):
         """Test when featurizer loading fails."""
         mock_get_featurizer.side_effect = Exception("Featurizer not found")
 
         with pytest.raises(RuntimeError, match="Failed to load featurizer"):
-            sample_dataset.get_dataset_embedding("nonexistent_featurizer")
+            sample_dataset.get_features("nonexistent_featurizer")
 
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_invalid_smiles_empty(self, mock_get_featurizer, sample_dataset):
+    def test_get_features_invalid_smiles_empty(self, mock_get_featurizer, sample_dataset):
         """Test with empty SMILES string."""
         sample_dataset.data[0].smiles = ""
 
         with pytest.raises(ValueError, match="Invalid SMILES at index 0"):
-            sample_dataset.get_dataset_embedding("test_featurizer")
+            sample_dataset.get_features("test_featurizer")
 
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_invalid_smiles_none(self, mock_get_featurizer, sample_dataset):
+    def test_get_features_invalid_smiles_none(self, mock_get_featurizer, sample_dataset):
         """Test with None SMILES."""
         sample_dataset.data[0].smiles = None
 
         with pytest.raises(ValueError, match="Invalid SMILES at index 0"):
-            sample_dataset.get_dataset_embedding("test_featurizer")
+            sample_dataset.get_features("test_featurizer")
 
     @patch("themap.data.molecule_dataset.get_global_feature_cache")
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_successful_computation(
-        self, mock_get_featurizer, mock_get_cache, sample_dataset
-    ):
+    def test_get_features_successful_computation(self, mock_get_featurizer, mock_get_cache, sample_dataset):
         """Test successful feature computation."""
         # Setup mocks
         mock_featurizer = Mock()
@@ -615,7 +613,7 @@ class TestMoleculeDatasetGetDatasetEmbedding:
         mock_cache = Mock()
         mock_get_cache.return_value = mock_cache
 
-        result = sample_dataset.get_dataset_embedding("test_featurizer")
+        result = sample_dataset.get_features("test_featurizer")
 
         assert isinstance(result, np.ndarray)
         assert result.shape == (2, 3)
@@ -627,7 +625,7 @@ class TestMoleculeDatasetGetDatasetEmbedding:
 
     @patch("themap.data.molecule_dataset.get_global_feature_cache")
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_with_duplicates(self, mock_get_featurizer, mock_get_cache, sample_dataset):
+    def test_get_features_with_duplicates(self, mock_get_featurizer, mock_get_cache, sample_dataset):
         """Test feature computation with duplicate SMILES."""
         # Add duplicate SMILES
         sample_dataset.data.append(MoleculeDatapoint("test_task", "c1ccccc1", False))  # Duplicate of first
@@ -642,7 +640,7 @@ class TestMoleculeDatasetGetDatasetEmbedding:
         mock_cache = Mock()
         mock_get_cache.return_value = mock_cache
 
-        result = sample_dataset.get_dataset_embedding("test_featurizer")
+        result = sample_dataset.get_features("test_featurizer")
 
         assert result.shape == (3, 3)  # 3 molecules, 3 features each
         # First and last should be identical (same SMILES)
@@ -650,7 +648,7 @@ class TestMoleculeDatasetGetDatasetEmbedding:
 
     @patch("themap.data.molecule_dataset.get_global_feature_cache")
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_cached_return(self, mock_get_featurizer, mock_get_cache, sample_dataset):
+    def test_get_features_cached_return(self, mock_get_featurizer, mock_get_cache, sample_dataset):
         """Test returning cached features."""
         sample_dataset._current_featurizer = "test_featurizer"
 
@@ -660,14 +658,14 @@ class TestMoleculeDatasetGetDatasetEmbedding:
         mock_cache.batch_get.return_value = [cached_features[0], cached_features[1]]
         mock_get_cache.return_value = mock_cache
 
-        result = sample_dataset.get_dataset_embedding("test_featurizer")
+        result = sample_dataset.get_features("test_featurizer")
 
         np.testing.assert_array_equal(result, cached_features)
         mock_get_featurizer.assert_not_called()  # Should not call featurizer
 
     @patch("themap.data.molecule_dataset.get_global_feature_cache")
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_force_recompute(self, mock_get_featurizer, mock_get_cache, sample_dataset):
+    def test_get_features_force_recompute(self, mock_get_featurizer, mock_get_cache, sample_dataset):
         """Test force recompute ignores cache."""
         sample_dataset._current_featurizer = "test_featurizer"
 
@@ -682,14 +680,14 @@ class TestMoleculeDatasetGetDatasetEmbedding:
         mock_cache = Mock()
         mock_get_cache.return_value = mock_cache
 
-        result = sample_dataset.get_dataset_embedding("test_featurizer", force_recompute=True)
+        result = sample_dataset.get_features("test_featurizer", force_recompute=True)
 
         assert result.shape == (2, 3)
         mock_get_featurizer.assert_called_once()  # Should call featurizer despite cache
 
     @patch("themap.data.molecule_dataset.get_global_feature_cache")
     @patch("themap.data.molecule_dataset.get_featurizer")
-    def test_get_dataset_embedding_n_jobs_setting(self, mock_get_featurizer, mock_get_cache, sample_dataset):
+    def test_get_features_n_jobs_setting(self, mock_get_featurizer, mock_get_cache, sample_dataset):
         """Test n_jobs setting and restoration."""
         mock_featurizer = Mock()
         mock_featurizer.n_jobs = 1  # Original setting
@@ -702,16 +700,16 @@ class TestMoleculeDatasetGetDatasetEmbedding:
         mock_cache = Mock()
         mock_get_cache.return_value = mock_cache
 
-        sample_dataset.get_dataset_embedding("test_featurizer", n_jobs=4)
+        sample_dataset.get_features("test_featurizer", n_jobs=4)
 
         # Should be restored to original value
         assert mock_featurizer.n_jobs == 1
 
-    def test_get_dataset_embedding_basic_functionality(self, sample_dataset):
-        """Test basic functionality of get_dataset_embedding."""
+    def test_get_features_basic_functionality(self, sample_dataset):
+        """Test basic functionality of get_features."""
         # Simple test that just checks the method exists and validates inputs
         with pytest.raises(RuntimeError, match="Failed to load featurizer"):
-            sample_dataset.get_dataset_embedding("nonexistent_featurizer")
+            sample_dataset.get_features("nonexistent_featurizer")
 
 
 class TestMoleculeDatasetGetPrototype:
@@ -738,7 +736,7 @@ class TestMoleculeDatasetGetPrototype:
         with pytest.raises(ValueError, match="featurizer_name cannot be empty"):
             balanced_dataset.get_prototype("   ")
 
-    @patch("themap.data.molecule_dataset.MoleculeDataset.get_dataset_embedding")
+    @patch("themap.data.molecule_dataset.MoleculeDataset.get_features")
     def test_get_prototype_feature_computation_failure(self, mock_get_embedding, balanced_dataset):
         """Test when feature computation fails."""
         mock_get_embedding.side_effect = RuntimeError("Feature computation failed")
@@ -754,7 +752,7 @@ class TestMoleculeDatasetGetPrototype:
         ]
         dataset = MoleculeDataset("test_task", datapoints)
 
-        with patch.object(dataset, "get_dataset_embedding") as mock_get_embedding:
+        with patch.object(dataset, "get_features") as mock_get_embedding:
             mock_get_embedding.return_value = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32)
 
             with pytest.raises(ValueError, match="contains no positive examples"):
@@ -768,7 +766,7 @@ class TestMoleculeDatasetGetPrototype:
         ]
         dataset = MoleculeDataset("test_task", datapoints)
 
-        with patch.object(dataset, "get_dataset_embedding") as mock_get_embedding:
+        with patch.object(dataset, "get_features") as mock_get_embedding:
             mock_get_embedding.return_value = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32)
 
             with pytest.raises(ValueError, match="contains no negative examples"):
@@ -778,7 +776,7 @@ class TestMoleculeDatasetGetPrototype:
         """Test with missing bool_label attribute."""
         delattr(balanced_dataset.data[0], "bool_label")
 
-        with patch.object(balanced_dataset, "get_dataset_embedding") as mock_get_embedding:
+        with patch.object(balanced_dataset, "get_features") as mock_get_embedding:
             mock_get_embedding.return_value = np.array(
                 [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]], dtype=np.float32
             )
@@ -798,7 +796,7 @@ class TestMoleculeDatasetGetPrototype:
             dtype=np.float32,
         )
 
-        with patch.object(balanced_dataset, "get_dataset_embedding") as mock_get_embedding:
+        with patch.object(balanced_dataset, "get_features") as mock_get_embedding:
             mock_get_embedding.return_value = mock_features
 
             pos_proto, neg_proto = balanced_dataset.get_prototype("test_featurizer")
@@ -827,7 +825,7 @@ class TestMoleculeDatasetGetPrototype:
             dtype=np.float32,
         )
 
-        with patch.object(balanced_dataset, "get_dataset_embedding") as mock_get_embedding:
+        with patch.object(balanced_dataset, "get_features") as mock_get_embedding:
             mock_get_embedding.return_value = mock_features
 
             with pytest.raises(RuntimeError, match="Positive prototype contains NaN"):
@@ -845,7 +843,7 @@ class TestMoleculeDatasetGetPrototype:
             dtype=np.float32,
         )
 
-        with patch.object(balanced_dataset, "get_dataset_embedding") as mock_get_embedding:
+        with patch.object(balanced_dataset, "get_features") as mock_get_embedding:
             mock_get_embedding.return_value = mock_features
 
             with pytest.raises(RuntimeError, match="Negative prototype contains NaN"):

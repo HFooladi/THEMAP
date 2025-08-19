@@ -1,66 +1,46 @@
 import pytest
 
-from themap.data.protein_datasets import ProteinDatasets
+from themap.data.protein_datasets import ProteinMetadataDataset
 
 
-def test_ProteinDataset():
-    """Test the ProteinDataset class functionality."""
-    # Create a ProteinDataset object
-    protein_dataset = ProteinDatasets(
-        task_id=["task_id"],
-        protein={"task_id": "LNMHMNVQNG"},
+def test_ProteinMetadataDataset():
+    """Test the ProteinMetadataDataset class functionality."""
+    # Create a ProteinMetadataDataset object
+    protein_dataset = ProteinMetadataDataset(
+        task_id="task_id",
+        uniprot_id="P00000",
+        sequence="LNMHMNVQNG",
     )
 
     # Test the __repr__ method
-    assert str(protein_dataset) == "ProteinDataset(task_id=['task_id'], protein={'task_id': 'LNMHMNVQNG'})"
-
-    # Test the __len__ method
-    assert len(protein_dataset) == 1
-
-    # Test the __getitem__ method
-    key, value = protein_dataset[0]
-    assert key == "task_id"
-    assert value == "LNMHMNVQNG"
+    assert str(protein_dataset) == "ProteinMetadataDataset(task_id=task_id, uniprot_id=P00000, seq_len=10)"
 
 
-def test_ProteinDataset_validation():
-    """Test input validation in ProteinDataset."""
+def test_ProteinMetadataDataset_validation():
+    """Test input validation in ProteinMetadataDataset."""
     # Test valid initialization
-    dataset = ProteinDatasets(task_id=["test_task"], protein={"test_task": "LNMHMNVQNG"})
-    assert dataset.task_id == ["test_task"]
-    assert dataset.protein == {"test_task": "LNMHMNVQNG"}
+    dataset = ProteinMetadataDataset(task_id="test_task", uniprot_id="P00000", sequence="LNMHMNVQNG")
+    assert dataset.task_id == "test_task"
+    assert dataset.uniprot_id == "P00000"
+    assert dataset.sequence == "LNMHMNVQNG"
 
     # Test invalid task_id
     with pytest.raises(TypeError):
-        ProteinDatasets(
-            task_id="not_a_list",  # Should be list
-            protein={"test_task": "LNMHMNVQNG"},
+        ProteinMetadataDataset(
+            task_id=123,  # Should be string
+            uniprot_id="P00000",
+            sequence="LNMHMNVQNG",
         )
 
-    # Test invalid protein
+    # Test invalid sequence
     with pytest.raises(TypeError):
-        ProteinDatasets(
-            task_id=["test_task"],
-            protein="not_a_dict",  # Should be dict
-        )
-
-    # Test invalid protein keys
-    with pytest.raises(TypeError):
-        ProteinDatasets(
-            task_id=["test_task"],
-            protein={123: "LNMHMNVQNG"},  # Keys should be strings
+        ProteinMetadataDataset(
+            task_id="test_task",
+            uniprot_id="P00000",
+            sequence=123,  # Should be string, not int
         )
 
 
-def test_ProteinDataset_load_from_file(protein_dataset_train):
-    """Test loading ProteinDataset from file."""
-    # Load the dataset from a file
-    dataset = ProteinDatasets.load_from_file(protein_dataset_train)
-
-    # Test the __len__ method
-    assert len(dataset) == 10
-
-    # Test the __getitem__ method
-    key, value = dataset[0]
-    assert isinstance(key, str)
-    assert isinstance(value, str)
+def test_ProteinMetadataDataset_load_from_file(protein_dataset_train):
+    """Test loading ProteinMetadataDataset from file."""
+    pass

@@ -371,8 +371,8 @@ class TestMoleculeDatasetsFeatureComputation:
         }
         mock_load_datasets.return_value = mock_datasets
 
-        # Mock the get_dataset_embedding method
-        with patch.object(mock_molecule_dataset, "get_dataset_embedding") as mock_get_features:
+        # Mock the get_features method
+        with patch.object(mock_molecule_dataset, "get_features") as mock_get_features:
             mock_features = np.random.rand(3, 10)
             mock_get_features.return_value = mock_features
 
@@ -387,7 +387,7 @@ class TestMoleculeDatasetsFeatureComputation:
             assert "train_CHEMBL123" in result
             assert "valid_CHEMBL789" in result
 
-            # Check that get_dataset_embedding was called for each dataset
+            # Check that get_features was called for each dataset
             assert mock_get_features.call_count == 2
 
     @patch("themap.data.molecule_datasets.MoleculeDatasets.load_datasets")
@@ -719,7 +719,7 @@ class TestMoleculeDatasetsAdvancedFeatures:
         mock_datasets = {"train_CHEMBL123": mock_molecule_dataset}
         mock_load_datasets.return_value = mock_datasets
 
-        with patch.object(mock_molecule_dataset, "get_dataset_embedding") as mock_get_features:
+        with patch.object(mock_molecule_dataset, "get_features") as mock_get_features:
             mock_features = np.random.rand(3, 10)
             mock_get_features.return_value = mock_features
 
@@ -730,7 +730,7 @@ class TestMoleculeDatasetsAdvancedFeatures:
                 featurizer_name="ecfp", folds=[DataFold.TRAIN], force_recompute=True
             )
 
-            # Should call get_dataset_embedding with force_recompute=True
+            # Should call get_features with force_recompute=True
             mock_get_features.assert_called_with(
                 featurizer_name="ecfp", n_jobs=-1, force_recompute=True, batch_size=1000
             )
@@ -741,7 +741,7 @@ class TestMoleculeDatasetsAdvancedFeatures:
         mock_datasets = {"train_CHEMBL123": mock_molecule_dataset}
         mock_load_datasets.return_value = mock_datasets
 
-        with patch.object(mock_molecule_dataset, "get_dataset_embedding") as mock_get_features:
+        with patch.object(mock_molecule_dataset, "get_features") as mock_get_features:
             mock_features = np.random.rand(3, 10)
             mock_get_features.return_value = mock_features
 
@@ -752,7 +752,7 @@ class TestMoleculeDatasetsAdvancedFeatures:
                 featurizer_name="ecfp", folds=[DataFold.TRAIN], batch_size=500
             )
 
-            # Should call get_dataset_embedding with batch_size=500
+            # Should call get_features with batch_size=500
             mock_get_features.assert_called_with(
                 featurizer_name="ecfp", n_jobs=-1, force_recompute=False, batch_size=500
             )
@@ -763,7 +763,7 @@ class TestMoleculeDatasetsAdvancedFeatures:
         mock_datasets = {"train_CHEMBL123": mock_molecule_dataset}
         mock_load_datasets.return_value = mock_datasets
 
-        with patch.object(mock_molecule_dataset, "get_dataset_embedding") as mock_get_features:
+        with patch.object(mock_molecule_dataset, "get_features") as mock_get_features:
             mock_features = np.random.rand(3, 10)
             mock_get_features.return_value = mock_features
 
@@ -774,7 +774,7 @@ class TestMoleculeDatasetsAdvancedFeatures:
                 featurizer_name="ecfp", folds=[DataFold.TRAIN], n_jobs=4
             )
 
-            # Should call get_dataset_embedding with n_jobs=4
+            # Should call get_features with n_jobs=4
             mock_get_features.assert_called_with(
                 featurizer_name="ecfp", n_jobs=4, force_recompute=False, batch_size=1000
             )
@@ -879,7 +879,7 @@ class TestMoleculeDatasetsLogging:
         mock_datasets = {"train_CHEMBL123": mock_molecule_dataset}
         mock_load_datasets.return_value = mock_datasets
 
-        with patch.object(mock_molecule_dataset, "get_dataset_embedding") as mock_get_features:
+        with patch.object(mock_molecule_dataset, "get_features") as mock_get_features:
             mock_features = np.random.rand(3, 10)
             mock_get_features.return_value = mock_features
 

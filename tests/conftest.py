@@ -3,7 +3,7 @@ import pytest
 from dpu_utils.utils import RichPath
 
 from themap.data.molecule_datapoint import MoleculeDatapoint
-from themap.data.protein_datasets import ProteinDataset
+from themap.data.protein_datasets import ProteinMetadataDataset
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def dataset_CHEMBL1963831_csv():
 
 @pytest.fixture
 def manual_protein_dataset():
-    return ProteinDataset(
+    return ProteinMetadataDataset(
         task_id=["CHEMBL2219236", "CHEMBL2219358"],
         protein={"Q13177": "MSDNGELEDKPPAPPVRMSSTI", "P50750": "MAKQYDSVECPFCDEVSKYEK"},
     )

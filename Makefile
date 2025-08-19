@@ -1,6 +1,6 @@
 # Makefile for THEMAP project
 
-.PHONY: help test test-unit test-integration test-distance test-fast test-coverage install install-dev install-test lint format type-check clean docs docs-serve docs-build docs-clean docs-deploy
+.PHONY: help test test-unit test-integration test-distance test-fast test-coverage install install-dev install-test lint format type-check clean docs docs-serve docs-build docs-clean docs-deploy pipeline
 
 # Default target
 help:
@@ -36,6 +36,10 @@ help:
 	@echo "  lint           - Run linting with ruff"
 	@echo "  format         - Format code with ruff"
 	@echo "  clean          - Clean up build artifacts"
+	@echo ""
+	@echo "Pipeline:"
+	@echo "  pipeline       - Run the pipeline"
+
 
 # Testing targets
 test:
@@ -90,7 +94,12 @@ docs-clean:
 	python build_docs.py clean
 
 docs-deploy:
-	python build_docs.py deploy
+	mkdocs gh-deploy
+
+# Pipeline targets
+pipeline:
+	python run_pipeline.py configs/examples/quick_test.yaml
+
 
 # Cleanup
 clean:
