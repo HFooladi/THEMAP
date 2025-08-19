@@ -336,12 +336,12 @@ class PipelineRunner:
 
         # Create Task object from the loaded dataset
         from ..data.tasks import Task
-        
+
         task = Task(
             task_id=dataset_config.name,
             molecule_dataset=dataset,
         )
-        
+
         return {
             "name": dataset_config.name,
             "type": "molecule",
@@ -426,7 +426,7 @@ class PipelineRunner:
 
                         # Create distance computer
                         distance_computer = MoleculeDatasetDistance(tasks=tasks, molecule_method=method)
-                        
+
                         # Set the current featurizer
                         distance_computer._current_featurizer = featurizer
 
@@ -488,7 +488,7 @@ class PipelineRunner:
                     # Group tasks by fold to create source/target collections
                     train_tasks = []
                     test_tasks = []
-                    
+
                     for info in datasets_info:
                         if info["task"].protein_dataset is not None:
                             if info["source_fold"] == "TRAIN":
@@ -502,10 +502,10 @@ class PipelineRunner:
 
                         # Create distance computer
                         distance_computer = ProteinDatasetDistance(
-                            tasks=tasks, 
+                            tasks=tasks,
                             protein_method=method,
                             embedding_method=featurizer,
-                            max_workers=self.config.compute.max_workers
+                            max_workers=self.config.compute.max_workers,
                         )
 
                         # Compute all pairwise distances at once
@@ -599,7 +599,7 @@ class PipelineRunner:
                 try:
                     # Create Tasks collection for this pair
                     task_collection = Tasks(train_tasks=[source_task], test_tasks=[target_task])
-                    
+
                     # Create new TaskDistance instance with tasks
                     task_distance_instance = TaskDistance(
                         tasks=task_collection,

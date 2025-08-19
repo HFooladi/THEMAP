@@ -9,6 +9,9 @@ from rdkit import Chem
 
 from .logging import get_logger
 
+AVAILABLE_FEATURIZERS = ["ecfp", "maccs", "desc2D", "mordred", "ChemBERTa-77M-MLM", "MolT5"]
+
+
 # Setup logging
 logger = get_logger(__name__)
 

@@ -33,13 +33,13 @@ def create_parser() -> argparse.ArgumentParser:
 Examples:
   # Run a simple benchmark
   python -m themap.pipeline.cli configs/examples/quick_test.yaml
-  
+
   # Run with custom data path and verbose logging
   python -m themap.pipeline.cli configs/my_config.json --data-path /path/to/datasets --log-level DEBUG
-  
+
   # Validate configuration without running
   python -m themap.pipeline.cli configs/my_config.yaml --validate-only
-  
+
   # List available example configurations
   python -m themap.pipeline.cli --list-examples
         """,
