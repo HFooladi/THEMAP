@@ -1,0 +1,28 @@
+# Test Configuration for CSV-Converted Dataset
+# Test pipeline with data converted from CSV format
+
+name: "test_converted_csv"
+description: "Test run with CSV-converted dataset"
+
+molecule:
+  datasets:
+    - name: "CHEMBL123456"
+      source_fold: "TEST"
+      target_folds: ["TRAIN"]
+    - name: "CHEMBL2219012"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+  featurizers: ["ecfp"]
+  distance_methods: ["euclidean"]
+
+output:
+  directory: "results/test_converted_csv"
+  formats: ["json"]
+  save_intermediate: false
+  save_matrices: false
+
+compute:
+  max_workers: 2
+  cache_features: true
+  sample_size: 10  # Very small sample for quick testing
+  seed: 42

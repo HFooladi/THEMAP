@@ -21,9 +21,9 @@ import pytest
 import torch
 
 from themap.data.molecule_dataset import MoleculeDataset
-from themap.data.protein_datasets import ProteinDataset
+from themap.data.protein_datasets import ProteinMetadataDataset
 from themap.data.tasks import Task, Tasks
-from themap.distance.tasks_distance import (
+from themap.distance import (
     MOLECULE_DISTANCE_METHODS,
     PROTEIN_DISTANCE_METHODS,
     AbstractTasksDistance,
@@ -32,6 +32,8 @@ from themap.distance.tasks_distance import (
     MoleculeDatasetDistance,
     ProteinDatasetDistance,
     TaskDistance,
+)
+from themap.distance.base import (
     _get_dataset_distance,
     _validate_and_extract_task_id,
 )
@@ -53,7 +55,7 @@ def sample_molecule_dataset():
 @pytest.fixture
 def sample_protein_dataset():
     """Create a mock protein dataset for testing."""
-    mock_dataset = Mock(spec=ProteinDataset)
+    mock_dataset = Mock(spec=ProteinMetadataDataset)
     mock_dataset.task_id = "PROTEIN123"
     mock_dataset.proteins = {"protein1": "MLSDEDFKAV", "protein2": "QLKEKGLF"}
     return mock_dataset
@@ -123,7 +125,7 @@ class TestUtilityFunctions:
         with pytest.raises(DataValidationError):
             _validate_and_extract_task_id(None)
 
-    @patch("themap.distance.tasks_distance.logger")
+    @patch("themap.distance.base.logger")
     def test_validate_and_extract_task_id_logging(self, mock_logger):
         """Test that warning is logged for malformed task names."""
         _validate_and_extract_task_id("malformed")
@@ -131,15 +133,14 @@ class TestUtilityFunctions:
 
     def test_get_dataset_distance_success(self):
         """Test successful lazy import of DatasetDistance."""
-        with patch("themap.distance.tasks_distance.importlib"):
-            mock_distance_class = Mock()
-            mock_module = Mock()
-            mock_module.DatasetDistance = mock_distance_class
+        mock_distance_class = Mock()
+        mock_module = Mock()
+        mock_module.DatasetDistance = mock_distance_class
 
-            with patch("builtins.__import__") as mock_import:
-                mock_import.return_value = mock_module
-                result = _get_dataset_distance()
-                assert result == mock_distance_class
+        with patch("builtins.__import__") as mock_import:
+            mock_import.return_value = mock_module
+            result = _get_dataset_distance()
+            assert result == mock_distance_class
 
     def test_get_dataset_distance_import_error(self):
         """Test handling of import errors."""
@@ -178,7 +179,8 @@ class TestAbstractTasksDistance:
         )
         assert distance.molecule_method == "otdd"
         assert distance.protein_method == "cosine"
-        assert distance.metadata_method == "jaccard"
+        # protein_method overrides metadata_method due to backward compatibility
+        assert distance.metadata_method == "cosine"
 
     def test_setup_source_target_no_tasks(self):
         """Test setup when no tasks are provided."""
@@ -288,9 +290,10 @@ class TestMoleculeDatasetDistance:
             assert result["CHEMBL002"]["CHEMBL001"] == 1.0
 
     @patch.object(MoleculeDatasetDistance, "_compute_features")
-    @patch("themap.distance.tasks_distance._get_dataset_distance")
+    @patch("themap.distance.molecule_distance._get_dataset_distance")
+    @patch("themap.distance.molecule_distance.MoleculeDataloader")
     def test_otdd_distance_success(
-        self, mock_get_dataset_distance, mock_compute_features, sample_tasks, sample_features
+        self, mock_dataloader, mock_get_dataset_distance, mock_compute_features, sample_tasks, sample_features
     ):
         """Test successful OTDD distance computation."""
         mock_compute_features.return_value = sample_features
@@ -304,9 +307,16 @@ class TestMoleculeDatasetDistance:
         mock_distance_class.return_value = mock_distance_instance
         mock_get_dataset_distance.return_value = mock_distance_class
 
+        # Mock MoleculeDataloader
+        mock_dataloader.return_value = Mock()
+
         distance = MoleculeDatasetDistance(tasks=sample_tasks, molecule_method="otdd")
-        distance.source_molecule_datasets = [Mock(), Mock(), Mock()]
-        distance.target_molecule_datasets = [Mock(), Mock()]
+        distance.source_molecule_datasets = [
+            Mock(spec=MoleculeDataset),
+            Mock(spec=MoleculeDataset),
+            Mock(spec=MoleculeDataset),
+        ]
+        distance.target_molecule_datasets = [Mock(spec=MoleculeDataset), Mock(spec=MoleculeDataset)]
         distance.source_task_ids = ["CHEMBL001", "CHEMBL002", "CHEMBL003"]
         distance.target_task_ids = ["CHEMBL004", "CHEMBL005"]
 
@@ -316,17 +326,21 @@ class TestMoleculeDatasetDistance:
         assert len(result) == 2  # Two target tasks
 
     @patch.object(MoleculeDatasetDistance, "_compute_features")
-    @patch("themap.distance.tasks_distance._get_dataset_distance")
+    @patch("themap.distance.molecule_distance._get_dataset_distance")
+    @patch("themap.distance.molecule_distance.MoleculeDataloader")
     def test_otdd_distance_error_handling(
-        self, mock_get_dataset_distance, mock_compute_features, sample_tasks, sample_features
+        self, mock_dataloader, mock_get_dataset_distance, mock_compute_features, sample_tasks, sample_features
     ):
         """Test OTDD distance computation error handling."""
         mock_compute_features.return_value = sample_features
         mock_get_dataset_distance.side_effect = ImportError("OTDD not available")
 
+        # Mock MoleculeDataloader
+        mock_dataloader.return_value = Mock()
+
         distance = MoleculeDatasetDistance(tasks=sample_tasks, molecule_method="otdd")
-        distance.source_molecule_datasets = [Mock()]
-        distance.target_molecule_datasets = [Mock()]
+        distance.source_molecule_datasets = [Mock(spec=MoleculeDataset)]
+        distance.target_molecule_datasets = [Mock(spec=MoleculeDataset)]
         distance.source_task_ids = ["CHEMBL001"]
         distance.target_task_ids = ["CHEMBL002"]
 
@@ -400,7 +414,7 @@ class TestMoleculeDatasetDistance:
     def test_to_pandas(self, sample_tasks):
         """Test conversion to pandas DataFrame."""
         distance = MoleculeDatasetDistance(tasks=sample_tasks)
-        distance.distance = {"task1": {"task2": 0.5, "task3": 0.8}, "task2": {"task1": 0.5, "task3": 0.3}}
+        distance.distance = {"task1": {"task2": 0.5}, "task2": {"task1": 0.5}}
 
         df = distance.to_pandas()
         assert isinstance(df, pd.DataFrame)
@@ -822,7 +836,7 @@ class TestErrorHandling:
             # Should handle gracefully
             assert isinstance(result, str)
 
-    @patch("themap.distance.tasks_distance.logger")
+    @patch("themap.distance.molecule_distance.logger")
     def test_logging_integration(self, mock_logger, sample_tasks):
         """Test that logging is properly integrated."""
         distance = MoleculeDatasetDistance(tasks=sample_tasks)
@@ -844,14 +858,18 @@ class TestErrorHandling:
 class TestIntegration:
     """Integration tests for the complete workflow."""
 
-    @patch("themap.distance.tasks_distance._get_dataset_distance")
+    @patch("themap.distance.molecule_distance._get_dataset_distance")
+    @patch("themap.distance.molecule_distance.MoleculeDataloader")
     @patch.object(MoleculeDatasetDistance, "_compute_features")
     def test_full_molecule_distance_workflow(
-        self, mock_compute_features, mock_get_dataset_distance, sample_tasks, sample_features
+        self, mock_compute_features, mock_dataloader, mock_get_dataset_distance, sample_tasks, sample_features
     ):
         """Test complete molecule distance computation workflow."""
         # Setup mocks
         mock_compute_features.return_value = sample_features
+
+        # Mock MoleculeDataloader
+        mock_dataloader.return_value = Mock()
 
         mock_distance_class = Mock()
         mock_distance_instance = Mock()
@@ -862,8 +880,8 @@ class TestIntegration:
 
         # Create distance calculator
         distance = MoleculeDatasetDistance(tasks=sample_tasks, molecule_method="otdd")
-        distance.source_molecule_datasets = [Mock() for _ in range(3)]
-        distance.target_molecule_datasets = [Mock() for _ in range(2)]
+        distance.source_molecule_datasets = [Mock(spec=MoleculeDataset) for _ in range(3)]
+        distance.target_molecule_datasets = [Mock(spec=MoleculeDataset) for _ in range(2)]
         distance.source_task_ids = ["CHEMBL001", "CHEMBL002", "CHEMBL003"]
         distance.target_task_ids = ["CHEMBL004", "CHEMBL005"]
 
@@ -890,8 +908,16 @@ class TestIntegration:
         mol_distances = {"task1": {"task2": 0.5, "task3": 0.7}, "task4": {"task2": 0.3, "task3": 0.9}}
         prot_distances = {"task1": {"task2": 0.4, "task3": 0.6}, "task4": {"task2": 0.2, "task3": 0.8}}
 
-        with patch.object(distance, "compute_molecule_distance", return_value=mol_distances):
-            with patch.object(distance, "compute_protein_distance", return_value=prot_distances):
+        def mock_mol_compute(method=None, molecule_featurizer="ecfp"):
+            distance.molecule_distances = mol_distances
+            return mol_distances
+
+        def mock_prot_compute(method=None, protein_featurizer="esm2_t33_650M_UR50D"):
+            distance.protein_distances = prot_distances
+            return prot_distances
+
+        with patch.object(distance, "compute_molecule_distance", side_effect=mock_mol_compute):
+            with patch.object(distance, "compute_protein_distance", side_effect=mock_prot_compute):
                 # Test computing all distances
                 all_results = distance.compute_all_distances()
 

@@ -19,7 +19,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from themap.data.protein_datasets import DataFold, ProteinDatasets
+from themap.data.protein_datasets import DataFold, ProteinMetadataDatasets
 from themap.utils.logging import get_logger, setup_logging
 
 # Initialize logging
@@ -36,7 +36,7 @@ def main() -> None:
 
     # Configuration
     # Add repository root to path
-    REPO_PATH = Path(__file__).parent.parent.absolute()
+    REPO_PATH = Path(__file__).parent.parent.parent.absolute()
     sys.path.insert(0, str(REPO_PATH))  # noqa: E402
     task_list_file = REPO_PATH / "datasets" / "sample_tasks_list.json"
     output_dir = REPO_PATH / "datasets"
@@ -59,7 +59,7 @@ def main() -> None:
         ]
     ):
         print("🔄 Downloading FASTA files for all tasks...")
-        protein_datasets = ProteinDatasets.create_fasta_files_from_task_list(
+        protein_datasets = ProteinMetadataDatasets.create_fasta_files_from_task_list(
             task_list_file=task_list_file, output_dir=output_dir, uniprot_mapping_file=uniprot_mapping_file
         )
         print(f"✅ Downloaded FASTA files: {protein_datasets}")
@@ -71,7 +71,7 @@ def main() -> None:
     print("📂 STEP 2: Loading protein datasets")
     print("=" * 50)
 
-    protein_datasets = ProteinDatasets.from_directory(
+    protein_datasets = ProteinMetadataDatasets.from_directory(
         directory=str(output_dir),
         task_list_file=str(task_list_file),
         uniprot_mapping_file=str(uniprot_mapping_file),
@@ -196,7 +196,7 @@ def main() -> None:
     print("📤 STEP 7: Loading and verifying features")
     print("=" * 50)
 
-    loaded_features = ProteinDatasets.load_features_from_file(features_cache_file)
+    loaded_features = ProteinMetadataDatasets.load_features_from_file(features_cache_file)
 
     print(f"✅ Loaded features for {len(loaded_features)} datasets")
 

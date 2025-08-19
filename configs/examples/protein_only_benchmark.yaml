@@ -1,0 +1,32 @@
+# Protein-Only Distance Benchmarking
+# This config focuses on protein sequence analysis using ESM embeddings
+
+name: "protein_only_benchmark"
+description: "Protein distance computation using ESM embeddings"
+
+protein:
+  datasets:
+    - name: "CHEMBL1963831"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219236"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219358"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+  featurizers: ["esm"]
+  distance_methods: ["euclidean", "cosine"]
+
+output:
+  directory: "results/protein_benchmark"
+  formats: ["json", "csv"]
+  save_intermediate: false
+  save_matrices: true
+
+compute:
+  max_workers: 2  # Protein embeddings are memory intensive
+  cache_features: true
+  gpu_if_available: true
+  sample_size: 100  # Small sample for protein analysis
+  seed: 42

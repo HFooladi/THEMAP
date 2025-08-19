@@ -1,0 +1,16 @@
+{
+  "total_time_seconds": 0.0015859603881835938,
+  "successful_featurizers": [],
+  "failed_featurizers": [
+    "maccs"
+  ],
+  "stats": {
+    "start_time": 1755528737.7481678,
+    "processed_tasks": 0,
+    "failed_tasks": 0,
+    "cache_hits": 0,
+    "cache_misses": 0,
+    "memory_peak_mb": 0
+  },
+  "timestamp": "2025-08-18 16:52:17"
+}

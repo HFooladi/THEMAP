@@ -1,0 +1,84 @@
+# Directory-Based Dataset Discovery Example
+# This config demonstrates automatic dataset discovery from a directory structure with tasks_list.json
+
+name: "directory_based_discovery_example"
+description: "Automatic dataset discovery from directory structure with task list file"
+
+# Directory-based configuration for all modalities
+molecule:
+  directory:
+    root_path: "datasets"                    # Root directory containing train/valid/test folders
+    task_list_file: "sample_tasks_list.json" # Task organization file (relative to root_path)
+    load_molecules: true
+    load_proteins: false  # Will be overridden by protein config below
+    load_metadata: true
+    metadata_types: ["assay_description", "bioactivity"]  # Optional: specific metadata types
+  featurizers: ["ecfp", "maccs"]
+  distance_methods: ["euclidean", "cosine"]
+
+protein:
+  directory:
+    root_path: "datasets"                    # Same root directory
+    task_list_file: "sample_tasks_list.json" # Same task list file
+    load_molecules: false  # Will be overridden by molecule config above
+    load_proteins: true
+    load_metadata: false
+  featurizers: ["esm"]
+  distance_methods: ["euclidean"]
+
+# Optional: metadata can also use directory-based discovery
+metadata:
+  directory:
+    root_path: "datasets"
+    task_list_file: "sample_tasks_list.json"
+    load_molecules: false
+    load_proteins: false
+    load_metadata: true
+    metadata_types: ["target_info"]  # Additional metadata types
+  features: []  # Will be auto-detected from files
+  distance_methods: ["euclidean"]
+
+# Combined task distance computation
+task_distance:
+  combination_strategy: "weighted_average"
+  weights:
+    molecule: 0.6
+    protein: 0.3
+    metadata: 0.1
+
+# Output configuration
+output:
+  directory: "results/directory_discovery"
+  formats: ["json", "csv"]
+  save_intermediate: true
+  save_matrices: false
+
+# Computation settings
+compute:
+  max_workers: 4
+  cache_features: true
+  gpu_if_available: true
+  sample_size: null  # Use full datasets
+  seed: 42
+
+# Expected directory structure:
+# datasets/
+# ├── train/
+# │   ├── CHEMBL894522.jsonl.gz      # Molecular data
+# │   ├── CHEMBL894522.fasta         # Protein sequences
+# │   ├── CHEMBL894522_assay_description.json
+# │   ├── CHEMBL1023359.jsonl.gz
+# │   ├── CHEMBL1023359.fasta
+# │   └── ...
+# ├── test/
+# │   ├── CHEMBL2219236.jsonl.gz
+# │   ├── CHEMBL2219236.fasta
+# │   └── ...
+# └── sample_tasks_list.json         # Task organization file
+#
+# sample_tasks_list.json format:
+# {
+#   "train": ["CHEMBL894522", "CHEMBL1023359", ...],
+#   "valid": [],
+#   "test": ["CHEMBL2219236", "CHEMBL2219358"]
+# }

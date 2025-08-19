@@ -32,7 +32,7 @@ import torch
 from tqdm import tqdm
 
 # Setup repository paths
-REPO_PATH = Path(__file__).parent.parent.absolute()
+REPO_PATH = Path(__file__).parent.parent.parent.absolute()
 CHECKOUT_PATH = REPO_PATH
 DATASET_PATH = REPO_PATH / "datasets"
 

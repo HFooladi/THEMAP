@@ -1,0 +1,34 @@
+# Quick Test Configuration
+# Minimal config for testing pipeline functionality
+
+name: "quick_test"
+description: "Fast test run with minimal datasets and simple features"
+
+molecule:
+  datasets:
+    - name: "CHEMBL1613776"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219012"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219236"
+      source_fold: "TEST"
+      target_folds: ["TRAIN"]
+    - name: "CHEMBL2219358"
+      source_fold: "TEST"
+      target_folds: ["TRAIN"]
+  featurizers: ["ecfp"]
+  distance_methods: ["euclidean"]
+
+output:
+  directory: "results/quick_test"
+  formats: ["json"]
+  save_intermediate: false
+  save_matrices: false
+
+compute:
+  max_workers: 2
+  cache_features: true
+  sample_size: 50  # Very small sample for quick testing
+  seed: 42

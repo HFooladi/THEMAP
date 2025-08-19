@@ -1,0 +1,28 @@
+# Quick Test Configuration with Cleaned Dataset
+# Test pipeline functionality with cleaned SMILES data
+
+name: "quick_test_cleaned"
+description: "Fast test run with cleaned datasets and simple features"
+
+molecule:
+  datasets:
+    - name: "CHEMBL1613776_cleaned"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219012"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+  featurizers: ["ecfp"]
+  distance_methods: ["euclidean"]
+
+output:
+  directory: "results/quick_test_cleaned"
+  formats: ["json"]
+  save_intermediate: false
+  save_matrices: false
+
+compute:
+  max_workers: 2
+  cache_features: true
+  sample_size: 50  # Very small sample for quick testing
+  seed: 42

@@ -15,7 +15,7 @@ Usage:
 import sys
 from pathlib import Path
 
-from themap.data.protein_datasets import DataFold, ProteinDatasets
+from themap.data.protein_datasets import DataFold, ProteinMetadataDatasets
 from themap.utils.logging import get_logger, setup_logging
 
 # Initialize logging
@@ -29,7 +29,7 @@ def main():
     logger.info("🧬 Starting protein datasets example")
 
     # Add repository root to path
-    REPO_PATH = Path(__file__).parent.parent.absolute()
+    REPO_PATH = Path(__file__).parent.parent.parent.absolute()
     sys.path.insert(0, str(REPO_PATH))  # noqa: E402
 
     # Define paths
@@ -43,7 +43,7 @@ def main():
 
     if not all([(output_dir / "train").exists(), (output_dir / "test").exists()]):
         logger.info("Creating FASTA files from task list...")
-        protein_datasets = ProteinDatasets.create_fasta_files_from_task_list(
+        protein_datasets = ProteinMetadataDatasets.create_fasta_files_from_task_list(
             task_list_file=task_list_file, output_dir=output_dir, uniprot_mapping_file=uniprot_mapping_file
         )
         logger.info(f"Created ProteinDatasets: {protein_datasets}")
@@ -53,7 +53,7 @@ def main():
     # Step 2: Load datasets from directory
     logger.info("📂 Step 2: Loading datasets from directory")
 
-    protein_datasets = ProteinDatasets.from_directory(
+    protein_datasets = ProteinMetadataDatasets.from_directory(
         directory=output_dir,
         task_list_file=task_list_file,
         uniprot_mapping_file=uniprot_mapping_file,
@@ -82,7 +82,7 @@ def main():
 
     if features_cache_file.exists():
         logger.info("Loading precomputed features from cache...")
-        features = ProteinDatasets.load_features_from_file(features_cache_file)
+        features = ProteinMetadataDatasets.load_features_from_file(features_cache_file)
     else:
         logger.info("Computing features (this may take a while for larger models)...")
         features = protein_datasets.compute_all_features_with_deduplication(

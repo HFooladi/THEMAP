@@ -1,0 +1,43 @@
+# Simple Directory-Based Discovery
+# Minimal example of using directory-based dataset discovery
+
+name: "simple_directory_discovery"
+description: "Simple automatic dataset discovery from directory structure"
+
+# Just molecules with directory-based discovery
+molecule:
+  directory:
+    root_path: "."                           # Path to datasets directory (relative to base_data_path)
+    task_list_file: "sample_tasks_list.json" # Task list file (in datasets/)
+    load_molecules: true
+    load_proteins: false
+    load_metadata: false
+  featurizers: ["ecfp"]
+  distance_methods: ["euclidean"]
+
+# Output configuration
+output:
+  directory: "results/simple_discovery"
+  formats: ["json"]
+  save_intermediate: true
+
+# Computation settings
+compute:
+  max_workers: 2
+  cache_features: true
+  sample_size: 100  # Small sample for testing
+  seed: 42
+
+# This replaces the need to manually specify each dataset like:
+# molecule:
+#   datasets:
+#     - name: "CHEMBL894522"
+#       source_fold: "TRAIN"
+#       target_folds: ["TEST"]
+#     - name: "CHEMBL1023359"
+#       source_fold: "TRAIN"
+#       target_folds: ["TEST"]
+#     - name: "CHEMBL2219236"
+#       source_fold: "TEST"
+#       target_folds: ["TRAIN"]
+#     # ... potentially many more datasets

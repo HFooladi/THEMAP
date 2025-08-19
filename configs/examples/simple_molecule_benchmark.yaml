@@ -1,0 +1,31 @@
+# Simple Molecule Distance Benchmarking
+# This config computes ECFP-based Euclidean distances between molecule datasets
+
+name: "simple_molecule_benchmark"
+description: "Basic molecular distance computation using ECFP fingerprints"
+
+molecule:
+  datasets:
+    - name: "CHEMBL1963831"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219236" 
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219358"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+  featurizers: ["ecfp"]
+  distance_methods: ["euclidean"]
+
+output:
+  directory: "results/molecule_benchmark"
+  formats: ["json", "csv"]
+  save_intermediate: false
+  save_matrices: true
+
+compute:
+  max_workers: 4
+  cache_features: true
+  sample_size: 1000  # Sample datasets for faster computation
+  seed: 42

@@ -1,0 +1,53 @@
+# Comprehensive Multi-Modal Benchmarking
+# This config demonstrates all features: molecules, proteins, multiple featurizers, and task distances
+
+name: "comprehensive_multimodal_benchmark"
+description: "Complete benchmarking with molecular and protein data across multiple featurizers and distance methods"
+
+molecule:
+  datasets:
+    - name: "CHEMBL1963831"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219236"
+      source_fold: "TRAIN" 
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219358"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+  featurizers: ["ecfp", "maccs", "desc2D"]
+  distance_methods: ["euclidean", "cosine"]
+
+protein:
+  datasets:
+    - name: "CHEMBL1963831"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219236"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"] 
+    - name: "CHEMBL2219358"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+  featurizers: ["esm"]
+  distance_methods: ["euclidean", "cosine"]
+
+task_distance:
+  combination_strategy: "weighted_average"
+  weights:
+    molecule: 0.6
+    protein: 0.4
+    metadata: 0.0
+
+output:
+  directory: "results/comprehensive_benchmark"
+  formats: ["json", "csv", "parquet"]
+  save_intermediate: true
+  save_matrices: true
+
+compute:
+  max_workers: 6
+  cache_features: true
+  gpu_if_available: true
+  sample_size: 500  # Smaller sample for comprehensive analysis
+  seed: 42
