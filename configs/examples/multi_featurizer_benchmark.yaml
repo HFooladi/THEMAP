@@ -1,0 +1,42 @@
+# Multi-Featurizer Molecular Distance Benchmark
+# This config demonstrates using different molecular featurizers for distance computation
+
+name: "multi_featurizer_benchmark"
+description: "Compare molecular distances across different featurization methods"
+
+molecule:
+  datasets:
+    - name: "CHEMBL1613776"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219012"
+      source_fold: "TRAIN"
+      target_folds: ["TEST"]
+    - name: "CHEMBL2219236"
+      source_fold: "TEST"
+      target_folds: ["TRAIN"]
+    - name: "CHEMBL2219358"
+      source_fold: "TEST"
+      target_folds: ["TRAIN"]
+
+  # Multiple featurizers to compare
+  featurizers:
+    - "ecfp"       # Extended Connectivity Fingerprints
+    - "maccs"      # MACCS Keys
+    - "desc2D"     # 2D Molecular Descriptors
+    # - "mordred"  # Mordred descriptors (uncomment if available)
+
+  # Distance methods to test with each featurizer
+  distance_methods: ["euclidean", "cosine"]
+
+output:
+  directory: "results/multi_featurizer_benchmark"
+  formats: ["json", "csv"]
+  save_intermediate: true
+  save_matrices: true
+
+compute:
+  max_workers: 4
+  cache_features: true
+  sample_size: 200  # Smaller sample for faster comparison
+  seed: 42

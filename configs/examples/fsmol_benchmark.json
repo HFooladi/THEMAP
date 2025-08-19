@@ -1,7 +1,7 @@
 {
   "name": "fsmol_benchmark",
   "description": "Benchmarking pipeline for FSMol datasets with multiple molecular featurizers",
-  
+
   "molecule": {
     "datasets": [
       {
@@ -10,13 +10,13 @@
         "target_folds": ["TEST"]
       },
       {
-        "name": "CHEMBL1119333", 
+        "name": "CHEMBL1119333",
         "source_fold": "TRAIN",
         "target_folds": ["TEST"]
       },
       {
         "name": "CHEMBL1243967",
-        "source_fold": "TRAIN", 
+        "source_fold": "TRAIN",
         "target_folds": ["TEST"]
       },
       {
@@ -33,14 +33,14 @@
     "featurizers": ["ecfp", "maccs", "desc2D", "mordred"],
     "distance_methods": ["euclidean", "cosine", "otdd"]
   },
-  
+
   "output": {
     "directory": "results/fsmol_benchmark",
     "formats": ["json", "csv"],
     "save_intermediate": true,
     "save_matrices": true
   },
-  
+
   "compute": {
     "max_workers": 8,
     "cache_features": true,

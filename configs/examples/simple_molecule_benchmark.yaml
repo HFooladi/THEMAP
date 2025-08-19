@@ -9,7 +9,7 @@ molecule:
     - name: "CHEMBL1963831"
       source_fold: "TRAIN"
       target_folds: ["TEST"]
-    - name: "CHEMBL2219236" 
+    - name: "CHEMBL2219236"
       source_fold: "TRAIN"
       target_folds: ["TEST"]
     - name: "CHEMBL2219358"
