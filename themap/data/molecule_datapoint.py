@@ -40,6 +40,8 @@ class MoleculeDatapoint:
         rdkit_mol (Chem.Mol): RDKit molecule object (lazy loaded)
 
     Methods:
+        from_dict(): Create datapoint from dictionary (class method)
+        to_dict(): Convert datapoint to dictionary
         get_fingerprint(): Computes and returns the Morgan fingerprint for the molecule
         get_features(): Computes and returns molecular features using specified featurizer
 
@@ -111,7 +113,24 @@ class MoleculeDatapoint:
 
     @classmethod
     def from_dict(cls, data: dict) -> "MoleculeDatapoint":
-        """Create datapoint from dictionary."""
+        """Create datapoint from dictionary.
+
+        Args:
+            data (dict): Dictionary containing the datapoint data.
+
+        Returns:
+            MoleculeDatapoint: Datapoint object.
+
+        Example:
+            >>> datapoint = MoleculeDatapoint.from_dict({
+            ...     "task_id": "toxicity_prediction",
+            ...     "smiles": "CCCO",
+            ...     "bool_label": True,
+            ...     "numeric_label": 0.8
+            ... })
+            >>> print(datapoint)
+            # MoleculeDatapoint(task_id=toxicity_prediction, smiles=CCCO, bool_label=True, numeric_label=0.8)
+        """
         return cls(
             task_id=data["task_id"],
             smiles=data["smiles"],

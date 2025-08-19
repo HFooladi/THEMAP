@@ -12,7 +12,7 @@ from ..utils.cache_utils import GlobalMoleculeCache
 from ..utils.logging import get_logger, setup_logging
 from .metadata import DataFold, MetadataDatasets, TextMetadataDataset
 from .molecule_dataset import MoleculeDataset
-from .protein_datasets import ProteinDataset, ProteinDatasets
+from .protein_datasets import ProteinMetadataDataset, ProteinMetadataDatasets
 
 # Setup logging
 setup_logging()
@@ -24,48 +24,64 @@ class Task:
     """A task represents a complete molecular property prediction problem.
 
     Each task contains:
-    - Molecular data (MoleculeDataset)
-    - Protein data (ProteinDataset)
-    - Optional metadata (various types)
+    - Dataset: MoleculeDataset (set of molecules with SMILES and labels)
+    - Metadata: Various metadata types including protein (single vectors per task)
 
     Args:
         task_id (str): Unique identifier for the task (e.g., CHEMBL ID)
-        molecule_dataset (Optional[MoleculeDataset]): Molecular data for the task
-        protein_dataset (Optional[ProteinDataset]): Protein data for the task
+        molecule_dataset (Optional[MoleculeDataset]): THE dataset - set of molecules for this task
         metadata_datasets (Optional[Dict[str, Any]]): Dictionary of metadata by type
+            - Can include "protein" for protein metadata (single vector per task)
+            - Can include "assay_description", "target_info", etc.
         hardness (Optional[float]): Optional measure of task difficulty
+
+    Note:
+        protein_dataset is deprecated - protein data should be stored in metadata_datasets["protein"]
     """
 
     task_id: str
     molecule_dataset: Optional[MoleculeDataset] = None
-    protein_dataset: Optional[ProteinDataset] = None
     metadata_datasets: Optional[Dict[str, Any]] = None
     hardness: Optional[float] = None
 
+    # Deprecated field for backward compatibility
+    protein_dataset: Optional[ProteinMetadataDataset] = None
+
     def __post_init__(self) -> None:
-        """Validate task initialization."""
+        """Validate task initialization and handle backward compatibility."""
         if not isinstance(self.task_id, str):
             raise TypeError("task_id must be a string")
 
+        # Handle backward compatibility: move protein_dataset to metadata_datasets
+        if self.protein_dataset is not None:
+            logger.warning(
+                f"protein_dataset is deprecated for task {self.task_id}. Move to metadata_datasets['protein']"
+            )
+            if self.metadata_datasets is None:
+                self.metadata_datasets = {}
+            if "protein" not in self.metadata_datasets:
+                self.metadata_datasets["protein"] = self.protein_dataset
+
         # At least one data type must be present
-        if not any([self.molecule_dataset, self.protein_dataset, self.metadata_datasets]):
-            raise ValueError("Task must contain at least one data type")
+        if not any([self.molecule_dataset, self.metadata_datasets]):
+            raise ValueError(
+                "Task must contain at least one data type (molecule_dataset or metadata_datasets)"
+            )
 
         if self.molecule_dataset is not None and not isinstance(self.molecule_dataset, MoleculeDataset):
             raise TypeError("molecule_dataset must be a MoleculeDataset or None")
-        if self.protein_dataset is not None and not isinstance(self.protein_dataset, ProteinDataset):
-            raise TypeError("protein_dataset must be a ProteinDataset or None")
+        if self.protein_dataset is not None and not isinstance(self.protein_dataset, ProteinMetadataDataset):
+            raise TypeError("protein_dataset must be a ProteinMetadataDataset or None")
         if self.hardness is not None and not isinstance(self.hardness, (int, float)):
             raise TypeError("hardness must be a number or None")
 
     def __repr__(self) -> str:
         components = []
         if self.molecule_dataset:
-            components.append(f"molecules={len(self.molecule_dataset)}")
-        if self.protein_dataset:
-            components.append("protein=1")
+            components.append(f"dataset={len(self.molecule_dataset)} molecules")
         if self.metadata_datasets:
-            components.append(f"metadata={len(self.metadata_datasets)}")
+            metadata_types = list(self.metadata_datasets.keys())
+            components.append(f"metadata={metadata_types}")
 
         component_str = ", ".join(components)
         return f"Task(task_id={self.task_id}, {component_str}, hardness={self.hardness})"
@@ -83,7 +99,7 @@ class Task:
         if self.molecule_dataset is None:
             return None
 
-        return self.molecule_dataset.get_dataset_embedding(featurizer_name=featurizer_name, **kwargs)
+        return self.molecule_dataset.get_features(featurizer_name=featurizer_name, **kwargs)
 
     def get_protein_features(
         self, featurizer_name: str = "esm2_t33_650M_UR50D", layer: int = 33, **kwargs: Any
@@ -339,7 +355,7 @@ class Tasks:
 
         if load_proteins:
             try:
-                protein_datasets = ProteinDatasets.from_directory(
+                protein_datasets = ProteinMetadataDatasets.from_directory(
                     directory=directory, task_list_file=task_list_file, cache_dir=cache_dir, **kwargs
                 )
                 logger.info("Loaded protein datasets")

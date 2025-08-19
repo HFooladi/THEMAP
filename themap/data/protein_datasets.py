@@ -1,7 +1,13 @@
+"""
+Protein datasets module.
+
+This module contains classes for managing protein datasets, including loading,
+downloading, and computing features.
+"""
+
 import json
 import time
 from dataclasses import dataclass
-from enum import IntEnum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -19,29 +25,28 @@ from ..utils.protein_utils import (
     get_protein_features,
     get_protein_sequence,
 )
+from .enums import DataFold
 
 # Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
 
-class DataFold(IntEnum):
-    """Enum for data fold types."""
-
-    TRAIN = 0
-    VALIDATION = 1
-    TEST = 2
-
-
 @dataclass
-class ProteinDataset:
-    """Single protein dataset representing one task.
+class ProteinMetadataDataset:
+    """Single protein metadata dataset representing one task.
 
-    Args:
+    Attributes:
         task_id (str): Unique identifier for the task (CHEMBL ID)
         uniprot_id (str): UniProt accession ID for the protein
         sequence (str): Protein amino acid sequence
         features (Optional[NDArray[np.float32]]): Optional pre-computed protein features
+
+    Properties:
+        get_computed_features (Optional[NDArray[np.float32]]): Get computed protein features.
+
+    Methods:
+        get_features (NDArray[np.float32]): Get protein features using the specified featurizer
     """
 
     task_id: str
@@ -59,7 +64,7 @@ class ProteinDataset:
             raise TypeError("sequence must be a string")
 
     def __repr__(self) -> str:
-        return f"ProteinDataset(task_id={self.task_id}, uniprot_id={self.uniprot_id}, seq_len={len(self.sequence)})"
+        return f"ProteinMetadataDataset(task_id={self.task_id}, uniprot_id={self.uniprot_id}, seq_len={len(self.sequence)})"
 
     def get_features(
         self, featurizer_name: str = "esm3_sm_open_v1", layer: Optional[int] = None
@@ -79,12 +84,43 @@ class ProteinDataset:
 
         return self.features
 
+    @property
+    def get_computed_features(self) -> Optional[NDArray[np.float32]]:
+        """Get computed protein features."""
+        return self.features
 
-class ProteinDatasets:
+
+class ProteinMetadataDatasets:
     """Collection of protein datasets for different folds (train/validation/test).
 
     Similar to MoleculeDatasets but specifically designed for protein data management,
     including FASTA file downloading, caching, and feature computation.
+
+    Attributes:
+        _fold_to_data_paths (Dict[DataFold, List[RichPath]]): Dictionary mapping data folds to their respective data paths.
+        _num_workers (Optional[int]): Number of workers for data loading.
+        _cache_dir (Optional[Union[str, Path]]): Directory for persistent caching.
+        _global_cache (Optional[GlobalMoleculeCache]): Global molecule cache.
+        _loaded_datasets (Dict[str, ProteinMetadataDataset]): Dictionary mapping dataset names to their respective loaded datasets.
+        uniprot_mapping_file (Optional[Union[str, Path]]): Path to CHEMBLID -> UNIPROT mapping file.
+
+    Properties:
+        uniprot_mapping (pd.DataFrame): Lazy loaded UniProt mapping dataframe.
+        get_num_fold_tasks (int): Get the number of tasks in a specific fold.
+        get_task_names (List[str]): Get the list of task names in a specific fold.
+        load_datasets (Dict[str, ProteinMetadataDataset]): Load all datasets from specified folds.
+        compute_all_features_with_deduplication (Dict[str, NDArray[np.float32]]): Compute features for all datasets with global SMILES deduplication.
+        get_distance_computation_ready_features (Tuple[List[NDArray[np.float32]], List[NDArray[np.float32]], List[str], List[str]]): Get features organized for efficient N×M distance matrix computation.
+        get_global_cache_stats (Optional[Dict[str, Any]]): Get statistics about the global cache usage.
+
+    Methods:
+        from_directory (ProteinMetadataDatasets): Create ProteinMetadataDatasets from a directory.
+        get_num_fold_tasks (int): Get the number of tasks in a specific fold.
+        get_task_names (List[str]): Get the list of task names in a specific fold.
+        load_datasets (Dict[str, ProteinMetadataDataset]): Load all datasets from specified folds.
+        compute_all_features_with_deduplication (Dict[str, NDArray[np.float32]]): Compute features for all datasets with global SMILES deduplication.
+        get_distance_computation_ready_features (Tuple[List[NDArray[np.float32]], List[NDArray[np.float32]], List[str], List[str]]): Get features organized for efficient N×M distance matrix computation.
+        get_global_cache_stats (Optional[Dict[str, Any]]): Get statistics about the global cache usage.
     """
 
     def __init__(
@@ -96,17 +132,9 @@ class ProteinDatasets:
         cache_dir: Optional[Union[str, Path]] = None,
         uniprot_mapping_file: Optional[Union[str, Path]] = None,
     ) -> None:
-        """Initialize ProteinDatasets.
+        """Initialize ProteinMetadataDatasets."""
 
-        Args:
-            train_data_paths: List of paths to training FASTA files
-            valid_data_paths: List of paths to validation FASTA files
-            test_data_paths: List of paths to test FASTA files
-            num_workers: Number of workers for data loading
-            cache_dir: Directory for persistent caching
-            uniprot_mapping_file: Path to CHEMBLID -> UNIPROT mapping file
-        """
-        logger.info("Initializing ProteinDatasets")
+        logger.info("Initializing ProteinMetadataDatasets")
         self._fold_to_data_paths: Dict[DataFold, List[RichPath]] = {
             DataFold.TRAIN: train_data_paths or [],
             DataFold.VALIDATION: valid_data_paths or [],
@@ -119,7 +147,7 @@ class ProteinDatasets:
         self.global_cache = GlobalMoleculeCache(cache_dir) if cache_dir else None
 
         # Cache for loaded datasets
-        self._loaded_datasets: Dict[str, ProteinDataset] = {}
+        self._loaded_datasets: Dict[str, ProteinMetadataDataset] = {}
 
         # UniProt mapping
         self.uniprot_mapping_file = uniprot_mapping_file or "datasets/uniprot_mapping.csv"
@@ -132,7 +160,7 @@ class ProteinDatasets:
             logger.info(f"Global caching enabled at {cache_dir}")
 
     def __repr__(self) -> str:
-        return f"ProteinDatasets(train={len(self._fold_to_data_paths[DataFold.TRAIN])}, valid={len(self._fold_to_data_paths[DataFold.VALIDATION])}, test={len(self._fold_to_data_paths[DataFold.TEST])})"
+        return f"ProteinMetadataDatasets(train={len(self._fold_to_data_paths[DataFold.TRAIN])}, valid={len(self._fold_to_data_paths[DataFold.VALIDATION])}, test={len(self._fold_to_data_paths[DataFold.TEST])})"
 
     @property
     def uniprot_mapping(self) -> pd.DataFrame:
@@ -204,8 +232,8 @@ class ProteinDatasets:
         task_list_file: Union[str, Path],
         output_dir: Union[str, Path],
         uniprot_mapping_file: Optional[Union[str, Path]] = None,
-    ) -> "ProteinDatasets":
-        """Create FASTA files from a task list and return ProteinDatasets.
+    ) -> "ProteinMetadataDatasets":
+        """Create FASTA files from a task list and return ProteinMetadataDatasets.
 
         Args:
             task_list_file: Path to JSON file containing fold-specific task lists
@@ -213,7 +241,7 @@ class ProteinDatasets:
             uniprot_mapping_file: Path to CHEMBLID -> UNIPROT mapping file
 
         Returns:
-            ProteinDatasets instance with paths to created FASTA files
+            ProteinMetadataDatasets instance with paths to created FASTA files
         """
         logger.info(f"Creating FASTA files from task list {task_list_file}")
 
@@ -224,7 +252,7 @@ class ProteinDatasets:
         output_dir = Path(output_dir)
 
         # Create ProteinDatasets instance for downloading
-        protein_datasets = ProteinDatasets(uniprot_mapping_file=uniprot_mapping_file)
+        protein_datasets = ProteinMetadataDatasets(uniprot_mapping_file=uniprot_mapping_file)
 
         # Process each fold
         fold_paths: Dict[DataFold, List[RichPath]] = {}
@@ -257,7 +285,7 @@ class ProteinDatasets:
                 logger.info(f"Created {len(fold_file_paths)} FASTA files for {fold_name}")
 
         # Create final ProteinDatasets instance
-        return ProteinDatasets(
+        return ProteinMetadataDatasets(
             train_data_paths=fold_paths.get(DataFold.TRAIN, []),
             valid_data_paths=fold_paths.get(DataFold.VALIDATION, []),
             test_data_paths=fold_paths.get(DataFold.TEST, []),
@@ -271,8 +299,8 @@ class ProteinDatasets:
         cache_dir: Optional[Union[str, Path]] = None,
         uniprot_mapping_file: Optional[Union[str, Path]] = None,
         **kwargs: Any,
-    ) -> "ProteinDatasets":
-        """Create ProteinDatasets from a directory containing FASTA files.
+    ) -> "ProteinMetadataDatasets":
+        """Create ProteinMetadataDatasets from a directory containing FASTA files.
 
         Args:
             directory: Directory containing train/valid/test subdirectories with FASTA files
@@ -282,7 +310,7 @@ class ProteinDatasets:
             **kwargs: Additional arguments
 
         Returns:
-            ProteinDatasets instance
+            ProteinMetadataDatasets instance
         """
         logger.info(f"Loading protein datasets from directory {directory}")
         if isinstance(directory, str):
@@ -351,7 +379,7 @@ class ProteinDatasets:
             f"Found {len(train_data_paths)} training, {len(valid_data_paths)} validation, and {len(test_data_paths)} test protein files"
         )
 
-        return ProteinDatasets(
+        return ProteinMetadataDatasets(
             train_data_paths=train_data_paths,
             valid_data_paths=valid_data_paths,
             test_data_paths=test_data_paths,
@@ -374,7 +402,7 @@ class ProteinDatasets:
             task_names.append(task_name)
         return task_names
 
-    def load_datasets(self, folds: Optional[List[DataFold]] = None) -> Dict[str, ProteinDataset]:
+    def load_datasets(self, folds: Optional[List[DataFold]] = None) -> Dict[str, ProteinMetadataDataset]:
         """Load all protein datasets from specified folds.
 
         Args:
@@ -388,7 +416,7 @@ class ProteinDatasets:
 
         fold_names = {DataFold.TRAIN: "train", DataFold.VALIDATION: "validation", DataFold.TEST: "test"}
 
-        datasets: Dict[str, ProteinDataset] = {}
+        datasets: Dict[str, ProteinMetadataDataset] = {}
         for fold in folds:
             fold_name = fold_names[fold]
             for path in self._fold_to_data_paths[fold]:
@@ -414,7 +442,7 @@ class ProteinDatasets:
 
                     sequence = list(fasta_dict.values())[0]
 
-                    protein_dataset = ProteinDataset(
+                    protein_dataset = ProteinMetadataDataset(
                         task_id=task_name, uniprot_id=uniprot_id, sequence=sequence
                     )
 
@@ -459,7 +487,7 @@ class ProteinDatasets:
 
         # Collect unique proteins by UniProt ID
         unique_proteins: Dict[str, str] = {}
-        protein_to_datasets: Dict[str, List[Tuple[str, ProteinDataset]]] = {}
+        protein_to_datasets: Dict[str, List[Tuple[str, ProteinMetadataDataset]]] = {}
 
         for dataset_name, dataset in zip(dataset_names, dataset_list):
             uniprot_id = dataset.uniprot_id
@@ -644,5 +672,5 @@ class ProteinDatasets:
         }
 
 
-# Legacy compatibility: users can still import ProteinDatasets as old ProteinDataset
-# But now we have both ProteinDataset (single) and ProteinDatasets (collection)
+# Legacy compatibility: users can still import ProteinMetadataDatasets as old ProteinMetadataDataset
+# But now we have both ProteinMetadataDataset (single) and ProteinMetadataDatasets (collection)

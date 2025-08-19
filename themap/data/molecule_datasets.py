@@ -1,5 +1,11 @@
+"""
+Molecule datasets module.
+
+This module contains classes for managing molecule datasets, including loading,
+computing features, and organizing them for distance matrix computation.
+"""
+
 import time
-from enum import IntEnum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -8,6 +14,7 @@ from dpu_utils.utils import RichPath
 
 from ..utils.cache_utils import CacheKey, GlobalMoleculeCache, get_global_feature_cache
 from ..utils.logging import get_logger, setup_logging
+from .enums import DataFold
 from .molecule_dataset import MoleculeDataset, get_task_name_from_path
 
 # Setup logging
@@ -15,26 +22,45 @@ setup_logging()
 logger = get_logger(__name__)
 
 
-class DataFold(IntEnum):
-    """Enum for data fold types.
-
-    This enum represents the different data splits used in machine learning:
-    - TRAIN (0): Training/source tasks
-    - VALIDATION (1): Validation/development tasks
-    - TEST (2): Test/target tasks
-
-    By inheriting from IntEnum, each fold type is assigned an integer value
-    which allows for easy indexing and comparison operations.
-    """
-
-    TRAIN = 0
-    VALIDATION = 1
-    TEST = 2
-
-
 class MoleculeDatasets:
     """Dataset of related tasks, provided as individual files split into meta-train, meta-valid and
-    meta-test sets."""
+    meta-test sets.
+
+    Attributes:
+        _fold_to_data_paths (Dict[DataFold, List[RichPath]]): Dictionary mapping data folds to their respective data paths.
+        _num_workers (Optional[int]): Number of workers for data loading.
+        _cache_dir (Optional[Union[str, Path]]): Directory for persistent caching.
+        _global_cache (Optional[GlobalMoleculeCache]): Global molecule cache.
+        _loaded_datasets (Dict[str, MoleculeDataset]): Dictionary mapping dataset names to their respective loaded datasets.
+
+    Properties:
+        get_num_fold_tasks (int): Get the number of tasks in a specific fold.
+        get_task_names (List[str]): Get the list of task names in a specific fold.
+        load_datasets (Dict[str, MoleculeDataset]): Load all datasets from specified folds.
+        compute_all_features_with_deduplication (Dict[str, np.ndarray]): Compute features for all datasets with global SMILES deduplication.
+        get_distance_computation_ready_features (Tuple[List[np.ndarray], List[np.ndarray], List[str], List[str]]): Get features organized for efficient N×M distance matrix computation.
+        get_global_cache_stats (Optional[Dict]): Get statistics about the global cache usage.
+
+
+    Methods:
+        from_directory (MoleculeDatasets): Create MoleculeDatasets from a directory.
+        get_num_fold_tasks (int): Get the number of tasks in a specific fold.
+        get_task_names (List[str]): Get the list of task names in a specific fold.
+        load_datasets (Dict[str, MoleculeDataset]): Load all datasets from specified folds.
+        compute_all_features_with_deduplication (Dict[str, np.ndarray]): Compute features for all datasets with global SMILES deduplication.
+        get_distance_computation_ready_features (Tuple[List[np.ndarray], List[np.ndarray], List[str], List[str]]): Get features organized for efficient N×M distance matrix computation.
+        get_global_cache_stats (Optional[Dict]): Get statistics about the global cache usage.
+
+    Examples:
+    # Create MoleculeDatasets from a directory:
+    >>> molecule_datasets = MoleculeDatasets.from_directory("datasets/")
+    # Get the number of tasks in the train fold:
+    >>> molecule_datasets.get_num_fold_tasks(DataFold.TRAIN)
+    # Get the list of task names in the validation fold:
+    >>> molecule_datasets.get_task_names(DataFold.VALIDATION)
+    # Get the list of task names in the test fold:
+    >>> molecule_datasets.get_task_names(DataFold.TEST)
+    """
 
     def __init__(
         self,
@@ -335,7 +361,7 @@ class MoleculeDatasets:
             results = {}
             for dataset_name, dataset in datasets.items():
                 logger.info(f"Computing features for dataset {dataset_name}")
-                features = dataset.get_dataset_embedding(
+                features = dataset.get_features(
                     featurizer_name=featurizer_name,
                     n_jobs=n_jobs,
                     force_recompute=force_recompute,

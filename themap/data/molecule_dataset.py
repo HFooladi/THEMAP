@@ -27,7 +27,7 @@ def get_task_name_from_path(path: RichPath) -> str:
         path (RichPath): Path-like object
 
     Returns:
-        str: Extracted task name
+        str: Extracted task name. If the path is not a valid file path, returns "unknown_task".
     """
     try:
         name = path.basename()
@@ -50,19 +50,51 @@ class MoleculeDataset:
         _cache_info (Dict[str, Any]): Information about the feature caching.
         _persistent_cache (Optional[PersistentFeatureCache]): Persistent feature cache.
 
+    Properties:
+        get_computed_features (Optional[NDArray[np.float32]]): Get the cached features for the dataset.
+        get_labels (List[bool]): Get the labels for the dataset.
+        get_smiles (List[str]): Get the SMILES for the dataset.
+        get_ratio (float): Get the ratio of positive to negative labels.
+
+    Methods:
+        load_from_file(): Load dataset from a file
+        get_features(): Get the features for the entire dataset using a featurizer
+        get_prototype(): Get the prototype of the dataset
+        get_statistics(): Get the statistics of the dataset
+        filter(): Filter the dataset
+        clear_cache(): Clear the cache
+        enable_persistent_cache(): Enable persistent caching for this dataset
+        get_persistent_cache_stats(): Get statistics about the persistent cache
+        get_cache_info(): Get information about the current cache state
+        get_memory_usage(): Get memory usage statistics for the dataset
+        optimize_memory(): Optimize memory usage by cleaning up unnecessary data
+        validate_dataset_integrity(): Validate the integrity of the dataset
+
     Examples:
-    # Lets load a dataset from a file:
+    # Load a dataset from a file:
     >>> dataset = MoleculeDataset.load_from_file("datasets/test/CHEMBL2219358.jsonl.gz")
     >>> print(dataset)
     # MoleculeDataset(task_id=CHEMBL2219358, task_size=157)
     # compute the dataset embedding:
-    >>> dataset.get_dataset_embedding(featurizer_name="fcfp", n_jobs=1)
+    >>> dataset.get_features(featurizer_name="fcfp", n_jobs=1)
     # compute the prototype:
     >>> dataset.get_prototype(featurizer_name="fcfp")
     # compute the dataset statistics:
     >>> dataset.get_statistics()
     # filter the dataset:
     >>> dataset.filter(lambda x: x.bool_label == 1)
+    # enable persistent caching:
+    >>> dataset.enable_persistent_cache("cache/")
+    # get statistics about the persistent cache:
+    >>> dataset.get_persistent_cache_stats()
+    # get information about the current cache state:
+    >>> dataset.get_cache_info()
+    # get memory usage statistics for the dataset:
+    >>> dataset.get_memory_usage()
+    # optimize memory usage by cleaning up unnecessary data:
+    >>> dataset.optimize_memory()
+    # validate the integrity of the dataset:
+    >>> dataset.validate_dataset_integrity()
     """
 
     task_id: str
@@ -92,7 +124,7 @@ class MoleculeDataset:
     def __repr__(self) -> str:
         return f"MoleculeDataset(task_id={self.task_id}, task_size={len(self.data)})"
 
-    def get_dataset_embedding(
+    def get_features(
         self,
         featurizer_name: str,
         n_jobs: Optional[int] = None,
@@ -438,7 +470,7 @@ class MoleculeDataset:
         self._persistent_cache = PersistentFeatureCache(cache_dir)
         logger.info(f"Enabled persistent cache for dataset {self.task_id} at {cache_dir}")
 
-    def get_dataset_embedding_with_persistent_cache(
+    def get_features_with_persistent_cache(
         self,
         featurizer_name: str,
         cache_dir: Optional[Union[str, Path]] = None,
@@ -448,7 +480,7 @@ class MoleculeDataset:
     ) -> NDArray[np.float32]:
         """Get dataset features with persistent caching enabled.
 
-        This method provides the same functionality as get_dataset_embedding but with
+        This method provides the same functionality as get_features but with
         persistent disk caching to avoid recomputation across sessions.
 
         Args:
@@ -484,7 +516,7 @@ class MoleculeDataset:
                 return cached_features
 
         # Compute features using the standard method
-        features = self.get_dataset_embedding(
+        features = self.get_features(
             featurizer_name=featurizer_name,
             n_jobs=n_jobs,
             force_recompute=force_recompute,
@@ -573,7 +605,7 @@ class MoleculeDataset:
 
         try:
             # Get the features for the entire dataset
-            data_features = self.get_dataset_embedding(featurizer_name)
+            data_features = self.get_features(featurizer_name)
         except Exception as e:
             raise RuntimeError(f"Failed to compute features for prototyping: {e}") from e
 
@@ -619,7 +651,7 @@ class MoleculeDataset:
         return positive_prototype, negative_prototype
 
     @property
-    def get_features(self) -> Optional[NDArray[np.float32]]:
+    def get_computed_features(self) -> Optional[NDArray[np.float32]]:
         """Get the cached features for the dataset.
 
         Returns:
