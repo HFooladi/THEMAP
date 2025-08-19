@@ -65,11 +65,11 @@ print(f"Distance: {result}")
 ## Step 3: Working with Protein Data
 
 ```python
-from themap.data import ProteinDataset
+from themap.data import ProteinMetadataDatasets
 from themap.distance import ProteinDatasetDistance
 
 # Load protein sequences
-proteins = ProteinDataset.load_from_file("datasets/train/train_proteins.fasta")
+proteins = ProteinMetadataDatasets.from_directory("datasets/train/")
 print(f"Loaded {len(proteins)} protein sequences")
 
 # Compute protein similarities

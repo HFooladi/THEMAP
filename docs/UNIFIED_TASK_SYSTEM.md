@@ -9,7 +9,7 @@ The unified task system consists of several interconnected components:
 1. **`Task`** - Individual task representation containing all data modalities
 2. **`Tasks`** - Collection management across train/validation/test folds
 3. **`MoleculeDatasets`** - Molecular data management
-4. **`ProteinDatasets`** - Protein sequence and feature management
+4. **`ProteinMetadataDatasets`** - Protein sequence and feature management
 5. **`MetadataDatasets`** - Flexible metadata management blueprint
 6. **Unified feature extraction and distance computation**
 
@@ -38,7 +38,7 @@ class Task:
     """Complete molecular property prediction problem representation."""
     task_id: str
     molecule_dataset: Optional[MoleculeDataset] = None
-    protein_dataset: Optional[ProteinDataset] = None
+    protein_dataset: Optional[ProteinMetadataDataset] = None
     metadata_datasets: Optional[Dict[str, Any]] = None
     legacy_metadata: Optional[MetaData] = None
     hardness: Optional[float] = None
@@ -71,7 +71,7 @@ Task (CHEMBL123)
 │   ├── SMILES strings
 │   ├── Molecular features (Morgan, MACCS, etc.)
 │   └── Activity labels
-├── ProteinDataset (1 protein)
+├── ProteinMetadataDataset (1 protein)
 │   ├── UniProt ID: P53779
 │   ├── FASTA sequence
 │   └── Protein features (ESM2, etc.)
@@ -304,7 +304,7 @@ save_similarity_matrix(similarity_matrix, train_names, test_names)
 
 ✅ **Complete and Working:**
 - Task and Tasks classes with full multi-modal support
-- Integration with MoleculeDatasets and ProteinDatasets
+- Integration with MoleculeDatasets and ProteinMetadataDatasets
 - MetadataDatasets blueprint system
 - Feature extraction and combination
 - Distance computation workflows

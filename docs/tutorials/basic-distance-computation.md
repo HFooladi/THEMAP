@@ -83,11 +83,11 @@ distances = distance_calc.get_distance()
 ### Protein Datasets
 
 ```python
-from themap.data import ProteinDataset
+from themap.data import ProteinMetadataDatasets
 from themap.distance import ProteinDatasetDistance
 
 # Load protein sequences
-proteins = ProteinDataset.load_from_file("datasets/train/train_proteins.fasta")
+proteins = ProteinMetadataDatasets.from_directory("datasets/train/")
 
 # Compute protein distances
 protein_distance = ProteinDatasetDistance(

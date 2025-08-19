@@ -102,12 +102,12 @@ print(distances)
 Analyze protein similarity using sequence features:
 
 ```python
-from themap.data import ProteinDataset
+from themap.data import ProteinMetadataDatasets
 from themap.distance import ProteinDatasetDistance
 
 # Load protein datasets
-source_proteins = ProteinDataset.load_from_file("datasets/train/train_proteins.fasta")
-target_proteins = ProteinDataset.load_from_file("datasets/test/test_proteins.fasta")
+source_proteins = ProteinMetadataDatasets.from_directory("datasets/train/")
+target_proteins = ProteinMetadataDatasets.from_directory("datasets/test/")
 
 # Compute euclidean distance between protein features
 protein_distance = ProteinDatasetDistance(
@@ -261,7 +261,7 @@ print(f"Dataset contains {len(dataset)} molecules")
 print(f"Sample molecule: {dataset[0].smiles}")
 
 # Validate protein data
-proteins = ProteinDataset.load_from_file("proteins.fasta")
+proteins = ProteinMetadataDatasets.from_directory("proteins/")
 print(f"Loaded {len(proteins)} protein sequences")
 ```
 
