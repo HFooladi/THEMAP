@@ -175,3 +175,6 @@ cache/
 
 # ignonore package-lock.json
 package-lock.json
+
+# ignore banchmark datsets
+benchmarking_datasets/
