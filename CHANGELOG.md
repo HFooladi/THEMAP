@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **Examples Reorganization**: Structured example system by complexity level
   - `examples/basic/` - Introductory examples for new users
-  - `examples/distance/` - Distance computation workflows  
+  - `examples/distance/` - Distance computation workflows
   - `examples/advanced/` - Complex research applications
   - Comprehensive example configurations in `configs/examples/`
 

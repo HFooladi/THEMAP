@@ -126,7 +126,7 @@ dataset = MoleculeDataset.load_from_file(dataset_path)
 
 # Calculate molecular embeddings (requires ML dependencies)
 try:
-    features = dataset.get_dataset_embedding("ecfp")
+    features = dataset.get_features("ecfp")
     print(f"Features shape: {features.shape}")
 except ImportError:
     print("❌ ML dependencies not installed. Use: pip install -e '.[ml]'")
@@ -137,7 +137,7 @@ except ImportError:
 ```python
 # Only works with pip install -e ".[all]"
 from themap.data.tasks import Tasks, Task
-from themap.distance.tasks_distance import MoleculeDatasetDistance, ProteinDatasetDistance, TaskDistance
+from themap.distance import MoleculeDatasetDistance, ProteinDatasetDistance, TaskDistance
 
 # Create Tasks collection from your datasets
 source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
