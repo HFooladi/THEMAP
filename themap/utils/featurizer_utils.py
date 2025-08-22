@@ -9,7 +9,21 @@ from rdkit import Chem
 
 from .logging import get_logger
 
-AVAILABLE_FEATURIZERS = ["ecfp", "maccs", "desc2D", "mordred", "ChemBERTa-77M-MLM", "MolT5"]
+AVAILABLE_FEATURIZERS = [
+    "ecfp",  # Morgan fingerprint (2048 bits, uint8)
+    "fcfp",  # Morgan fingerprint (2048 bits, uint8)
+    "maccs",  # MACCS keys (167 bits, uint8)
+    "desc2D",  # 2D descriptors (223 dimensions, float64)
+    "mordred",  # Mordred descriptors (1613 dimensions, float64)
+    "ChemBERTa-77M-MLM",  # ChemBERTa-77M-MLM (384 dimensions, float64)
+    "ChemBERTa-77M-MTR",  # ChemBERTa-77M-MTR (384 dimensions, float64)
+    "MolT5",  # MolT5 (1024 dimensions, float64)
+    "Roberta-Zinc480M-102M",  # Roberta-Zinc480M-102M (768 dimensions, float64)
+    "gin_supervised_infomax",  # GIN supervised infomax (300 dimensions, float64)
+    "gin_supervised_contextpred",  # GIN supervised context prediction (300 dimensions, float64)
+    "gin_supervised_edgepred",  # GIN supervised edge prediction (300 dimensions, float64)
+    "gin_supervised_masking",  # GIN supervised masking (300 dimensions, float64)
+]
 
 
 # Setup logging
@@ -86,7 +100,7 @@ def get_featurizer(
     assert isinstance(featurizer, str), "Featurizer must be a string"
     assert isinstance(n_jobs, int), "Number of jobs must be an integer"
 
-    if featurizer in ["ecfp", "fcfp", "mordred", "desc2D", "desc3D", "maccs", "usrcat"]:
+    if featurizer in ["ecfp", "fcfp", "mordred", "desc2D", "maccs"]:
         transformer = MoleculeTransformer(featurizer, n_jobs=n_jobs)
 
     elif featurizer in ["pcqm4mv2_graphormer_base"]:

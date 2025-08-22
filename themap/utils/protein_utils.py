@@ -28,12 +28,19 @@ def get_protein_accession(target_chembl_id: str) -> Optional[str]:
 
     Returns:
         Optional[str]: The protein accession ID if found, None otherwise.
+
+    Raises:
+        Exception: If there is an error fetching the protein accession ID. For example,
+        if the target ID is invalid.
     """
     target = new_client.target
-    target_result = target.get(target_chembl_id)
-    if "target_components" in target_result:
-        accession = target_result["target_components"][0]["accession"]
-        return str(accession) if accession is not None else None
+    try:
+        target_result: Dict[str, Any] = target.get(target_chembl_id)
+        if "target_components" in target_result:
+            accession = target_result["target_components"][0]["accession"]
+            return str(accession) if accession is not None else None
+    except Exception as e:
+        raise Exception(f"Error fetching protein accession: {e}")
     return None
 
 
@@ -45,12 +52,19 @@ def get_target_chembl_id(assay_chembl_id: str) -> Optional[str]:
 
     Returns:
         Optional[str]: The target ChEMBL ID if found, None otherwise.
+
+    Raises:
+        Exception: If there is an error fetching the target ChEMBL ID. For example,
+        if the assay ID is invalid.
     """
     assay = new_client.assay
-    assay_result = assay.get(assay_chembl_id)
-    if "target_chembl_id" in assay_result:
-        target_chembl_id = assay_result["target_chembl_id"]
-        return str(target_chembl_id) if target_chembl_id is not None else None
+    try:
+        assay_result: Dict[str, Any] = assay.get(assay_chembl_id)
+        if "target_chembl_id" in assay_result:
+            target_chembl_id = assay_result["target_chembl_id"]
+            return str(target_chembl_id) if target_chembl_id is not None else None
+    except Exception as e:
+        raise Exception(f"Error fetching target ChEMBL ID: {e}")
     return None
 
 
