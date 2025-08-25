@@ -1648,14 +1648,14 @@ target_dataset = MoleculeDataset.load_from_file(target_dataset_path)</div>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="c1">## compute and load the embeddings</span>
 <span class="n">molecule_feaurizer</span> <span class="o">=</span> <span class="n">Molecule_Feaurizer</span><span class="o">.</span><span class="n">value</span>
-<span class="n">source_features</span> <span class="o">=</span> <span class="n">source_dataset</span><span class="o">.</span><span class="n">get_dataset_embedding</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
-<span class="n">target_features</span> <span class="o">=</span> <span class="n">target_dataset</span><span class="o">.</span><span class="n">get_dataset_embedding</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
+<span class="n">source_features</span> <span class="o">=</span> <span class="n">source_dataset</span><span class="o">.</span><span class="n">get_features</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
+<span class="n">target_features</span> <span class="o">=</span> <span class="n">target_dataset</span><span class="o">.</span><span class="n">get_features</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">source_features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">target_features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-7">## compute and load the embeddings
 molecule_feaurizer = Molecule_Feaurizer.value
-source_features = source_dataset.get_dataset_embedding(molecule_feaurizer)
-target_features = target_dataset.get_dataset_embedding(molecule_feaurizer)
+source_features = source_dataset.get_features(molecule_feaurizer)
+target_features = target_dataset.get_features(molecule_feaurizer)
 assert source_features.shape[1] == target_features.shape[1]</div>
 </div>
 </div>
@@ -1810,13 +1810,13 @@ print(f"OTDD(src,tgt)={d}")</div>
     <span class="n">chem_distance</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">target_dataset_path</span> <span class="o">=</span> <span class="n">RichPath</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">target_path</span><span class="p">)</span>
     <span class="n">target_dataset</span> <span class="o">=</span> <span class="n">MoleculeDataset</span><span class="o">.</span><span class="n">load_from_file</span><span class="p">(</span><span class="n">target_dataset_path</span><span class="p">)</span>
-    <span class="n">target_features</span> <span class="o">=</span> <span class="n">target_dataset</span><span class="o">.</span><span class="n">get_dataset_embedding</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
+    <span class="n">target_features</span> <span class="o">=</span> <span class="n">target_dataset</span><span class="o">.</span><span class="n">get_features</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
     <span class="n">target_dataset_otdd</span> <span class="o">=</span> <span class="n">MolDataset</span><span class="p">(</span><span class="n">target_dataset</span><span class="p">)</span>
     <span class="n">target_dataset_loader</span> <span class="o">=</span> <span class="n">load_molecule_data</span><span class="p">(</span><span class="n">target_dataset</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">source_path</span> <span class="ow">in</span> <span class="n">source_datasets_path</span><span class="p">:</span>
         <span class="n">source_dataset_path</span> <span class="o">=</span> <span class="n">RichPath</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">source_path</span><span class="p">)</span>
         <span class="n">source_dataset</span> <span class="o">=</span> <span class="n">MoleculeDataset</span><span class="o">.</span><span class="n">load_from_file</span><span class="p">(</span><span class="n">source_dataset_path</span><span class="p">)</span>
-        <span class="n">source_features</span> <span class="o">=</span> <span class="n">source_dataset</span><span class="o">.</span><span class="n">get_dataset_embedding</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
+        <span class="n">source_features</span> <span class="o">=</span> <span class="n">source_dataset</span><span class="o">.</span><span class="n">get_features</span><span class="p">(</span><span class="n">molecule_feaurizer</span><span class="p">)</span>
         <span class="n">source_dataset_otdd</span> <span class="o">=</span> <span class="n">MolDataset</span><span class="p">(</span><span class="n">source_dataset</span><span class="p">)</span>
         <span class="n">source_dataset_loader</span> <span class="o">=</span> <span class="n">load_molecule_data</span><span class="p">(</span><span class="n">source_dataset</span><span class="p">)</span>
 
@@ -1844,13 +1844,13 @@ for target_path in tqdm(target_datasets_path):
     chem_distance = {}
     target_dataset_path = RichPath.create(target_path)
     target_dataset = MoleculeDataset.load_from_file(target_dataset_path)
-    target_features = target_dataset.get_dataset_embedding(molecule_feaurizer)
+    target_features = target_dataset.get_features(molecule_feaurizer)
     target_dataset_otdd = MolDataset(target_dataset)
     target_dataset_loader = load_molecule_data(target_dataset)
     for source_path in source_datasets_path:
         source_dataset_path = RichPath.create(source_path)
         source_dataset = MoleculeDataset.load_from_file(source_dataset_path)
-        source_features = source_dataset.get_dataset_embedding(molecule_feaurizer)
+        source_features = source_dataset.get_features(molecule_feaurizer)
         source_dataset_otdd = MolDataset(source_dataset)
         source_dataset_loader = load_molecule_data(source_dataset)
 
