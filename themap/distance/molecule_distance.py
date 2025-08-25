@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import cdist
 
 from ..data.metadata import DataFold
 from ..data.molecule_dataset import MoleculeDataset
@@ -224,7 +223,7 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
         """Compute Euclidean distance between molecule datasets.
 
         This method computes the dataset-level Euclidean distance by comparing
-        individual molecules between datasets, similar to how OTDD works.
+        the prototypes of the datasets.
 
         Args:
             featurizer_name: Name of the molecular featurizer to use (e.g., "ecfp", "maccs", "desc2D")
@@ -260,12 +259,21 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
                             chem_distance[self.source_task_ids[j]] = 1.0
                             continue
 
-                        # Compute pairwise distances between all molecules in the two datasets
-                        pairwise_distances = cdist(tgt_features, src_features, metric="euclidean")
+                        # Compute the prototypes of the datasets (positive and negative prototypes)
+                        src_pos_prototype, src_neg_prototype = src_dataset.get_prototype(featurizer_name)
+                        tgt_pos_prototype, tgt_neg_prototype = tgt_dataset.get_prototype(featurizer_name)
+
+                        # Compute pairwise Euclidean distances between corresponding prototypes
+                        # Distance between positive prototypes and distance between negative prototypes
+                        pos_distance = np.linalg.norm(tgt_pos_prototype - src_pos_prototype)
+                        neg_distance = np.linalg.norm(tgt_neg_prototype - src_neg_prototype)
+
+                        # Average the distances from both classes
+                        prototype_distances = [pos_distance, neg_distance]
 
                         # Use mean of all pairwise distances as the dataset distance
                         # This is a common approach for dataset-level distance computation
-                        dataset_distance = float(np.mean(pairwise_distances))
+                        dataset_distance = float(np.mean(prototype_distances))
 
                         # Validate distance value
                         if np.isnan(dataset_distance) or np.isinf(dataset_distance):
@@ -295,7 +303,7 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
         """Compute cosine distance between molecule datasets.
 
         This method computes the dataset-level cosine distance by comparing
-        individual molecules between datasets, similar to how OTDD works.
+        the prototypes of the datasets.
 
         Args:
             featurizer_name: Name of the molecular featurizer to use (e.g., "ecfp", "maccs", "desc2D")
@@ -328,11 +336,31 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
                             chem_distance[self.source_task_ids[j]] = 1.0
                             continue
 
-                        # Compute pairwise cosine distances between all molecules in the two datasets
-                        pairwise_distances = cdist(tgt_features, src_features, metric="cosine")
+                        # Compute the prototypes of the datasets (positive and negative prototypes)
+                        src_pos_prototype, src_neg_prototype = src_dataset.get_prototype(featurizer_name)
+                        tgt_pos_prototype, tgt_neg_prototype = tgt_dataset.get_prototype(featurizer_name)
+
+                        # Compute cosine distances between corresponding prototypes
+                        # Cosine distance = 1 - cosine_similarity
+                        # Cosine similarity = dot(a, b) / (||a|| * ||b||)
+                        def cosine_distance(a, b):
+                            dot_product = np.dot(a, b)
+                            norm_a = np.linalg.norm(a)
+                            norm_b = np.linalg.norm(b)
+                            if norm_a == 0 or norm_b == 0:
+                                return 1.0  # Maximum distance for zero vectors
+                            cosine_sim = dot_product / (norm_a * norm_b)
+                            return 1.0 - cosine_sim
+
+                        # Distance between positive prototypes and distance between negative prototypes
+                        pos_distance = cosine_distance(tgt_pos_prototype, src_pos_prototype)
+                        neg_distance = cosine_distance(tgt_neg_prototype, src_neg_prototype)
+
+                        # Average the distances from both classes
+                        prototype_distances = [pos_distance, neg_distance]
 
                         # Use mean of all pairwise distances as the dataset distance
-                        dataset_distance = float(np.mean(pairwise_distances))
+                        dataset_distance = float(np.mean(prototype_distances))
 
                         # Validate distance value
                         if np.isnan(dataset_distance) or np.isinf(dataset_distance):

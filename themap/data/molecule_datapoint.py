@@ -45,6 +45,10 @@ class MoleculeDatapoint:
         get_fingerprint(): Computes and returns the Morgan fingerprint for the molecule
         get_features(): Computes and returns molecular features using specified featurizer
 
+    Notes:
+        By design, if the SMILES is invalid and can not be parsed with RDKit, it will result in a InvalidSMILESError.
+        So make sure to validate and sanitize your SMILES strings before creating a MoleculeDatapoint.
+
     Example:
         >>> # Create a molecule datapoint
         >>> datapoint = MoleculeDatapoint(
@@ -89,8 +93,11 @@ class MoleculeDatapoint:
             raise TypeError("smiles must be a string")
         if not isinstance(self.bool_label, bool):
             raise TypeError("bool_label must be a boolean")
-        if self.numeric_label is not None and not isinstance(self.numeric_label, (int, float)):
-            raise TypeError("numeric_label must be a number or None")
+        if self.numeric_label is not None:
+            if not isinstance(self.numeric_label, (int, float)):
+                raise TypeError("numeric_label must be a number or None")
+            if not (-float("inf") < self.numeric_label < float("inf")):
+                raise ValueError("numeric_label must be finite")
 
         # Validate SMILES string
         if not self.smiles.strip():
@@ -159,35 +166,10 @@ class MoleculeDatapoint:
         Note:
             dtype of the fingerprint is np.uint8.
         """
-        cache_key = CacheKey(smiles=self.smiles, featurizer_name="ecfp")
-        cache = get_global_feature_cache()
-
-        # Check cache first unless forcing recomputation
-        if not force_recompute:
-            cached_features = cache.get(cache_key)
-            if cached_features is not None:
-                logger.debug(f"Cache hit for fingerprint of molecule {self.smiles}")
-                return cached_features
-
-        logger.debug(f"Computing fingerprint for molecule {self.smiles}")
-        try:
-            featurizer = get_featurizer("ecfp")
-            features = featurizer(self.smiles)
-            if features is None:
-                logger.error(f"Failed to generate fingerprint for molecule {self.smiles}")
-                return None
-
-            fingerprint = features[0]
-            cache.store(cache_key, fingerprint)
-            logger.debug(f"Successfully computed and cached fingerprint for molecule {self.smiles}")
-            return fingerprint
-
-        except Exception as e:
-            logger.error(f"Error computing fingerprint for molecule {self.smiles}: {e}")
-            raise FeaturizationError(self.smiles, "ecfp", str(e))
+        return self.get_features(featurizer_name="ecfp", force_recompute=force_recompute)
 
     def get_features(
-        self, featurizer_name: Optional[str] = None, force_recompute: bool = False
+        self, featurizer_name: Optional[str] = "ecfp", force_recompute: bool = False
     ) -> Optional[np.ndarray]:
         """Get features for a molecule using a featurizer model.
 
@@ -196,7 +178,7 @@ class MoleculeDatapoint:
 
         Args:
             featurizer_name (Optional[str]): Name of the featurizer model to use.
-                If None, returns None.
+                Defaults to "ecfp". If None, returns None.
             force_recompute (bool): If True, features are recomputed even if cached.
 
         Returns:
@@ -244,6 +226,20 @@ class MoleculeDatapoint:
             logger.error(f"Error computing features for molecule {self.smiles} with {featurizer_name}: {e}")
             raise FeaturizationError(self.smiles, featurizer_name, str(e))
 
+    def _ensure_mol(self) -> Chem.Mol:
+        """Ensure RDKit molecule is available or raise ValueError.
+
+        Returns:
+            Chem.Mol: RDKit molecule object.
+
+        Raises:
+            ValueError: If the molecule cannot be created from SMILES.
+        """
+        mol = self.rdkit_mol
+        if mol is None:
+            raise ValueError(f"Failed to create RDKit molecule from SMILES: {self.smiles}")
+        return mol
+
     @property
     def rdkit_mol(self) -> Optional[Chem.Mol]:
         """Get the RDKit molecule object.
@@ -264,10 +260,10 @@ class MoleculeDatapoint:
 
         Returns:
             int: Number of heavy atoms in the molecule.
+        Raises:
+            ValueError: If the molecule cannot be created.
         """
-        mol = self.rdkit_mol
-        if mol is None:
-            raise ValueError("Failed to create RDKit molecule")
+        mol = self._ensure_mol()
         return mol.GetNumAtoms()
 
     @property
@@ -276,10 +272,10 @@ class MoleculeDatapoint:
 
         Returns:
             int: Number of bonds in the molecule.
+        Raises:
+            ValueError: If the molecule cannot be created.
         """
-        mol = self.rdkit_mol
-        if mol is None:
-            raise ValueError("Failed to create RDKit molecule")
+        mol = self._ensure_mol()
         return mol.GetNumBonds()
 
     @property
@@ -288,10 +284,10 @@ class MoleculeDatapoint:
 
         Returns:
             float: Molecular weight of the molecule in atomic mass units.
+        Raises:
+            ValueError: If the molecule cannot be created.
         """
-        mol = self.rdkit_mol
-        if mol is None:
-            raise ValueError("Failed to create RDKit molecule")
+        mol = self._ensure_mol()
         return float(Descriptors.ExactMolWt(mol))  # type: ignore[attr-defined]
 
     @property
@@ -300,10 +296,10 @@ class MoleculeDatapoint:
 
         Returns:
             float: LogP value of the molecule.
+        Raises:
+            ValueError: If the molecule cannot be created.
         """
-        mol = self.rdkit_mol
-        if mol is None:
-            raise ValueError("Failed to create RDKit molecule")
+        mol = self._ensure_mol()
         return float(Chem.Descriptors.MolLogP(mol))  # type: ignore[attr-defined]
 
     @property
@@ -315,9 +311,7 @@ class MoleculeDatapoint:
         Raises:
             ValueError: If the molecule cannot be created.
         """
-        mol = self.rdkit_mol
-        if mol is None:
-            raise ValueError("Failed to create RDKit molecule")
+        mol = self._ensure_mol()
         return int(Chem.Descriptors.NumRotatableBonds(mol))  # type: ignore[attr-defined]
 
     @property
@@ -329,7 +323,5 @@ class MoleculeDatapoint:
         Raises:
             ValueError: If the molecule cannot be created.
         """
-        mol = self.rdkit_mol
-        if mol is None:
-            raise ValueError("Failed to create RDKit molecule")
+        mol = self._ensure_mol()
         return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
