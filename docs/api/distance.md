@@ -14,28 +14,28 @@ The distance computation system consists of three main classes:
 
 ### AbstractTasksDistance
 
-::: themap.distance.tasks_distance.AbstractTasksDistance
+::: themap.distance.base.AbstractTasksDistance
     options:
       show_root_heading: true
       heading_level: 3
 
 ### MoleculeDatasetDistance
 
-::: themap.distance.tasks_distance.MoleculeDatasetDistance
+::: themap.distance.molecule_distance.MoleculeDatasetDistance
     options:
       show_root_heading: true
       heading_level: 3
 
 ### ProteinDatasetDistance
 
-::: themap.distance.tasks_distance.ProteinDatasetDistance
+::: themap.distance.protein_distance.ProteinDatasetDistance
     options:
       show_root_heading: true
       heading_level: 3
 
 ### TaskDistance
 
-::: themap.distance.tasks_distance.TaskDistance
+::: themap.distance.task_distance.TaskDistance
     options:
       show_root_heading: true
       heading_level: 3
@@ -44,7 +44,7 @@ The distance computation system consists of three main classes:
 
 ### Validation Functions
 
-::: themap.distance.tasks_distance._validate_and_extract_task_id
+::: themap.distance.base._validate_and_extract_task_id
     options:
       show_root_heading: true
       heading_level: 4
@@ -53,14 +53,14 @@ The distance computation system consists of three main classes:
 
 ### DistanceComputationError
 
-::: themap.distance.tasks_distance.DistanceComputationError
+::: themap.distance.exceptions.DistanceComputationError
     options:
       show_root_heading: true
       heading_level: 4
 
 ### DataValidationError
 
-::: themap.distance.tasks_distance.DataValidationError
+::: themap.distance.exceptions.DataValidationError
     options:
       show_root_heading: true
       heading_level: 4
