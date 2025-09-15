@@ -90,7 +90,7 @@ test = [
 ]
 
 dev = [
-  "ruff==0.12.4",
+  "ruff==0.13.0",
   "mypy==1.17.0",
   "pre-commit",
   "jupyterlab",
