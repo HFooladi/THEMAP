@@ -91,7 +91,7 @@ test = [
 
 dev = [
   "ruff==0.12.4",
-  "mypy==1.17.0",
+  "mypy==1.18.2",
   "pre-commit",
   "jupyterlab",
   "nbconvert",
