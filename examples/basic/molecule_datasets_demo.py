@@ -26,7 +26,6 @@ from pathlib import Path
 
 import numpy as np
 
-from themap.data.molecule_datapoint import MoleculeDatapoint
 from themap.data.molecule_datasets import DataFold, MoleculeDatasets
 from themap.utils.cache_utils import CacheKey, get_global_feature_cache
 from themap.utils.logging import get_logger, setup_logging
@@ -249,15 +248,11 @@ def new_architecture_demo():
     print("\n🔧 Global Cache Direct Access:")
     global_cache = get_global_feature_cache()
 
-    # Create some sample molecules
-    sample_molecules = [
-        MoleculeDatapoint(task_id="demo", smiles="CCO", bool_label=True),
-        MoleculeDatapoint(task_id="demo", smiles="CCC", bool_label=False),
-        MoleculeDatapoint(task_id="demo", smiles="CCCC", bool_label=True),
-    ]
+    # Create sample SMILES for demonstration
+    sample_smiles = ["CCO", "CCC", "CCCC"]
 
-    # Create cache keys
-    cache_keys = [CacheKey(smiles=mol.smiles, featurizer_name="demo_features") for mol in sample_molecules]
+    # Create cache keys using SMILES directly
+    cache_keys = [CacheKey(smiles=smiles, featurizer_name="demo_features") for smiles in sample_smiles]
 
     # Store some dummy features
     dummy_features = [np.random.rand(10).astype(np.float32) for _ in range(3)]

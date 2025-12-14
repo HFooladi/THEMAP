@@ -51,12 +51,12 @@ def normalize(x: np.ndarray) -> np.ndarray:
 def compute_fp_similarity(first_mol: Any, second_mol: Any) -> np.ndarray:
     """Compute similarity between molecules using their fingerprints.
 
-    This function receives two MoleculeDatapoint objects, extracts their fingerprints
-    and computes the similarity between them using the Jaccard distance.
+    This function receives two molecule objects with get_fingerprint methods,
+    extracts their fingerprints and computes the similarity using Jaccard distance.
 
     Args:
-        first_mol: First MoleculeDatapoint object
-        second_mol: Second MoleculeDatapoint object
+        first_mol: First molecule object with get_fingerprint() method
+        second_mol: Second molecule object with get_fingerprint() method
 
     Returns:
         Array containing the similarity between the two molecules' fingerprints
@@ -91,12 +91,12 @@ def compute_fp_similarity(first_mol: Any, second_mol: Any) -> np.ndarray:
 def compute_fps_similarity(first_mol_list: List[Any], second_mol_list: List[Any]) -> np.ndarray:
     """Compute similarity between two lists of molecules using their fingerprints.
 
-    This function receives two lists of MoleculeDatapoint objects, extracts their
-    fingerprints and computes the similarities between them using the Jaccard distance.
+    This function receives two lists of molecule objects with get_fingerprint methods,
+    extracts their fingerprints and computes similarities using Jaccard distance.
 
     Args:
-        first_mol_list: List of first set of MoleculeDatapoint objects
-        second_mol_list: List of second set of MoleculeDatapoint objects
+        first_mol_list: List of molecule objects with get_fingerprint() method
+        second_mol_list: List of molecule objects with get_fingerprint() method
 
     Returns:
         Matrix of similarities between the two lists of molecules
@@ -115,8 +115,8 @@ def compute_similarities_mean_nearest(mol_list1: List[Any], mol_list2: List[Any]
     returns the mean of the maximum similarities for each molecule in the first list.
 
     Args:
-        mol_list1: First list of MoleculeDatapoint objects
-        mol_list2: Second list of MoleculeDatapoint objects
+        mol_list1: First list of molecule objects with get_fingerprint() method
+        mol_list2: Second list of molecule objects with get_fingerprint() method
 
     Returns:
         Mean similarity between nearest neighbors

@@ -1,587 +1,426 @@
 """
-Combined task distance computation for the THEMAP framework.
+Combined task distance computation orchestrator.
 
-This module provides functionality to compute and manage distances between tasks,
-supporting both chemical and protein space distances with various combination strategies.
+This module provides the high-level interface for computing N×M distance matrices
+between tasks, coordinating dataset distances (molecules) and metadata distances
+(protein, etc.).
+
+Usage:
+    # Basic usage with Tasks collection
+    calculator = TaskDistanceCalculator(
+        tasks=tasks,
+        dataset_method="euclidean",
+        metadata_method="cosine"
+    )
+    all_distances = calculator.compute_all_distances(
+        molecule_featurizer="ecfp",
+        protein_featurizer="esm2_t33_650M_UR50D"
+    )
+
+    # Or use the simplified pipeline approach
+    from themap.pipeline import FeaturizationPipeline
+    from themap.distance import compute_dataset_distance_matrix
+
+    pipeline = FeaturizationPipeline(cache_dir="./cache", molecule_featurizer="ecfp")
+    pipeline.featurize_all_datasets(datasets)
+    features, labels, ids = pipeline.load_dataset_features(datasets, names)
+    distances = compute_dataset_distance_matrix(...)
 """
 
-import logging
-import pickle
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
-import pandas as pd
+from numpy.typing import NDArray
 
-from ..data.tasks import Tasks
-from ..utils.distance_utils import get_configure
-from .base import (
-    DATASET_DISTANCE_METHODS,
-    METADATA_DISTANCE_METHODS,
-    AbstractTasksDistance,
-)
-from .molecule_distance import MoleculeDatasetDistance
-from .protein_distance import ProteinDatasetDistance
+from ..data.enums import DataFold
+from ..data.tasks import Task, Tasks
+from ..utils.logging import get_logger
+from .dataset_distance import DatasetDistance, compute_dataset_distance_matrix
+from .metadata_distance import MetadataDistance, combine_distance_matrices, compute_metadata_distance_matrix
 
-# Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+# Type aliases
+DistanceMatrix = Dict[str, Dict[str, float]]
+CombinationStrategy = Literal["weighted_average", "average", "min", "max", "sum"]
 
 
-class TaskDistance(AbstractTasksDistance):
-    """Class for computing and managing distances between tasks.
+class TaskDistanceCalculator:
+    """High-level orchestrator for computing task distance matrices.
 
-    This class handles the computation and storage of distances between tasks,
-    supporting both dataset distances (molecules) and metadata distances (protein, etc.).
-    It can compute distances directly from Tasks collections or work with pre-computed matrices.
+    This class coordinates the computation of distance matrices for different
+    aspects of tasks (molecules, proteins, other metadata) and provides
+    methods to combine them.
 
     Args:
-        tasks: Tasks collection for distance computation (optional)
-        dataset_method: Distance method for datasets (molecules) (default: "euclidean")
-        metadata_method: Distance method for metadata including protein (default: "euclidean")
-        method: Default distance computation method (legacy, optional)
-        source_task_ids: List of task IDs for source tasks (legacy, optional)
-        target_task_ids: List of task IDs for target tasks (legacy, optional)
-        external_dataset_matrix: Pre-computed dataset distance matrix (optional)
-        external_metadata_matrices: Dict of pre-computed metadata distance matrices (optional)
+        tasks: Optional Tasks collection (if provided, can auto-extract data)
+        dataset_method: Distance method for molecule datasets ('otdd', 'euclidean', 'cosine')
+        metadata_method: Distance method for metadata ('euclidean', 'cosine', 'manhattan')
 
-        # Deprecated parameters for backward compatibility:
-        molecule_method: Deprecated alias for dataset_method
-        protein_method: Deprecated - protein is metadata, use metadata_method
-        external_chemical_space: Deprecated alias for external_dataset_matrix
-        external_protein_space: Deprecated - protein is metadata
+    Attributes:
+        molecule_distances: Computed molecule distance matrix
+        protein_distances: Computed protein distance matrix
+        combined_distances: Combined distance matrix
+
+    Example:
+        >>> calculator = TaskDistanceCalculator(
+        ...     tasks=tasks,
+        ...     dataset_method="euclidean",
+        ...     metadata_method="cosine"
+        ... )
+        >>> # Compute all distance types
+        >>> all_dist = calculator.compute_all_distances(
+        ...     molecule_featurizer="ecfp",
+        ...     n_jobs=8
+        ... )
+        >>> # Access individual matrices
+        >>> mol_dist = all_dist["molecules"]
+        >>> prot_dist = all_dist["protein"]
+        >>> combined = all_dist["combined"]
     """
 
     def __init__(
         self,
         tasks: Optional[Tasks] = None,
-        molecule_method: str = "euclidean",
-        protein_method: str = "euclidean",
+        dataset_method: str = "euclidean",
         metadata_method: str = "euclidean",
+        # Legacy parameters for backward compatibility
+        molecule_method: Optional[str] = None,
+        protein_method: Optional[str] = None,
         method: Optional[str] = None,
-        source_task_ids: Optional[List[str]] = None,
-        target_task_ids: Optional[List[str]] = None,
-        external_chemical_space: Optional[np.ndarray] = None,
-        external_protein_space: Optional[np.ndarray] = None,
     ):
-        # Initialize parent class
-        super().__init__(
-            tasks=tasks,
-            molecule_method=molecule_method,
-            protein_method=protein_method,
-            metadata_method=metadata_method,
-            method=method,
-        )
+        """Initialize the task distance calculator.
 
-        # Handle legacy mode - override parent setup if using legacy parameters
-        if tasks is None and (source_task_ids is not None or target_task_ids is not None):
-            self.source_task_ids = source_task_ids or []
-            self.target_task_ids = target_task_ids or []
-            self.source = None
-            self.target = None
+        Args:
+            tasks: Tasks collection containing source and target tasks
+            dataset_method: Method for dataset distances (molecules)
+            metadata_method: Method for metadata distances (protein, etc.)
+            molecule_method: Legacy alias for dataset_method
+            protein_method: Legacy alias for metadata_method
+            method: Legacy default method (applied to both)
+        """
+        self.tasks = tasks
 
-        self.external_chemical_space = external_chemical_space
-        self.external_protein_space = external_protein_space
+        # Handle legacy parameters
+        if method is not None:
+            dataset_method = method
+            metadata_method = method
+        if molecule_method is not None:
+            dataset_method = molecule_method
+        if protein_method is not None:
+            metadata_method = protein_method
+
+        self.dataset_method = dataset_method
+        self.metadata_method = metadata_method
+
+        # Initialize distance calculators
+        self._dataset_distance = DatasetDistance(method=dataset_method)
+        self._metadata_distance = MetadataDistance(method=metadata_method)
 
         # Storage for computed distances
-        self.molecule_distances: Optional[Dict[str, Dict[str, float]]] = None
-        self.protein_distances: Optional[Dict[str, Dict[str, float]]] = None
-        self.combined_distances: Optional[Dict[str, Dict[str, float]]] = None
+        self.molecule_distances: Optional[DistanceMatrix] = None
+        self.protein_distances: Optional[DistanceMatrix] = None
+        self.combined_distances: Optional[DistanceMatrix] = None
 
-    def get_distance(self) -> Dict[str, Dict[str, float]]:
-        """Compute and return the default distance between tasks.
-
-        Uses the combined distance if both molecule and protein data are available,
-        otherwise uses molecule distance, then protein distance as fallback.
-
-        Returns:
-            Dictionary containing distance matrix between source and target tasks.
-        """
-        # Try to compute combined distance first
-        if self.tasks is not None:
-            try:
-                if self.combined_distances is None:
-                    self.compute_combined_distance()
-                if self.combined_distances:
-                    return self.combined_distances
-            except Exception:
-                pass
-
-            # Fall back to molecule distance
-            try:
-                if self.molecule_distances is None:
-                    self.compute_molecule_distance()
-                if self.molecule_distances:
-                    return self.molecule_distances
-            except Exception:
-                pass
-
-            # Fall back to protein distance
-            try:
-                if self.protein_distances is None:
-                    self.compute_protein_distance()
-                if self.protein_distances:
-                    return self.protein_distances
-            except Exception:
-                pass
-
-        # If nothing worked, return empty dict
-        return {}
-
-    def get_hopts(self, data_type: str = "dataset") -> Optional[Dict[str, Any]]:
-        """Get hyperparameters for distance computation.
-
-        Args:
-            data_type: Type of data ("dataset", "metadata")
-                      Legacy: "molecule" (alias for "dataset"), "protein" (alias for "metadata")
-
-        Returns:
-            Dictionary of hyperparameters for the specified data type distance computation method.
-        """
-        if data_type in ["dataset", "molecule"]:
-            return get_configure(self.dataset_method)
-        elif data_type in ["metadata", "protein"]:
-            return get_configure(self.metadata_method)
-        else:
-            raise ValueError(f"Unknown data type: {data_type}. Use 'dataset' or 'metadata'")
-
-    def get_supported_methods(self, data_type: str) -> List[str]:
-        """Get list of supported methods for a specific data type.
-
-        Args:
-            data_type: Type of data ("dataset", "metadata")
-                      Legacy: "molecule" (alias for "dataset"), "protein" (alias for "metadata")
-
-        Returns:
-            List of supported method names for the data type
-        """
-        if data_type in ["dataset", "molecule"]:
-            return DATASET_DISTANCE_METHODS.copy()
-        elif data_type in ["metadata", "protein"]:
-            return METADATA_DISTANCE_METHODS.copy()
-        else:
-            raise ValueError(f"Unknown data type: {data_type}. Use 'dataset' or 'metadata'")
-
-    def __repr__(self) -> str:
-        """Return a string representation of the TaskDistance instance.
-
-        Returns:
-            String containing the number of source and target tasks and the mode.
-        """
-        mode = "tasks" if self.tasks is not None else "legacy"
-        num_computed = 0
-        if self.molecule_distances:
-            num_computed += 1
-        if self.protein_distances:
-            num_computed += 1
-        if self.combined_distances:
-            num_computed += 1
-
-        return (
-            f"TaskDistance(mode={mode}, source_tasks={len(self.source_task_ids)}, "
-            f"target_tasks={len(self.target_task_ids)}, computed_distances={num_computed}, "
-            f"dataset_method={self.dataset_method}, metadata_method={self.metadata_method})"
+        logger.info(
+            f"TaskDistanceCalculator initialized: "
+            f"dataset_method={dataset_method}, metadata_method={metadata_method}"
         )
-
-    @property
-    def shape(self) -> Tuple[int, int]:
-        """Get the shape of the distance matrix.
-
-        Returns:
-            Tuple containing (number of source tasks, number of target tasks).
-        """
-        return len(self.source_task_ids), len(self.target_task_ids)
 
     def compute_molecule_distance(
-        self, method: Optional[str] = None, molecule_featurizer: str = "ecfp"
-    ) -> Dict[str, Dict[str, float]]:
-        """Compute distances between tasks using molecule data.
+        self,
+        molecule_featurizer: str = "ecfp",
+        n_jobs: int = 1,
+        source_fold: DataFold = DataFold.TRAIN,
+        target_folds: Optional[List[DataFold]] = None,
+        **kwargs: Any,
+    ) -> DistanceMatrix:
+        """Compute molecule dataset distance matrix.
 
         Args:
-            method: Distance computation method ('euclidean', 'cosine', or 'otdd').
-                   If None, uses the molecule_method from initialization.
-            molecule_featurizer: Molecular featurizer to use
+            molecule_featurizer: Name of molecular featurizer
+            n_jobs: Number of parallel jobs
+            source_fold: Fold to use as source
+            target_folds: Folds to use as targets
+            **kwargs: Additional arguments for distance computation
 
         Returns:
-            Dictionary containing molecule-based distances between tasks.
+            Distance matrix Dict[target_id][source_id] = distance
         """
         if self.tasks is None:
-            raise ValueError("Tasks collection required for computing molecule distances")
+            raise ValueError("Tasks collection required for molecule distance computation")
 
-        # Use provided method or fall back to instance method
-        actual_method = method if method is not None else self.molecule_method
+        if target_folds is None:
+            target_folds = [DataFold.VALIDATION, DataFold.TEST]
 
-        # Use MoleculeDatasetDistance to compute distances
-        mol_distance = MoleculeDatasetDistance(
-            tasks=self.tasks,
-            molecule_method=actual_method,
+        # Get features from Tasks
+        source_features, target_features, source_names, target_names = (
+            self.tasks.get_distance_computation_ready_features(
+                molecule_featurizer=molecule_featurizer,
+                source_fold=source_fold,
+                target_folds=target_folds,
+            )
         )
-        self.molecule_distances = mol_distance.get_distance()
+
+        if not source_features or not target_features:
+            logger.warning("No features available for molecule distance computation")
+            return {}
+
+        # Get labels from datasets
+        source_labels = self._get_labels_for_features(source_names)
+        target_labels = self._get_labels_for_features(target_names)
+
+        # Compute distance matrix
+        self.molecule_distances = self._dataset_distance.compute_matrix(
+            source_features=source_features,
+            source_labels=source_labels,
+            target_features=target_features,
+            target_labels=target_labels,
+            source_ids=source_names,
+            target_ids=target_names,
+            n_jobs=n_jobs,
+            **kwargs,
+        )
+
+        logger.info(
+            f"Computed molecule distance matrix: "
+            f"{len(target_names)}×{len(source_names)}"
+        )
         return self.molecule_distances
 
     def compute_protein_distance(
-        self, method: Optional[str] = None, protein_featurizer: str = "esm2_t33_650M_UR50D"
-    ) -> Dict[str, Dict[str, float]]:
-        """Compute distances between tasks using protein data.
+        self,
+        protein_featurizer: str = "esm2_t33_650M_UR50D",
+        source_fold: DataFold = DataFold.TRAIN,
+        target_folds: Optional[List[DataFold]] = None,
+    ) -> DistanceMatrix:
+        """Compute protein metadata distance matrix.
 
         Args:
-            method: Distance computation method ('euclidean' or 'cosine').
-                   If None, uses the protein_method from initialization.
-            protein_featurizer: Protein featurizer to use
+            protein_featurizer: Name of protein featurizer
+            source_fold: Fold to use as source
+            target_folds: Folds to use as targets
 
         Returns:
-            Dictionary containing protein-based distances between tasks.
+            Distance matrix Dict[target_id][source_id] = distance
         """
         if self.tasks is None:
-            raise ValueError("Tasks collection required for computing protein distances")
+            raise ValueError("Tasks collection required for protein distance computation")
 
-        # Use provided method or fall back to instance method
-        actual_method = method if method is not None else self.protein_method
+        if target_folds is None:
+            target_folds = [DataFold.VALIDATION, DataFold.TEST]
 
-        # Use ProteinDatasetDistance to compute distances
-        prot_distance = ProteinDatasetDistance(
-            tasks=self.tasks,
-            protein_method=actual_method,
+        # Get protein features from Tasks
+        source_features, target_features, source_names, target_names = (
+            self.tasks.get_distance_computation_ready_features(
+                protein_featurizer=protein_featurizer,
+                source_fold=source_fold,
+                target_folds=target_folds,
+            )
         )
-        self.protein_distances = prot_distance.get_distance()
+
+        if not source_features or not target_features:
+            logger.warning("No features available for protein distance computation")
+            return {}
+
+        # Stack features into arrays (each task has one protein vector)
+        source_array = np.vstack(source_features).astype(np.float32)
+        target_array = np.vstack(target_features).astype(np.float32)
+
+        # Compute distance matrix
+        self.protein_distances = self._metadata_distance.compute_matrix(
+            source_vectors=source_array,
+            target_vectors=target_array,
+            source_ids=source_names,
+            target_ids=target_names,
+        )
+
+        logger.info(
+            f"Computed protein distance matrix: "
+            f"{len(target_names)}×{len(source_names)}"
+        )
         return self.protein_distances
 
     def compute_combined_distance(
         self,
-        molecule_method: Optional[str] = None,
-        protein_method: Optional[str] = None,
-        combination_strategy: str = "average",
-        molecule_weight: float = 0.5,
-        protein_weight: float = 0.5,
         molecule_featurizer: str = "ecfp",
         protein_featurizer: str = "esm2_t33_650M_UR50D",
-    ) -> Dict[str, Dict[str, float]]:
-        """Compute combined distances using both molecule and protein data.
+        weights: Optional[Dict[str, float]] = None,
+        combination: CombinationStrategy = "weighted_average",
+        n_jobs: int = 1,
+        **kwargs: Any,
+    ) -> DistanceMatrix:
+        """Compute combined distance matrix from molecules and proteins.
 
         Args:
-            molecule_method: Method for molecule distance computation
-            protein_method: Method for protein distance computation
-            combination_strategy: How to combine distances ('average', 'weighted_average', 'min', 'max')
-            molecule_weight: Weight for molecule distances (used with 'weighted_average')
-            protein_weight: Weight for protein distances (used with 'weighted_average')
-            molecule_featurizer: Molecular featurizer to use
-            protein_featurizer: Protein featurizer to use
+            molecule_featurizer: Name of molecular featurizer
+            protein_featurizer: Name of protein featurizer
+            weights: Optional weights for combination (default: equal)
+            combination: Combination strategy
+            n_jobs: Number of parallel jobs
+            **kwargs: Additional arguments
 
         Returns:
-            Dictionary containing combined distances between tasks.
+            Combined distance matrix
         """
-        # Use provided methods or fall back to instance methods
-        actual_molecule_method = molecule_method if molecule_method is not None else self.molecule_method
-        actual_protein_method = protein_method if protein_method is not None else self.protein_method
-
         # Compute individual distances if not already computed
         if self.molecule_distances is None:
-            self.compute_molecule_distance(
-                method=actual_molecule_method, molecule_featurizer=molecule_featurizer
-            )
+            try:
+                self.compute_molecule_distance(
+                    molecule_featurizer=molecule_featurizer,
+                    n_jobs=n_jobs,
+                    **kwargs,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to compute molecule distances: {e}")
+
         if self.protein_distances is None:
-            self.compute_protein_distance(method=actual_protein_method, protein_featurizer=protein_featurizer)
+            try:
+                self.compute_protein_distance(
+                    protein_featurizer=protein_featurizer,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to compute protein distances: {e}")
 
-        if self.molecule_distances is None or self.protein_distances is None:
-            raise ValueError("Could not compute both molecule and protein distances")
+        # Combine available distances
+        matrices: Dict[str, DistanceMatrix] = {}
+        if self.molecule_distances:
+            matrices["molecules"] = self.molecule_distances
+        if self.protein_distances:
+            matrices["protein"] = self.protein_distances
 
-        # Combine distances
-        self.combined_distances = {}
+        if not matrices:
+            logger.warning("No distance matrices available to combine")
+            return {}
 
-        # Get all target task IDs present in both distance matrices
-        mol_target_ids = set(self.molecule_distances.keys())
-        prot_target_ids = set(self.protein_distances.keys())
-        common_target_ids = mol_target_ids.intersection(prot_target_ids)
+        self.combined_distances = combine_distance_matrices(
+            matrices, weights=weights, combination=combination
+        )
 
-        for target_id in common_target_ids:
-            self.combined_distances[target_id] = {}
-
-            # Get all source task IDs present in both distance matrices for this target
-            mol_source_ids = set(self.molecule_distances[target_id].keys())
-            prot_source_ids = set(self.protein_distances[target_id].keys())
-            common_source_ids = mol_source_ids.intersection(prot_source_ids)
-
-            for source_id in common_source_ids:
-                mol_dist = self.molecule_distances[target_id][source_id]
-                prot_dist = self.protein_distances[target_id][source_id]
-
-                if combination_strategy == "average":
-                    combined_dist = (mol_dist + prot_dist) / 2.0
-                elif combination_strategy == "weighted_average":
-                    # Normalize weights
-                    total_weight = molecule_weight + protein_weight
-                    if total_weight == 0:
-                        combined_dist = (mol_dist + prot_dist) / 2.0
-                    else:
-                        combined_dist = (
-                            mol_dist * molecule_weight + prot_dist * protein_weight
-                        ) / total_weight
-                elif combination_strategy == "min":
-                    combined_dist = min(mol_dist, prot_dist)
-                elif combination_strategy == "max":
-                    combined_dist = max(mol_dist, prot_dist)
-                else:
-                    raise ValueError(f"Unknown combination strategy: {combination_strategy}")
-
-                self.combined_distances[target_id][source_id] = combined_dist
-
+        logger.info(f"Computed combined distance matrix using {combination}")
         return self.combined_distances
 
     def compute_all_distances(
         self,
-        molecule_method: Optional[str] = None,
-        protein_method: Optional[str] = None,
-        combination_strategy: str = "average",
-        molecule_weight: float = 0.5,
-        protein_weight: float = 0.5,
         molecule_featurizer: str = "ecfp",
         protein_featurizer: str = "esm2_t33_650M_UR50D",
-    ) -> Dict[str, Dict[str, Dict[str, float]]]:
-        """Compute all distance types (molecule, protein, and combined).
+        weights: Optional[Dict[str, float]] = None,
+        combination: CombinationStrategy = "weighted_average",
+        n_jobs: int = 1,
+        **kwargs: Any,
+    ) -> Dict[str, DistanceMatrix]:
+        """Compute all distance types and return as dictionary.
+
+        This is the main entry point for computing complete task distances.
 
         Args:
-            molecule_method: Method for molecule distance computation
-            protein_method: Method for protein distance computation
-            combination_strategy: How to combine distances
-            molecule_weight: Weight for molecule distances
-            protein_weight: Weight for protein distances
-            molecule_featurizer: Molecular featurizer to use
-            protein_featurizer: Protein featurizer to use
+            molecule_featurizer: Name of molecular featurizer
+            protein_featurizer: Name of protein featurizer
+            weights: Optional weights for combination
+            combination: Combination strategy
+            n_jobs: Number of parallel jobs
+            **kwargs: Additional arguments
 
         Returns:
-            Dictionary with keys 'molecule', 'protein', 'combined' containing respective distance matrices.
+            Dictionary with keys: 'molecules', 'protein', 'combined'
         """
-        # Use provided methods or fall back to instance methods
-        actual_molecule_method = molecule_method if molecule_method is not None else self.molecule_method
-        actual_protein_method = protein_method if protein_method is not None else self.protein_method
-
-        results = {}
+        results: Dict[str, DistanceMatrix] = {}
 
         # Compute molecule distances
         try:
-            results["molecule"] = self.compute_molecule_distance(
-                method=actual_molecule_method, molecule_featurizer=molecule_featurizer
+            results["molecules"] = self.compute_molecule_distance(
+                molecule_featurizer=molecule_featurizer,
+                n_jobs=n_jobs,
+                **kwargs,
             )
         except Exception as e:
-            print(f"Warning: Could not compute molecule distances: {e}")
-            results["molecule"] = {}
+            logger.warning(f"Failed to compute molecule distances: {e}")
+            results["molecules"] = {}
 
         # Compute protein distances
         try:
             results["protein"] = self.compute_protein_distance(
-                method=actual_protein_method, protein_featurizer=protein_featurizer
+                protein_featurizer=protein_featurizer,
             )
         except Exception as e:
-            print(f"Warning: Could not compute protein distances: {e}")
+            logger.warning(f"Failed to compute protein distances: {e}")
             results["protein"] = {}
 
-        # Compute combined distances if both are available
-        if self.molecule_distances and self.protein_distances:
-            try:
-                results["combined"] = self.compute_combined_distance(
-                    molecule_method=actual_molecule_method,
-                    protein_method=actual_protein_method,
-                    combination_strategy=combination_strategy,
-                    molecule_weight=molecule_weight,
-                    protein_weight=protein_weight,
-                    molecule_featurizer=molecule_featurizer,
-                    protein_featurizer=protein_featurizer,
-                )
-            except Exception as e:
-                print(f"Warning: Could not compute combined distances: {e}")
-                results["combined"] = {}
-        else:
+        # Compute combined distances
+        try:
+            results["combined"] = self.compute_combined_distance(
+                molecule_featurizer=molecule_featurizer,
+                protein_featurizer=protein_featurizer,
+                weights=weights,
+                combination=combination,
+                n_jobs=n_jobs,
+                **kwargs,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to compute combined distances: {e}")
             results["combined"] = {}
 
         return results
 
-    def compute_ext_chem_distance(self, method: str) -> Dict[str, Dict[str, float]]:
-        """Compute chemical space distances between tasks using external matrices.
+    def _get_labels_for_features(self, dataset_names: List[str]) -> List[NDArray[np.int32]]:
+        """Extract labels for datasets given their names.
 
         Args:
-            method: Distance computation method to use
+            dataset_names: List of dataset names
 
         Returns:
-            Dictionary containing chemical space distances between tasks.
-
-        Raises:
-            NotImplementedError: If external chemical space is not provided
+            List of label arrays
         """
-        if self.external_chemical_space is None:
-            raise NotImplementedError(
-                "External chemical space matrix not provided. "
-                "Use compute_molecule_distance() for direct computation."
-            )
+        labels = []
+        for name in dataset_names:
+            # Try to find the task by name
+            task = self._find_task_by_name(name)
+            if task is not None and task.molecule_dataset is not None:
+                labels.append(task.molecule_dataset.labels)
+            else:
+                # Default to empty array if not found
+                labels.append(np.array([], dtype=np.int32))
+        return labels
 
-        # Convert external matrix to expected format
-        result: Dict[str, Dict[str, float]] = {}
-        for i, target_id in enumerate(self.target_task_ids):
-            result[target_id] = {}
-            for j, source_id in enumerate(self.source_task_ids):
-                result[target_id][source_id] = float(self.external_chemical_space[i, j])
-
-        return result
-
-    def compute_ext_prot_distance(self, method: str) -> Dict[str, Dict[str, float]]:
-        """Compute protein space distances between tasks using external matrices.
+    def _find_task_by_name(self, name: str) -> Optional[Task]:
+        """Find a task by its name in the Tasks collection.
 
         Args:
-            method: Distance computation method to use
+            name: Task name (may include fold prefix like 'train_CHEMBL123')
 
         Returns:
-            Dictionary containing protein space distances between tasks.
-
-        Raises:
-            NotImplementedError: If external protein space is not provided
+            Task if found, None otherwise
         """
-        if self.external_protein_space is None:
-            raise NotImplementedError(
-                "External protein space matrix not provided. "
-                "Use compute_protein_distance() for direct computation."
-            )
+        if self.tasks is None:
+            return None
 
-        # Convert external matrix to expected format
-        result: Dict[str, Dict[str, float]] = {}
-        for i, target_id in enumerate(self.target_task_ids):
-            result[target_id] = {}
-            for j, source_id in enumerate(self.source_task_ids):
-                result[target_id][source_id] = float(self.external_protein_space[i, j])
-
-        return result
-
-    @staticmethod
-    def load_ext_chem_distance(path: str) -> "TaskDistance":
-        """Load pre-computed chemical space distances from a file.
-
-        Args:
-            path: Path to the file containing pre-computed chemical space distances
-
-        Returns:
-            TaskDistance instance initialized with the loaded distances.
-
-        Note:
-            The file should contain a dictionary with keys:
-            - 'train_chembl_ids' or 'train_pubchem_ids' or 'source_task_ids'
-            - 'test_chembl_ids' or 'test_pubchem_ids' or 'target_task_ids'
-            - 'distance_matrices'
-        """
-        with open(path, "rb") as f:
-            x = pickle.load(f)
-
-        if "train_chembl_ids" in x.keys():
-            source_task_ids = x["train_chembl_ids"]
-        elif "train_pubchem_ids" in x.keys():
-            source_task_ids = x["train_pubchem_ids"]
-        elif "source_task_ids" in x.keys():
-            source_task_ids = x["source_task_ids"]
+        # Strip fold prefix if present
+        for prefix in ["train_", "valid_", "test_"]:
+            if name.startswith(prefix):
+                task_id = name[len(prefix):]
+                break
         else:
-            raise ValueError("No source task IDs found in the loaded file")
+            task_id = name
 
-        if "test_chembl_ids" in x.keys():
-            target_task_ids = x["test_chembl_ids"]
-        elif "test_pubchem_ids" in x.keys():
-            target_task_ids = x["test_pubchem_ids"]
-        elif "target_task_ids" in x.keys():
-            target_task_ids = x["target_task_ids"]
-        else:
-            raise ValueError("No target task IDs found in the loaded file")
+        # Search through all folds
+        for fold in [DataFold.TRAIN, DataFold.VALIDATION, DataFold.TEST]:
+            for task in self.tasks.get_tasks(fold):
+                if task.task_id == task_id or task.task_id == name:
+                    return task
 
-        return TaskDistance(
-            tasks=None,
-            source_task_ids=source_task_ids,
-            target_task_ids=target_task_ids,
-            external_chemical_space=x["distance_matrices"],
-        )
+        return None
 
-    @staticmethod
-    def load_ext_prot_distance(path: str) -> "TaskDistance":
-        """Load pre-computed protein space distances from a file.
-
-        Args:
-            path: Path to the file containing pre-computed protein space distances
-
-        Returns:
-            TaskDistance instance initialized with the loaded distances.
-
-        Note:
-            The file should contain a dictionary with keys:
-            - 'train_chembl_ids' or 'train_pubchem_ids' or 'source_task_ids'
-            - 'test_chembl_ids' or 'test_pubchem_ids' or 'target_task_ids'
-            - 'distance_matrices'
-        """
-        with open(path, "rb") as f:
-            x = pickle.load(f)
-
-        if "train_chembl_ids" in x.keys():
-            source_task_ids = x["train_chembl_ids"]
-        elif "train_pubchem_ids" in x.keys():
-            source_task_ids = x["train_pubchem_ids"]
-        elif "source_task_ids" in x.keys():
-            source_task_ids = x["source_task_ids"]
-        else:
-            raise ValueError("No source task IDs found in the loaded file")
-
-        if "test_chembl_ids" in x.keys():
-            target_task_ids = x["test_chembl_ids"]
-        elif "test_pubchem_ids" in x.keys():
-            target_task_ids = x["test_pubchem_ids"]
-        elif "target_task_ids" in x.keys():
-            target_task_ids = x["target_task_ids"]
-        else:
-            raise ValueError("No target task IDs found in the loaded file")
-
-        return TaskDistance(
-            tasks=None,
-            source_task_ids=source_task_ids,
-            target_task_ids=target_task_ids,
-            external_protein_space=x["distance_matrices"],
-        )
-
-    def get_computed_distance(self, distance_type: str = "combined") -> Optional[Dict[str, Dict[str, float]]]:
-        """Get computed distances of the specified type.
-
-        Args:
-            distance_type: Type of distance to return ('molecule', 'protein', 'combined')
-
-        Returns:
-            Dictionary containing the requested distances, or None if not computed.
-        """
-        if distance_type == "molecule":
-            return self.molecule_distances
-        elif distance_type == "protein":
-            return self.protein_distances
-        elif distance_type == "combined":
+    # Legacy method aliases for backward compatibility
+    def get_distance(self) -> DistanceMatrix:
+        """Legacy method: get default distance matrix."""
+        if self.combined_distances is not None:
             return self.combined_distances
-        else:
-            raise ValueError(f"Unknown distance type: {distance_type}")
+        if self.molecule_distances is not None:
+            return self.molecule_distances
+        if self.protein_distances is not None:
+            return self.protein_distances
+        return self.compute_all_distances().get("combined", {})
 
-    def to_pandas(self, distance_type: str = "combined") -> pd.DataFrame:
-        """Convert distance matrix to a pandas DataFrame.
 
-        Args:
-            distance_type: Type of distance to convert ('molecule', 'protein', 'combined', 'external_chemical')
-
-        Returns:
-            DataFrame with source task IDs as index and target task IDs as columns,
-            containing the distance values.
-
-        Raises:
-            ValueError: If no distances of the specified type are available
-        """
-        if distance_type == "external_chemical":
-            if self.external_chemical_space is None:
-                raise ValueError("No external chemical space distances available")
-            df = pd.DataFrame(
-                self.external_chemical_space, index=self.source_task_ids, columns=self.target_task_ids
-            )
-            return df
-        elif distance_type == "external_protein":
-            if self.external_protein_space is None:
-                raise ValueError("No external protein space distances available")
-            df = pd.DataFrame(
-                self.external_protein_space, index=self.source_task_ids, columns=self.target_task_ids
-            )
-            return df
-        else:
-            distances = self.get_computed_distance(distance_type)
-            if distances is None:
-                raise ValueError(f"No {distance_type} distances available")
-            return pd.DataFrame(distances)
+# Legacy alias for backward compatibility
+TaskDistance = TaskDistanceCalculator

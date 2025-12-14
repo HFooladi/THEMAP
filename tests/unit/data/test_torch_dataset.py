@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 import torch
 
-from themap.data.molecule_datapoint import MoleculeDatapoint
 from themap.data.molecule_dataset import MoleculeDataset
 from themap.data.protein_datasets import ProteinMetadataDataset
 from themap.data.torch_dataset import (
@@ -37,12 +36,12 @@ def test_TorchMoleculeDataset(dataset_CHEMBL2219358):
 
 def test_TorchMoleculeDataset_without_features():
     """Test TorchMoleculeDataset when dataset has no features."""
-    # Create a dataset without features
-    datapoints = [
-        MoleculeDatapoint("test_task", "c1ccccc1", True),
-        MoleculeDatapoint("test_task", "c1ccccc1", False),
-    ]
-    dataset = MoleculeDataset("test_task", datapoints)
+    # Create a dataset without features using new simplified structure
+    dataset = MoleculeDataset(
+        task_id="test_task",
+        smiles_list=["c1ccccc1", "c1ccccc1"],
+        labels=np.array([1, 0], dtype=np.int32),
+    )
 
     # Create TorchMoleculeDataset
     torch_dataset = TorchMoleculeDataset(dataset)
@@ -55,12 +54,12 @@ def test_TorchMoleculeDataset_without_features():
 
 def test_TorchMoleculeDataset_transforms():
     """Test TorchMoleculeDataset with transforms."""
-    # Create a test dataset
-    datapoints = [
-        MoleculeDatapoint("test_task", "c1ccccc1", True),
-        MoleculeDatapoint("test_task", "c1ccccc1", False),
-    ]
-    dataset = MoleculeDataset("test_task", datapoints)
+    # Create a test dataset using new simplified structure
+    dataset = MoleculeDataset(
+        task_id="test_task",
+        smiles_list=["c1ccccc1", "c1ccccc1"],
+        labels=np.array([1, 0], dtype=np.int32),
+    )
 
     # Define test transforms
     def feature_transform(x):
@@ -103,12 +102,12 @@ def test_MoleculeDataloader(dataset_CHEMBL2219358):
 
 def test_TorchMoleculeDataset_create_dataloader():
     """Test the create_dataloader classmethod."""
-    # Create a test dataset
-    datapoints = [
-        MoleculeDatapoint("test_task", "c1ccccc1", True),
-        MoleculeDatapoint("test_task", "c1ccccc1", False),
-    ]
-    dataset = MoleculeDataset("test_task", datapoints)
+    # Create a test dataset using new simplified structure
+    dataset = MoleculeDataset(
+        task_id="test_task",
+        smiles_list=["c1ccccc1", "c1ccccc1"],
+        labels=np.array([1, 0], dtype=np.int32),
+    )
 
     # Create dataloader using classmethod
     dataloader = TorchMoleculeDataset.create_dataloader(dataset, batch_size=2, shuffle=False)
@@ -205,7 +204,9 @@ class TestEnhancedTorchMoleculeDataset:
 
     def test_enhanced_create_dataloader(self, sample_molecule_dataset):
         """Test enhanced create_dataloader with additional parameters."""
-        transform = lambda x: x * 2
+
+        def transform(x):
+            return x * 2
 
         dataloader = TorchMoleculeDataset.create_dataloader(
             sample_molecule_dataset,

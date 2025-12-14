@@ -8,7 +8,7 @@ class LoggingConfig:
     """Configuration for logging settings."""
 
     # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-    level: str = "INFO"
+    level: str = "ERROR"
 
     # Log file path (None for console-only logging)
     log_file: Optional[str] = None

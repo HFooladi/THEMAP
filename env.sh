@@ -77,7 +77,7 @@ echo ""
 
 # Minimal verification
 echo "🔍 Verifying installation..."
-python -c "import themap; from themap.data import MoleculeDatapoint; print(f'✅ THEMAP v{themap.__version__} imported successfully')"
+python -c "import themap; from themap.data import MoleculeDataset; print(f'✅ THEMAP v{themap.__version__} imported successfully')"
 
 if [ $? -eq 0 ]; then
     echo ""

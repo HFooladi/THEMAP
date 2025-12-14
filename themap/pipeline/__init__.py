@@ -6,7 +6,14 @@ benchmarking pipelines that compute distances between molecular and protein data
 """
 
 from .config import PipelineConfig
+from .featurization import FeatureStore, FeaturizationPipeline
 from .output import OutputManager
 from .runner import PipelineRunner
 
-__all__ = ["PipelineConfig", "PipelineRunner", "OutputManager"]
+__all__ = [
+    "PipelineConfig",
+    "PipelineRunner",
+    "OutputManager",
+    "FeatureStore",
+    "FeaturizationPipeline",
+]

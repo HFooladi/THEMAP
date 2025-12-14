@@ -2,7 +2,6 @@ import pandas as pd
 import pytest
 from dpu_utils.utils import RichPath
 
-from themap.data.molecule_datapoint import MoleculeDatapoint
 from themap.data.protein_datasets import ProteinMetadataDataset
 
 
@@ -14,12 +13,13 @@ def manual_smiles():
 
 @pytest.fixture(scope="module")
 def datapoint_molecule():
-    return MoleculeDatapoint(
-        task_id="task_id",
-        smiles="c1ccccc1",
-        bool_label=True,
-        numeric_label=1.0,
-    )
+    """Legacy fixture - returns a dictionary with molecule data."""
+    return {
+        "task_id": "task_id",
+        "smiles": "c1ccccc1",
+        "bool_label": True,
+        "numeric_label": 1.0,
+    }
 
 
 @pytest.fixture(scope="module")

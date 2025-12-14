@@ -1,68 +1,39 @@
-import time
+"""
+Simplified MoleculeDataset for efficient batch distance computation.
+
+This module provides a streamlined data structure for molecule datasets,
+optimized for N×M task distance matrix computation.
+"""
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
-from ..utils.cache_utils import CacheKey, PersistentFeatureCache, get_global_feature_cache
-from ..utils.featurizer_utils import get_featurizer
 from ..utils.logging import get_logger, setup_logging
-from .molecule_datapoint import MoleculeDatapoint
 
 # Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
-# Type definitions for better type hints
-DatasetStats = Dict[str, Union[int, float]]  # Type for dataset statistics
 
-# Constants
-DEFAULT_BATCH_SIZE = 1000
-DEFAULT_N_JOBS = None
-
-
-@dataclass
-class FeatureConfig:
-    """Configuration for feature computation.
-
-    Attributes:
-        featurizer_name (str): Name of the featurizer to use
-        batch_size (int): Batch size for processing large datasets
-        n_jobs (Optional[int]): Number of parallel jobs
-        force_recompute (bool): Whether to force recomputation even if cached
-    """
-
-    featurizer_name: str
-    batch_size: int = DEFAULT_BATCH_SIZE
-    n_jobs: Optional[int] = DEFAULT_N_JOBS
-    force_recompute: bool = False
-
-    def __post_init__(self) -> None:
-        """Validate configuration parameters."""
-        if not isinstance(self.featurizer_name, str):
-            raise TypeError(f"featurizer_name must be a string, got {type(self.featurizer_name)}")
-        if not self.featurizer_name.strip():
-            raise ValueError("featurizer_name cannot be empty")
-        if self.batch_size <= 0:
-            raise ValueError(f"batch_size must be positive, got {self.batch_size}")
-        if self.n_jobs is not None and self.n_jobs == 0:
-            raise ValueError("n_jobs cannot be 0")
-
-
-def get_task_name_from_path(path: RichPath) -> str:
+def get_task_name_from_path(path: Union[str, RichPath, Path]) -> str:
     """Extract task name from file path.
 
     Args:
-        path (RichPath): Path-like object
+        path: Path-like object
 
     Returns:
-        str: Extracted task name. If the path is not a valid file path, returns "unknown_task".
+        str: Extracted task name.
     """
     try:
-        name = path.basename()
+        if isinstance(path, (str, Path)):
+            name = Path(path).name
+        else:
+            name = path.basename()
         return name[: -len(".jsonl.gz")] if name.endswith(".jsonl.gz") else name
     except Exception:
         return "unknown_task"
@@ -70,919 +41,301 @@ def get_task_name_from_path(path: RichPath) -> str:
 
 @dataclass
 class MoleculeDataset:
-    """Data structure holding information for a dataset of molecules.
+    """Simplified dataset structure for molecules.
 
-    This class represents a collection of molecule datapoints, providing methods for
-    dataset manipulation, feature computation, and statistical analysis.
+    Optimized for batch distance computation between tasks.
+    Stores SMILES strings and labels directly without per-molecule object overhead.
 
     Attributes:
-        task_id (str): String describing the task this dataset is taken from.
-        data (List[MoleculeDatapoint]): List of MoleculeDatapoint objects.
-        _current_featurizer (Optional[str]): Name of the current featurizer.
-        _cache_info (Dict[str, Any]): Information about the feature caching.
-        _persistent_cache (Optional[PersistentFeatureCache]): Persistent feature cache.
-
-    Properties:
-        computed_features (Optional[NDArray[np.float32]]): Get the cached features for the dataset.
-        labels (List[bool]): Get the labels for the dataset.
-        smiles (List[str]): Get the SMILES for the dataset.
-        ratio (float): Get the ratio of positive to negative labels.
-
-    Methods:
-        load_from_file(): Load dataset from a file
-        get_features(): Get the features for the entire dataset using a featurizer
-        get_prototype(): Get the prototype of the dataset
-        get_statistics(): Get the statistics of the dataset
-        filter(): Filter the dataset
-        clear_cache(): Clear the cache
-        enable_persistent_cache(): Enable persistent caching for this dataset
-        get_persistent_cache_stats(): Get statistics about the persistent cache
-        get_cache_info(): Get information about the current cache state
-        get_memory_usage(): Get memory usage statistics for the dataset
-        optimize_memory(): Optimize memory usage by cleaning up unnecessary data
-        validate_dataset_integrity(): Validate the integrity of the dataset
+        task_id: String identifying the task this dataset belongs to.
+        smiles_list: List of SMILES strings for all molecules.
+        labels: Binary labels as numpy array (0/1).
+        numeric_labels: Optional continuous labels (e.g., pIC50).
+        _features: Precomputed feature matrix (set via set_features or pipeline).
+        _featurizer_name: Name of featurizer used for current features.
 
     Examples:
-    # Load a dataset from a file:
-    >>> dataset = MoleculeDataset.load_from_file("datasets/test/CHEMBL2219358.jsonl.gz")
-    >>> print(dataset)
-    # MoleculeDataset(task_id=CHEMBL2219358, task_size=157)
-    # compute the dataset embedding:
-    >>> dataset.get_features(featurizer_name="fcfp", n_jobs=1)
-    # compute the prototype:
-    >>> dataset.get_prototype(featurizer_name="fcfp")
-    # compute the dataset statistics:
-    >>> dataset.get_statistics()
-    # filter the dataset:
-    >>> dataset.filter(lambda x: x.bool_label == 1)
-    # enable persistent caching:
-    >>> dataset.enable_persistent_cache("cache/")
-    # get statistics about the persistent cache:
-    >>> dataset.get_persistent_cache_stats()
-    # get information about the current cache state:
-    >>> dataset.get_cache_info()
-    # get memory usage statistics for the dataset:
-    >>> dataset.get_memory_usage()
-    # optimize memory usage by cleaning up unnecessary data:
-    >>> dataset.optimize_memory()
-    # validate the integrity of the dataset:
-    >>> dataset.validate_dataset_integrity()
+        >>> dataset = MoleculeDataset.load_from_file("datasets/train/CHEMBL123.jsonl.gz")
+        >>> print(len(dataset))  # Number of molecules
+        >>> print(dataset.positive_ratio)  # Ratio of positive labels
+        >>> # Features are set externally via FeaturizationPipeline
+        >>> dataset.set_features(features_array, "ecfp")
+        >>> pos_proto, neg_proto = dataset.get_prototype()
     """
 
     task_id: str
-    data: List[MoleculeDatapoint] = field(default_factory=list)
-    _current_featurizer: Optional[str] = field(default=None, repr=False)
-    _cache_info: Dict[str, Any] = field(default_factory=dict)
-    _persistent_cache: Optional[PersistentFeatureCache] = field(default=None, repr=False)
+    smiles_list: List[str] = field(default_factory=list)
+    labels: NDArray[np.int32] = field(default_factory=lambda: np.array([], dtype=np.int32))
+    numeric_labels: Optional[NDArray[np.float32]] = None
+    _features: Optional[NDArray[np.float32]] = field(default=None, repr=False)
+    _featurizer_name: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Validate dataset initialization."""
         if not isinstance(self.task_id, str):
             raise TypeError("task_id must be a string")
-        if not isinstance(self.data, list):
-            raise TypeError("data must be a list of MoleculeDatapoints")
-        if not all(isinstance(x, MoleculeDatapoint) for x in self.data):
-            raise TypeError("All items in data must be MoleculeDatapoint instances")
+        if not isinstance(self.smiles_list, list):
+            raise TypeError("smiles_list must be a list")
+
+        # Convert labels to numpy array if not already
+        if not isinstance(self.labels, np.ndarray):
+            self.labels = np.array(self.labels, dtype=np.int32)
+
+        # Validate lengths match
+        if len(self.smiles_list) > 0 and len(self.labels) > 0:
+            if len(self.smiles_list) != len(self.labels):
+                raise ValueError(
+                    f"smiles_list length ({len(self.smiles_list)}) must match "
+                    f"labels length ({len(self.labels)})"
+                )
 
     def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> MoleculeDatapoint:
-        return self.data[idx]
-
-    def __iter__(self) -> Iterator[MoleculeDatapoint]:
-        return iter(self.data)
+        """Return number of molecules in the dataset."""
+        return len(self.smiles_list)
 
     def __repr__(self) -> str:
-        return f"MoleculeDataset(task_id={self.task_id}, task_size={len(self.data)})"
-
-    def get_features(
-        self,
-        featurizer_name: str,
-        n_jobs: Optional[int] = DEFAULT_N_JOBS,
-        force_recompute: bool = False,
-        batch_size: int = DEFAULT_BATCH_SIZE,
-    ) -> np.ndarray:
-        """Get the features for the entire dataset using a featurizer.
-
-        Efficiently computes features for all molecules in the dataset using the
-        specified featurizer, taking advantage of the featurizer's built-in
-        parallelization capabilities and maintaining a two-level cache strategy.
-
-        Args:
-            featurizer_name (str): Name of the featurizer to use
-            n_jobs (Optional[int]): Number of parallel jobs. If provided, temporarily
-                                overrides the featurizer's own setting
-            force_recompute (bool): Whether to force recomputation even if cached
-            batch_size (int): Batch size for processing, used for memory efficiency
-                            when handling large datasets
-
-        Returns:
-            np.ndarray: Features for the entire dataset, shape (n_samples, n_features)
-            if the features are already computed, they are loaded from the cache.
-            if the features are not computed, they are computed and cached.
-
-        Raises:
-            ValueError: If the generated features length doesn't match the dataset length
-            TypeError: If featurizer_name is not a string
-            RuntimeError: If featurization fails
-            IndexError: If dataset is empty
-
-        Notes:
-            - Output dtype is different for each featurizer.
-        """
-        # Create configuration object for validation and easy passing
-        config = FeatureConfig(
-            featurizer_name=featurizer_name,
-            batch_size=batch_size,
-            n_jobs=n_jobs,
-            force_recompute=force_recompute,
-        )
-
-        if len(self.data) == 0:
-            raise IndexError("Cannot compute features for empty dataset")
-
-        return self._compute_features_with_config(config)
-
-    def _get_cached_dataset_features(self, featurizer_name: str) -> Optional[NDArray[np.float32]]:
-        """Get cached features for the entire dataset from global cache.
-
-        Args:
-            featurizer_name: Name of the featurizer to get features for
-
-        Returns:
-            Cached features if all molecules have cached features, None otherwise
-        """
-        cache = get_global_feature_cache()
-
-        # Use batch retrieval for better performance
-        cache_keys = [
-            CacheKey(smiles=molecule.smiles, featurizer_name=featurizer_name) for molecule in self.data
-        ]
-
-        cached_features = cache.batch_get(cache_keys)
-
-        # Check if all features are available
-        if any(feature is None for feature in cached_features):
-            return None  # Not all molecules have cached features
-
-        return np.array(cached_features) if cached_features else None
-
-    def _compute_features_with_config(self, config: FeatureConfig) -> np.ndarray:
-        """Compute features using the provided configuration.
-
-        Args:
-            config: Feature computation configuration
-
-        Returns:
-            Features for the entire dataset
-        """
-        # Start timing for performance measurement
-        start_time = time.time()
-
-        # Check if we have features for this featurizer
-        if self._current_featurizer == config.featurizer_name and not config.force_recompute:
-            # Try to get all features from global cache
-            cached_features = self._get_cached_dataset_features(config.featurizer_name)
-            if cached_features is not None:
-                logger.info(f"Using cached dataset features for {self.task_id} with {config.featurizer_name}")
-                return cached_features
-
-        logger.info(f"Generating embeddings for dataset {self.task_id} with {len(self.data)} molecules")
-
-        # Get the featurizer with error handling
-        featurizer = self._get_and_configure_featurizer(config)
-
-        try:
-            # Get validated SMILES list
-            smiles_list = self._get_validated_smiles_list()
-
-            # Optimize for duplicate SMILES
-            unique_smiles, smiles_indices = self._optimize_duplicate_smiles(smiles_list)
-
-            # Compute features for unique SMILES
-            unique_features = self._compute_unique_features(unique_smiles, featurizer, config.batch_size)
-
-            # Create full feature array maintaining original order
-            features = self._create_full_feature_array(unique_smiles, unique_features, smiles_list)
-
-            # Cache results
-            self._cache_computed_features(features, config.featurizer_name)
-
-            elapsed_time = time.time() - start_time
-            logger.info(
-                f"Successfully generated embeddings for dataset {self.task_id} in {elapsed_time:.2f} seconds"
-            )
-
-            return features
-
-        except Exception as e:
-            # Log the error for debugging
-            logger.error(f"Error computing features for dataset {self.task_id}: {e}")
-            raise
-
-        finally:
-            # Restore original featurizer settings
-            self._restore_featurizer_settings(featurizer, config)
-
-    def _get_and_configure_featurizer(self, config: FeatureConfig):
-        """Get and configure the featurizer.
-
-        Args:
-            config: Feature computation configuration
-
-        Returns:
-            Configured featurizer
-        """
-        try:
-            featurizer = get_featurizer(config.featurizer_name)
-        except Exception as e:
-            raise RuntimeError(f"Failed to load featurizer '{config.featurizer_name}': {e}") from e
-
-        # Check if we're dealing with a BaseFeaturizer
-        if not hasattr(featurizer, "n_jobs"):
-            logger.warning(
-                f"Featurizer {config.featurizer_name} does not appear to be a BaseFeaturizer. "
-                f"Parallelization settings may not apply."
-            )
-
-        # Configure parallelization if needed and possible
-        if config.n_jobs is not None and hasattr(featurizer, "n_jobs"):
-            # Store original setting for later restoration
-            featurizer._original_n_jobs = getattr(featurizer, "n_jobs", None)
-            featurizer.n_jobs = config.n_jobs
-            logger.info(f"Temporarily set featurizer to use {featurizer.n_jobs} jobs")
-
-        return featurizer
-
-    def _restore_featurizer_settings(self, featurizer, config: FeatureConfig) -> None:
-        """Restore original featurizer settings.
-
-        Args:
-            featurizer: The featurizer to restore
-            config: Feature computation configuration
-        """
-        if (
-            config.n_jobs is not None
-            and hasattr(featurizer, "_original_n_jobs")
-            and hasattr(featurizer, "n_jobs")
-        ):
-            original_n_jobs = featurizer._original_n_jobs
-            featurizer.n_jobs = original_n_jobs
-            if hasattr(featurizer, "_original_n_jobs"):  # Double-check before deletion
-                delattr(featurizer, "_original_n_jobs")
-            logger.info(f"Restored featurizer to original setting of {original_n_jobs} jobs")
-
-    def _get_validated_smiles_list(self) -> List[str]:
-        """Get and validate SMILES strings from dataset.
-
-        Returns:
-            List of validated SMILES strings
-
-        Raises:
-            ValueError: If any SMILES string is invalid
-        """
-        smiles_list = []
-        for i, dp in enumerate(self.data):
-            if not dp.smiles or not isinstance(dp.smiles, str):
-                raise ValueError(f"Invalid SMILES at index {i}: {dp.smiles}")
-            smiles_list.append(dp.smiles)
-        return smiles_list
-
-    def _optimize_duplicate_smiles(self, smiles_list: List[str]) -> Tuple[List[str], Dict[str, List[int]]]:
-        """Optimize computation by identifying duplicate SMILES.
-
-        Args:
-            smiles_list: List of SMILES strings
-
-        Returns:
-            Tuple of (unique_smiles, smiles_indices mapping)
-        """
-        unique_smiles: List[str] = []
-        smiles_indices: Dict[str, List[int]] = {}
-
-        for i, smiles in enumerate(smiles_list):
-            if smiles not in smiles_indices:
-                unique_smiles.append(smiles)
-                smiles_indices[smiles] = []
-            smiles_indices[smiles].append(i)
-
-        has_duplicates = len(unique_smiles) < len(smiles_list)
-        if has_duplicates:
-            logger.info(
-                f"Found {len(smiles_list) - len(unique_smiles)} duplicate SMILES - optimizing computation"
-            )
-
-        return unique_smiles, smiles_indices
-
-    def _compute_unique_features(
-        self, unique_smiles: List[str], featurizer, batch_size: int
-    ) -> NDArray[np.float32]:
-        """Compute features for unique SMILES.
-
-        Args:
-            unique_smiles: List of unique SMILES strings
-            featurizer: The featurizer to use
-            batch_size: Batch size for processing
-
-        Returns:
-            Features for unique SMILES
-        """
-        if len(unique_smiles) > batch_size:
-            return self._compute_features_in_batches(unique_smiles, featurizer, batch_size)
-        else:
-            return self._compute_features_single_batch(unique_smiles, featurizer)
-
-    def _compute_features_in_batches(
-        self, unique_smiles: List[str], featurizer, batch_size: int
-    ) -> NDArray[np.float32]:
-        """Compute features in batches for memory efficiency.
-
-        Args:
-            unique_smiles: List of unique SMILES strings
-            featurizer: The featurizer to use
-            batch_size: Size of each batch
-
-        Returns:
-            Combined features from all batches
-        """
-        logger.info(f"Processing large dataset in batches of {batch_size}")
-        all_features: List[NDArray[np.float32]] = []
-
-        for i in range(0, len(unique_smiles), batch_size):
-            batch = unique_smiles[i : i + batch_size]
-            batch_features = self._process_feature_batch(batch, featurizer, i // batch_size + 1)
-            all_features.append(batch_features)
-
-        # Combine all batches with error handling
-        try:
-            return np.vstack(all_features)
-        except Exception as e:
-            raise RuntimeError(f"Failed to combine batch features: {e}") from e
-
-    def _process_feature_batch(self, batch: List[str], featurizer, batch_num: int) -> NDArray[np.float32]:
-        """Process a single batch of SMILES.
-
-        Args:
-            batch: Batch of SMILES strings
-            featurizer: The featurizer to use
-            batch_num: Batch number for error reporting
-
-        Returns:
-            Features for the batch
-        """
-        try:
-            # Preprocess batch with the featurizer's method
-            processed_batch, _ = featurizer.preprocess(batch)
-
-            # Transform preprocessed batch (assume scikit-learn API)
-            if hasattr(featurizer, "transform"):
-                batch_features = featurizer.transform(processed_batch)
-            else:
-                # Fallback if transform not available
-                batch_features = featurizer(processed_batch)
-
-            # Validate batch features
-            if batch_features is None:
-                raise RuntimeError(f"Featurizer returned None for batch {batch_num}")
-
-            if not isinstance(batch_features, np.ndarray):
-                # Convert to numpy array if needed
-                batch_features = np.asarray(batch_features)
-
-            return batch_features
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to process batch {batch_num}: {e}") from e
-
-    def _compute_features_single_batch(self, unique_smiles: List[str], featurizer) -> NDArray[np.float32]:
-        """Compute features for all SMILES at once.
-
-        Args:
-            unique_smiles: List of unique SMILES strings
-            featurizer: The featurizer to use
-
-        Returns:
-            Features for all SMILES
-        """
-        try:
-            processed_smiles, _ = featurizer.preprocess(unique_smiles)
-
-            # Transform preprocessed SMILES
-            if hasattr(featurizer, "transform"):
-                unique_features = featurizer.transform(processed_smiles)
-            else:
-                unique_features = featurizer(processed_smiles)
-
-            # Validate features
-            if unique_features is None:
-                raise RuntimeError("Featurizer returned None")
-
-            if not isinstance(unique_features, np.ndarray):
-                # Convert to numpy array if needed
-                unique_features = np.asarray(unique_features)
-
-            return unique_features
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to compute features: {e}") from e
-
-    def _create_full_feature_array(
-        self, unique_smiles: List[str], unique_features: NDArray[np.float32], smiles_list: List[str]
-    ) -> np.ndarray:
-        """Create full feature array maintaining original order.
-
-        Args:
-            unique_smiles: List of unique SMILES
-            unique_features: Features for unique SMILES
-            smiles_list: Original SMILES list
-
-        Returns:
-            Full feature array in original order
-        """
-        # Validate feature dimensions
-        if len(unique_features) != len(unique_smiles):
-            raise ValueError(
-                f"Feature count ({len(unique_features)}) does not match unique SMILES count ({len(unique_smiles)})"
-            )
-
-        # Create a mapping from unique SMILES to their features
-        smiles_to_features: Dict[str, NDArray[np.float32]] = {
-            smiles: unique_features[i] for i, smiles in enumerate(unique_smiles)
-        }
-
-        # Create the full feature array, maintaining the original order
-        try:
-            features = np.array([smiles_to_features[smiles] for smiles in smiles_list])
-        except Exception as e:
-            raise RuntimeError(f"Failed to create feature array: {e}") from e
-
-        if len(features) != len(self.data):
-            raise ValueError(
-                f"Feature length ({len(features)}) does not match data length ({len(self.data)})"
-            )
-
-        return features
-
-    def _cache_computed_features(self, features: np.ndarray, featurizer_name: str) -> None:
-        """Cache computed features in global cache.
-
-        Args:
-            features: Computed features
-            featurizer_name: Name of the featurizer used
-        """
-        cache = get_global_feature_cache()
-        for i, molecule in enumerate(self.data):
-            cache_key = CacheKey(smiles=molecule.smiles, featurizer_name=featurizer_name)
-            cache.store(cache_key, features[i])
-
-        # Track current featurizer
-        self._current_featurizer = featurizer_name
-
-    def validate_dataset_integrity(self) -> bool:
-        """Validate the integrity of the dataset.
-
-        Returns:
-            bool: True if dataset is valid, False otherwise
-
-        Raises:
-            ValueError: If critical integrity issues are found
-        """
-        if not self.data:
-            raise ValueError("Dataset is empty")
-
-        # Check for required attributes
-        for i, datapoint in enumerate(self.data):
-            if not hasattr(datapoint, "smiles") or not datapoint.smiles:
-                raise ValueError(f"Datapoint at index {i} has invalid SMILES")
-            if not isinstance(datapoint.smiles, str):
-                raise ValueError(f"SMILES at index {i} must be string, got {type(datapoint.smiles)}")
-            if not hasattr(datapoint, "bool_label"):
-                raise ValueError(f"Datapoint at index {i} missing bool_label")
-
-        logger.info(f"Dataset {self.task_id} passed integrity validation")
-        return True
-
-    def get_memory_usage(self) -> Dict[str, float]:
-        """Get memory usage statistics for the dataset.
-
-        Returns:
-            Dictionary with memory usage in MB for different components
-        """
-        import sys
-
-        def get_size_mb(obj: Any) -> float:
-            return sys.getsizeof(obj) / (1024 * 1024)
-
-        memory_stats = {
-            "dataset_object": get_size_mb(self),
-            "data_list": get_size_mb(self.data),
-            "datapoints": sum(get_size_mb(dp) for dp in self.data),
-        }
-
-        # Features are now stored in global cache, not in the dataset
-        memory_stats["cached_features"] = 0.0
-
-        memory_stats["total"] = sum(memory_stats.values())
-
-        return memory_stats
-
-    def optimize_memory(self) -> Dict[str, Any]:
-        """Optimize memory usage by cleaning up unnecessary data.
-
-        Returns:
-            Dictionary with optimization results
-        """
-        initial_memory = self.get_memory_usage()["total"]
-
-        # No need to clear individual caches since we use global cache
-        cleared_count = 0
-        if self._current_featurizer:
-            logger.info(f"Dataset was using featurizer: {self._current_featurizer}")
-            cleared_count = len(self.data)
-            logger.info(f"Cleared {cleared_count} cached features for dataset {self.task_id}")
-
-        # Clear cache info that might be outdated
-        self._cache_info.clear()
-
-        final_memory = self.get_memory_usage()["total"]
-        memory_saved = initial_memory - final_memory
-
-        optimization_results = {
-            "initial_memory_mb": initial_memory,
-            "final_memory_mb": final_memory,
-            "memory_saved_mb": memory_saved,
-            "memory_saved_percent": (memory_saved / initial_memory * 100) if initial_memory > 0 else 0,
-        }
-
-        logger.info(
-            f"Memory optimization for {self.task_id}: saved {memory_saved:.2f} MB ({optimization_results['memory_saved_percent']:.1f}%)"
-        )
-
-        return optimization_results
-
-    def clear_cache(self) -> None:
-        """Clear cached features for this dataset from global cache."""
-        if self._current_featurizer:
-            cache = get_global_feature_cache()
-            cleared_count = 0
-            for molecule in self.data:
-                cache_key = CacheKey(smiles=molecule.smiles, featurizer_name=self._current_featurizer)
-                if cache.evict(cache_key):
-                    cleared_count += 1
-            logger.info(f"Cleared {cleared_count} cached features for dataset {self.task_id}")
-        self._current_featurizer = None
-
-    def enable_persistent_cache(self, cache_dir: Union[str, Path]) -> None:
-        """Enable persistent caching for this dataset.
-
-        Args:
-            cache_dir: Directory for storing cached features
-        """
-        self._persistent_cache = PersistentFeatureCache(cache_dir)
-        logger.info(f"Enabled persistent cache for dataset {self.task_id} at {cache_dir}")
-
-    def get_features_with_persistent_cache(
-        self,
-        featurizer_name: str,
-        cache_dir: Optional[Union[str, Path]] = None,
-        n_jobs: Optional[int] = None,
-        force_recompute: bool = False,
-        batch_size: int = 1000,
-    ) -> NDArray[np.float32]:
-        """Get dataset features with persistent caching enabled.
-
-        This method provides the same functionality as get_features but with
-        persistent disk caching to avoid recomputation across sessions.
-
-        Args:
-            featurizer_name: Name of the featurizer to use
-            cache_dir: Directory for persistent cache (if None, uses existing cache)
-            n_jobs: Number of parallel jobs
-            force_recompute: Whether to force recomputation even if cached
-            batch_size: Batch size for processing
-
-        Returns:
-            Features for the entire dataset
-        """
-        # Initialize persistent cache if needed
-        if cache_dir is not None and self._persistent_cache is None:
-            self.enable_persistent_cache(cache_dir)
-
-        # Check persistent cache first if available
-        if self._persistent_cache is not None and not force_recompute:
-            smiles_list = [dp.smiles for dp in self.data]
-            cache_key = self._persistent_cache.generate_cache_key(smiles_list, featurizer_name)
-
-            cached_features = self._persistent_cache.get(cache_key)
-            if cached_features is not None:
-                logger.info(f"Using persistent cache for dataset {self.task_id}")
-
-                # Store in global cache for future access
-                cache = get_global_feature_cache()
-                for i, molecule in enumerate(self.data):
-                    cache_key_individual = CacheKey(smiles=molecule.smiles, featurizer_name=featurizer_name)
-                    cache.store(cache_key_individual, cached_features[i])
-
-                self._current_featurizer = featurizer_name
-                return cached_features
-
-        # Compute features using the standard method
-        features = self.get_features(
-            featurizer_name=featurizer_name,
-            n_jobs=n_jobs,
-            force_recompute=force_recompute,
-            batch_size=batch_size,
-        )
-
-        # Store in persistent cache if available
-        if self._persistent_cache is not None:
-            smiles_list = [dp.smiles for dp in self.data]
-            cache_key = self._persistent_cache.generate_cache_key(smiles_list, featurizer_name)
-            self._persistent_cache.store(cache_key, features)
-            logger.info(f"Stored features in persistent cache for dataset {self.task_id}")
-
-        return features
-
-    def get_persistent_cache_stats(self) -> Optional[Dict[str, Any]]:
-        """Get statistics about the persistent cache.
-
-        Returns:
-            Cache statistics if persistent cache is enabled, None otherwise
-        """
-        if self._persistent_cache is None:
-            return None
-
-        return {
-            "cache_stats": self._persistent_cache.get_stats(),
-            "cache_size": self._persistent_cache.get_cache_size_info(),
-        }
-
-    # Method to measure cache efficiency
-    def get_cache_info(self) -> Dict[str, Any]:
-        """Get information about the current cache state."""
-        cache = get_global_feature_cache()
-        molecules_cached = 0
-
-        if self._current_featurizer:
-            for molecule in self.data:
-                cache_key = CacheKey(smiles=molecule.smiles, featurizer_name=self._current_featurizer)
-                if cache.get(cache_key) is not None:
-                    molecules_cached += 1
-
-        dataset_cached = molecules_cached == len(self.data) and len(self.data) > 0
-
-        cache_info = {
-            "dataset_cached": dataset_cached,
-            "molecules_cached": molecules_cached,
-            "total_molecules": len(self.data),
-            "cache_ratio": molecules_cached / len(self.data) if len(self.data) > 0 else 0,
-            "current_featurizer": self._current_featurizer,
-        }
-        logger.info(f"Cache info for dataset {self.task_id}: {cache_info}")
-        self._cache_info.update(cache_info)
-        return self._cache_info
-
-    def get_prototype(self, featurizer_name: str) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
-        """Get the prototype of the dataset.
-
-        This method calculates the mean feature vector of positive and negative examples
-        in the dataset using the specified featurizer.
-
-        Args:
-            featurizer_name (str): Name of the featurizer to use.
-
-        Returns:
-            Tuple[NDArray[np.float32], NDArray[np.float32]]: Tuple containing:
-                - positive_prototype: Mean feature vector of positive examples
-                - negative_prototype: Mean feature vector of negative examples
-
-        Raises:
-            ValueError: If there are no positive or negative examples in the dataset
-            TypeError: If featurizer_name is not a string
-            RuntimeError: If feature computation fails
-
-        Notes:
-            - It assumes there are two positive and two negative examples in the dataset.
-            - Output dtype is different for each featurizer.
-        """
-        # Input validation
-        if not isinstance(featurizer_name, str):
-            raise TypeError(f"featurizer_name must be a string, got {type(featurizer_name)}")
-
-        if not featurizer_name.strip():
-            raise ValueError("featurizer_name cannot be empty")
-
-        logger.info(f"Calculating prototypes for dataset {self.task_id}")
-
-        try:
-            # Get the features for the entire dataset
-            data_features = self.get_features(featurizer_name)
-        except Exception as e:
-            raise RuntimeError(f"Failed to compute features for prototyping: {e}") from e
-
-        # Separate positive and negative examples with validation
-        positive_indices = []
-        negative_indices = []
-
-        for i, datapoint in enumerate(self.data):
-            if not hasattr(datapoint, "bool_label"):
-                raise ValueError(f"Datapoint at index {i} missing bool_label attribute")
-
-            if datapoint.bool_label:
-                positive_indices.append(i)
-            else:
-                negative_indices.append(i)
-
-        # Check if we have both positive and negative examples
-        if not positive_indices:
-            raise ValueError(f"Dataset {self.task_id} contains no positive examples")
-        if not negative_indices:
-            raise ValueError(f"Dataset {self.task_id} contains no negative examples")
-
-        logger.info(f"Found {len(positive_indices)} positive and {len(negative_indices)} negative examples")
-
-        try:
-            # Calculate prototypes using numpy indexing for efficiency
-            positive_features = data_features[positive_indices]
-            negative_features = data_features[negative_indices]
-
-            positive_prototype = np.mean(positive_features, axis=0)
-            negative_prototype = np.mean(negative_features, axis=0)
-
-            # Validate prototypes
-            if np.any(np.isnan(positive_prototype)):
-                raise ValueError("Positive prototype contains NaN values")
-            if np.any(np.isnan(negative_prototype)):
-                raise ValueError("Negative prototype contains NaN values")
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to calculate prototypes: {e}") from e
-
-        logger.info(f"Successfully calculated prototypes for dataset {self.task_id}")
-        return positive_prototype, negative_prototype
-
-    @property
-    def computed_features(self) -> Optional[NDArray[np.float32]]:
-        """Get the cached features for the dataset.
-
-        Returns:
-            Optional[NDArray[np.float32]]: Cached features for the dataset if available, None otherwise.
-        """
-        if self._current_featurizer is None:
-            return None
-        return self._get_cached_dataset_features(self._current_featurizer)
-
-    @property
-    def labels(self) -> NDArray[np.int32]:
-        """Get the boolean labels for all molecules in the dataset.
-
-        Returns:
-            Array of boolean labels converted to integers (0/1)
-        """
-        return np.array([data.bool_label for data in self.data], dtype=np.int32)
+        features_info = f", featurizer={self._featurizer_name}" if self._featurizer_name else ""
+        return f"MoleculeDataset(task_id={self.task_id}, size={len(self)}{features_info})"
 
     @property
     def smiles(self) -> List[str]:
-        """Get the SMILES strings for all molecules in the dataset.
-
-        Returns:
-            List of SMILES strings
-        """
-        return [data.smiles for data in self.data]
+        """Get SMILES list (alias for backward compatibility)."""
+        return self.smiles_list
 
     @property
     def positive_ratio(self) -> float:
-        """Get the ratio of positive to negative examples in the dataset.
+        """Get ratio of positive to total examples."""
+        if len(self.labels) == 0:
+            return 0.0
+        return round(float(self.labels.sum()) / len(self.labels), 4)
+
+    @property
+    def features(self) -> Optional[NDArray[np.float32]]:
+        """Get precomputed features if available."""
+        return self._features
+
+    @property
+    def featurizer_name(self) -> Optional[str]:
+        """Get name of featurizer used for current features."""
+        return self._featurizer_name
+
+    def has_features(self) -> bool:
+        """Check if features have been computed."""
+        return self._features is not None
+
+    def set_features(self, features: NDArray[np.float32], featurizer_name: str) -> None:
+        """Set precomputed features for this dataset.
+
+        Args:
+            features: Feature matrix of shape (n_molecules, feature_dim)
+            featurizer_name: Name of the featurizer used
+
+        Raises:
+            ValueError: If feature dimensions don't match dataset size
+        """
+        if len(features) != len(self.smiles_list):
+            raise ValueError(
+                f"Feature count ({len(features)}) must match "
+                f"dataset size ({len(self.smiles_list)})"
+            )
+        self._features = features.astype(np.float32)
+        self._featurizer_name = featurizer_name
+        logger.debug(f"Set features for {self.task_id}: shape={features.shape}")
+
+    def clear_features(self) -> None:
+        """Clear cached features to free memory."""
+        self._features = None
+        self._featurizer_name = None
+
+    def get_prototype(self) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+        """Compute positive and negative prototypes from features.
+
+        Prototypes are the mean feature vectors for each class.
 
         Returns:
-            float: Ratio of positive to negative examples in the dataset.
+            Tuple of (positive_prototype, negative_prototype)
+
+        Raises:
+            ValueError: If features haven't been set or no examples exist for a class
         """
-        return round(sum([data.bool_label for data in self.data]) / len(self.data), 2)
+        if self._features is None:
+            raise ValueError(
+                f"Features must be set before computing prototype for {self.task_id}. "
+                "Use set_features() or FeaturizationPipeline first."
+            )
 
-    # Backward compatibility properties (deprecated)
-    @property
-    def get_computed_features(self) -> NDArray[np.float32]:
-        """Deprecated: Use 'computed_features' property instead."""
-        import warnings
+        pos_mask = self.labels == 1
+        neg_mask = self.labels == 0
 
-        warnings.warn(
-            "get_computed_features is deprecated, use 'computed_features' property instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.computed_features
+        if not pos_mask.any():
+            raise ValueError(f"Dataset {self.task_id} contains no positive examples")
+        if not neg_mask.any():
+            raise ValueError(f"Dataset {self.task_id} contains no negative examples")
 
-    @property
-    def get_labels(self) -> NDArray[np.int32]:
-        """Deprecated: Use 'labels' property instead."""
-        import warnings
+        positive_prototype = self._features[pos_mask].mean(axis=0).astype(np.float32)
+        negative_prototype = self._features[neg_mask].mean(axis=0).astype(np.float32)
 
-        warnings.warn(
-            "get_labels is deprecated, use 'labels' property instead", DeprecationWarning, stacklevel=2
-        )
-        return self.labels
+        return positive_prototype, negative_prototype
 
-    @property
-    def get_smiles(self) -> List[str]:
-        """Deprecated: Use 'smiles' property instead."""
-        import warnings
+    def get_class_features(self) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+        """Get features separated by class.
 
-        warnings.warn(
-            "get_smiles is deprecated, use 'smiles' property instead", DeprecationWarning, stacklevel=2
-        )
-        return self.smiles
+        Returns:
+            Tuple of (positive_features, negative_features)
 
-    @property
-    def get_ratio(self) -> float:
-        """Deprecated: Use 'positive_ratio' property instead."""
-        import warnings
+        Raises:
+            ValueError: If features haven't been set
+        """
+        if self._features is None:
+            raise ValueError(f"Features must be set for {self.task_id}")
 
-        warnings.warn(
-            "get_ratio is deprecated, use 'positive_ratio' property instead", DeprecationWarning, stacklevel=2
-        )
-        return self.positive_ratio
+        pos_mask = self.labels == 1
+        neg_mask = self.labels == 0
+
+        return self._features[pos_mask], self._features[neg_mask]
 
     @staticmethod
-    def load_from_file(path: Union[str, RichPath]) -> "MoleculeDataset":
+    def load_from_file(path: Union[str, RichPath, Path]) -> "MoleculeDataset":
         """Load dataset from a JSONL.GZ file.
 
         Args:
-            path (Union[str, RichPath]): Path to the JSONL.GZ file.
+            path: Path to the JSONL.GZ file.
 
         Returns:
-            MoleculeDataset: Loaded dataset.
+            MoleculeDataset with loaded SMILES and labels.
         """
-        if isinstance(path, str):
-            path = RichPath.create(path)
+        if isinstance(path, (str, Path)):
+            rich_path = RichPath.create(str(path))
         else:
-            path = path
+            rich_path = path
 
-        logger.info(f"Loading dataset from {path}")
-        samples = []
-        for raw_sample in path.read_by_file_suffix():
-            # Handle numeric_label conversion with improved type safety
-            numeric_label: Optional[float] = None
+        task_id = get_task_name_from_path(path)
+        logger.info(f"Loading dataset {task_id} from {path}")
+
+        smiles_list: List[str] = []
+        labels: List[int] = []
+        numeric_labels: List[Optional[float]] = []
+
+        for raw_sample in rich_path.read_by_file_suffix():
+            smiles_list.append(raw_sample["SMILES"])
+            labels.append(int(float(raw_sample["Property"])))
+
+            # Handle numeric label
             regression_property = raw_sample.get("RegressionProperty")
-
             if regression_property is not None and regression_property != "":
                 try:
                     numeric_value = float(regression_property)
-                    # Only assign valid finite numbers
                     if -float("inf") < numeric_value < float("inf"):
-                        numeric_label = numeric_value
-                    # Infinite or invalid values remain None
+                        numeric_labels.append(numeric_value)
+                    else:
+                        numeric_labels.append(None)
                 except (ValueError, TypeError):
-                    # Invalid numeric values remain None
-                    pass
-            # Missing or empty properties remain None
+                    numeric_labels.append(None)
+            else:
+                numeric_labels.append(None)
 
-            samples.append(
-                MoleculeDatapoint(
-                    task_id=get_task_name_from_path(path),
-                    smiles=raw_sample["SMILES"],
-                    bool_label=bool(float(raw_sample["Property"])),
-                    numeric_label=numeric_label,
-                )
+        # Convert to numpy arrays
+        labels_array = np.array(labels, dtype=np.int32)
+
+        # Only create numeric_labels array if any values exist
+        numeric_array = None
+        if any(v is not None for v in numeric_labels):
+            numeric_array = np.array(
+                [v if v is not None else np.nan for v in numeric_labels],
+                dtype=np.float32
             )
 
-        logger.info(f"Successfully loaded dataset from {path} with {len(samples)} samples")
-        return MoleculeDataset(get_task_name_from_path(path), samples)
+        logger.info(f"Loaded {len(smiles_list)} molecules for {task_id}")
 
-    def filter(self, condition: Callable[[MoleculeDatapoint], bool]) -> "MoleculeDataset":
-        """Filter dataset based on a condition.
+        return MoleculeDataset(
+            task_id=task_id,
+            smiles_list=smiles_list,
+            labels=labels_array,
+            numeric_labels=numeric_array,
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert dataset to dictionary representation."""
+        return {
+            "task_id": self.task_id,
+            "smiles_list": self.smiles_list,
+            "labels": self.labels.tolist(),
+            "numeric_labels": self.numeric_labels.tolist() if self.numeric_labels is not None else None,
+            "featurizer_name": self._featurizer_name,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MoleculeDataset":
+        """Create dataset from dictionary representation."""
+        return cls(
+            task_id=data["task_id"],
+            smiles_list=data["smiles_list"],
+            labels=np.array(data["labels"], dtype=np.int32),
+            numeric_labels=np.array(data["numeric_labels"], dtype=np.float32) if data.get("numeric_labels") else None,
+        )
+
+    def filter_by_indices(self, indices: List[int]) -> "MoleculeDataset":
+        """Create a new dataset with only the specified indices.
 
         Args:
-            condition (Callable[[MoleculeDatapoint], bool]): Function that returns True/False
-                for each datapoint.
+            indices: List of indices to keep
 
         Returns:
-            MoleculeDataset: New dataset containing only the filtered datapoints.
+            New MoleculeDataset with filtered data
         """
-        filtered_data = [dp for dp in self.data if condition(dp)]
-        return MoleculeDataset(self.task_id, filtered_data)
+        return MoleculeDataset(
+            task_id=self.task_id,
+            smiles_list=[self.smiles_list[i] for i in indices],
+            labels=self.labels[indices],
+            numeric_labels=self.numeric_labels[indices] if self.numeric_labels is not None else None,
+        )
 
-    def get_statistics(self) -> DatasetStats:
-        """Get statistics about the dataset.
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get basic statistics about the dataset.
 
         Returns:
-            DatasetStats: Dictionary containing:
-                - size: Total number of datapoints
-                - positive_ratio: Ratio of positive to negative examples
-                - avg_molecular_weight: Average molecular weight
-                - avg_atoms: Average number of atoms
-                - avg_bonds: Average number of bonds
-
-        Raises:
-            ValueError: If the dataset is empty
+            Dictionary with dataset statistics
         """
-        if not self.data:
-            raise ValueError("Cannot compute statistics for empty dataset")
+        if len(self) == 0:
+            return {"size": 0, "positive_ratio": 0.0}
 
-        return {
+        stats = {
             "size": len(self),
+            "positive_count": int(self.labels.sum()),
+            "negative_count": int((self.labels == 0).sum()),
             "positive_ratio": self.positive_ratio,
-            "avg_molecular_weight": float(np.mean([dp.molecular_weight for dp in self.data])),
-            "avg_atoms": float(np.mean([dp.number_of_atoms for dp in self.data])),
-            "avg_bonds": float(np.mean([dp.number_of_bonds for dp in self.data])),
         }
+
+        if self.numeric_labels is not None:
+            valid_labels = self.numeric_labels[~np.isnan(self.numeric_labels)]
+            if len(valid_labels) > 0:
+                stats["numeric_mean"] = float(valid_labels.mean())
+                stats["numeric_std"] = float(valid_labels.std())
+
+        if self._features is not None:
+            stats["feature_dim"] = self._features.shape[1]
+            stats["featurizer"] = self._featurizer_name
+
+        return stats
+
+    # Backward compatibility: datapoints property for metalearning module
+    @property
+    def datapoints(self) -> List[Dict[str, Any]]:
+        """Legacy property for backward compatibility with metalearning module.
+
+        Returns list of dictionaries with molecule data.
+        """
+        return [
+            {
+                "smiles": self.smiles_list[i],
+                "labels": self.labels[i],
+                "bool_label": bool(self.labels[i]),
+                "numeric_label": self.numeric_labels[i] if self.numeric_labels is not None else None,
+            }
+            for i in range(len(self))
+        ]
+
+    @property
+    def data(self) -> List[Dict[str, Any]]:
+        """Legacy property - alias for datapoints."""
+        return self.datapoints

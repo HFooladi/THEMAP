@@ -1,65 +1,55 @@
 """
 Molecule datasets module.
 
-This module contains classes for managing molecule datasets, including loading,
-computing features, and organizing them for distance matrix computation.
+This module contains classes for managing collections of molecule datasets,
+including loading from directories, computing features, and organizing them
+for N×M distance matrix computation.
 """
 
-import time
+import json
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from dpu_utils.utils import RichPath
 
-from ..utils.cache_utils import CacheKey, GlobalMoleculeCache, get_global_feature_cache
 from ..utils.logging import get_logger, setup_logging
 from .enums import DataFold
+from .exceptions import DatasetValidationError, FeaturizationError
 from .molecule_dataset import MoleculeDataset, get_task_name_from_path
 
 # Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
+# Constants
+DEFAULT_BATCH_SIZE = 1000
+DEFAULT_NUM_WORKERS = None
+FOLD_NAME_MAPPING = {
+    DataFold.TRAIN: "train",
+    DataFold.VALIDATION: "valid",
+    DataFold.TEST: "test",
+}
+SUPPORTED_FILE_EXTENSIONS = [".jsonl.gz"]
+
 
 class MoleculeDatasets:
-    """Dataset of related tasks, provided as individual files split into meta-train, meta-valid and
-    meta-test sets.
+    """Manager for molecular datasets organized into train/validation/test folds.
+
+    This class provides a high-level interface for working with collections of molecular
+    datasets, supporting efficient loading and organization for distance computation.
 
     Attributes:
-        _fold_to_data_paths (Dict[DataFold, List[RichPath]]): Dictionary mapping data folds to their respective data paths.
-        _num_workers (Optional[int]): Number of workers for data loading.
-        _cache_dir (Optional[Union[str, Path]]): Directory for persistent caching.
-        _global_cache (Optional[GlobalMoleculeCache]): Global molecule cache.
-        _loaded_datasets (Dict[str, MoleculeDataset]): Dictionary mapping dataset names to their respective loaded datasets.
-
-    Properties:
-        get_num_fold_tasks (int): Get the number of tasks in a specific fold.
-        get_task_names (List[str]): Get the list of task names in a specific fold.
-        load_datasets (Dict[str, MoleculeDataset]): Load all datasets from specified folds.
-        compute_all_features_with_deduplication (Dict[str, np.ndarray]): Compute features for all datasets with global SMILES deduplication.
-        get_distance_computation_ready_features (Tuple[List[np.ndarray], List[np.ndarray], List[str], List[str]]): Get features organized for efficient N×M distance matrix computation.
-        get_global_cache_stats (Optional[Dict]): Get statistics about the global cache usage.
-
-
-    Methods:
-        from_directory (MoleculeDatasets): Create MoleculeDatasets from a directory.
-        get_num_fold_tasks (int): Get the number of tasks in a specific fold.
-        get_task_names (List[str]): Get the list of task names in a specific fold.
-        load_datasets (Dict[str, MoleculeDataset]): Load all datasets from specified folds.
-        compute_all_features_with_deduplication (Dict[str, np.ndarray]): Compute features for all datasets with global SMILES deduplication.
-        get_distance_computation_ready_features (Tuple[List[np.ndarray], List[np.ndarray], List[str], List[str]]): Get features organized for efficient N×M distance matrix computation.
-        get_global_cache_stats (Optional[Dict]): Get statistics about the global cache usage.
+        cache_dir: Directory for persistent feature caching
 
     Examples:
-    # Create MoleculeDatasets from a directory:
-    >>> molecule_datasets = MoleculeDatasets.from_directory("datasets/")
-    # Get the number of tasks in the train fold:
-    >>> molecule_datasets.get_num_fold_tasks(DataFold.TRAIN)
-    # Get the list of task names in the validation fold:
-    >>> molecule_datasets.get_task_names(DataFold.VALIDATION)
-    # Get the list of task names in the test fold:
-    >>> molecule_datasets.get_task_names(DataFold.TEST)
+        Basic usage:
+
+        >>> datasets = MoleculeDatasets.from_directory("data/")
+        >>> train_data = datasets.load_datasets([DataFold.TRAIN])
+        >>> task_names = datasets.get_task_names(DataFold.TRAIN)
     """
 
     def __init__(
@@ -73,23 +63,23 @@ class MoleculeDatasets:
         """Initialize MoleculeDatasets.
 
         Args:
-            train_data_paths (List[RichPath]): List of paths to training data files.
-            valid_data_paths (List[RichPath]): List of paths to validation data files.
-            test_data_paths (List[RichPath]): List of paths to test data files.
-            num_workers (Optional[int]): Number of workers for data loading.
-            cache_dir (Optional[Union[str, Path]]): Directory for persistent caching.
+            train_data_paths: List of paths to training data files
+            valid_data_paths: List of paths to validation data files
+            test_data_paths: List of paths to test data files
+            num_workers: Number of workers for data loading
+            cache_dir: Directory for persistent caching
         """
         logger.info("Initializing MoleculeDatasets")
+
+        self._validate_init_params(num_workers, cache_dir)
+
         self._fold_to_data_paths: Dict[DataFold, List[RichPath]] = {
             DataFold.TRAIN: train_data_paths or [],
             DataFold.VALIDATION: valid_data_paths or [],
             DataFold.TEST: test_data_paths or [],
         }
         self._num_workers = num_workers
-
-        # Initialize global caching
         self.cache_dir = Path(cache_dir) if cache_dir else None
-        self.global_cache = GlobalMoleculeCache(cache_dir) if cache_dir else None
 
         # Cache for loaded datasets
         self._loaded_datasets: Dict[str, MoleculeDataset] = {}
@@ -99,26 +89,95 @@ class MoleculeDatasets:
             f"{len(self._fold_to_data_paths[DataFold.VALIDATION])} validation, and "
             f"{len(self._fold_to_data_paths[DataFold.TEST])} test paths"
         )
-        if cache_dir:
-            logger.info(f"Global caching enabled at {cache_dir}")
+
+    def _validate_init_params(
+        self, num_workers: Optional[int], cache_dir: Optional[Union[str, Path]]
+    ) -> None:
+        """Validate initialization parameters."""
+        if num_workers is not None:
+            if not isinstance(num_workers, int):
+                raise DatasetValidationError(
+                    "initialization", f"num_workers must be int or None, got {type(num_workers)}"
+                )
+            if num_workers == 0:
+                raise DatasetValidationError("initialization", "num_workers cannot be 0")
+            if num_workers < -1:
+                raise DatasetValidationError(
+                    "initialization", f"num_workers must be >= -1, got {num_workers}"
+                )
+
+        if cache_dir is not None:
+            try:
+                cache_path = Path(cache_dir)
+                if cache_path.exists() and not cache_path.is_dir():
+                    raise DatasetValidationError(
+                        "initialization", f"cache_dir exists but is not a directory: {cache_dir}"
+                    )
+            except (TypeError, ValueError) as e:
+                raise DatasetValidationError(
+                    "initialization", f"Invalid cache_dir path: {cache_dir}. Error: {e}"
+                ) from e
+
+    @staticmethod
+    def _validate_fold(fold: DataFold) -> None:
+        """Validate that fold is a valid DataFold enum value."""
+        if not isinstance(fold, DataFold):
+            raise DatasetValidationError("fold_validation", f"fold must be a DataFold enum, got {type(fold)}")
+
+    @staticmethod
+    def _validate_folds_list(folds: Optional[List[DataFold]]) -> None:
+        """Validate list of folds."""
+        if folds is None:
+            return
+        if not isinstance(folds, list):
+            raise DatasetValidationError(
+                "folds_validation", f"folds must be a list or None, got {type(folds)}"
+            )
+        if not folds:
+            raise DatasetValidationError("folds_validation", "folds list cannot be empty")
+        for i, fold in enumerate(folds):
+            if not isinstance(fold, DataFold):
+                raise DatasetValidationError(
+                    "folds_validation", f"folds[{i}] must be a DataFold enum, got {type(fold)}"
+                )
+
+    def _validate_directory_path(self, directory: Union[str, RichPath, Path]) -> RichPath:
+        """Validate and convert directory path to RichPath."""
+        if directory is None:
+            raise DatasetValidationError("directory_validation", "directory cannot be None")
+
+        try:
+            if isinstance(directory, str):
+                rich_path = RichPath.create(directory)
+            elif isinstance(directory, Path):
+                rich_path = RichPath.create(str(directory))
+            elif isinstance(directory, RichPath):
+                rich_path = directory
+            else:
+                raise DatasetValidationError(
+                    "directory_validation", f"directory must be str, Path, or RichPath, got {type(directory)}"
+                )
+            return rich_path
+        except Exception as e:
+            raise DatasetValidationError(
+                "directory_validation", f"Failed to process directory path {directory}: {e}"
+            ) from e
 
     def __repr__(self) -> str:
-        return f"MoleculeDatasets(train={len(self._fold_to_data_paths[DataFold.TRAIN])}, valid={len(self._fold_to_data_paths[DataFold.VALIDATION])}, test={len(self._fold_to_data_paths[DataFold.TEST])})"
+        return (
+            f"MoleculeDatasets(train={len(self._fold_to_data_paths[DataFold.TRAIN])}, "
+            f"valid={len(self._fold_to_data_paths[DataFold.VALIDATION])}, "
+            f"test={len(self._fold_to_data_paths[DataFold.TEST])})"
+        )
 
     def get_num_fold_tasks(self, fold: DataFold) -> int:
-        """Get number of tasks in a specific fold.
-
-        Args:
-            fold (DataFold): The fold to get number of tasks for.
-
-        Returns:
-            int: Number of tasks in the fold.
-        """
+        """Get number of tasks in a specific fold."""
+        self._validate_fold(fold)
         return len(self._fold_to_data_paths[fold])
 
     @staticmethod
     def from_directory(
-        directory: Union[str, RichPath],
+        directory: Union[str, RichPath, Path],
         task_list_file: Optional[Union[str, RichPath]] = None,
         cache_dir: Optional[Union[str, Path]] = None,
         **kwargs: Any,
@@ -126,98 +185,33 @@ class MoleculeDatasets:
         """Create MoleculeDatasets from a directory.
 
         Args:
-            directory (Union[str, RichPath]): Directory containing train/valid/test subdirectories.
-            task_list_file (Optional[Union[str, RichPath]]): File containing list of tasks to include.
-                Can be either a text file (one task per line) or JSON file with fold-specific task lists.
-            cache_dir (Optional[Union[str, Path]]): Directory for persistent caching.
-            **kwargs (any): Additional arguments to pass to MoleculeDatasets constructor.
+            directory: Directory containing train/valid/test subdirectories
+            task_list_file: File containing list of tasks to include
+            cache_dir: Directory for persistent caching
+            **kwargs: Additional arguments to pass to constructor
 
         Returns:
-            MoleculeDatasets: Created dataset.
+            Created MoleculeDatasets instance
         """
         logger.info(f"Loading datasets from directory {directory}")
-        if isinstance(directory, str):
-            directory = RichPath.create(directory)
-        elif isinstance(directory, Path):
-            directory = RichPath.create(str(directory))
-        else:
-            directory = directory
+
+        # Create temporary instance for validation methods
+        temp_instance = MoleculeDatasets.__new__(MoleculeDatasets)
+        directory = temp_instance._validate_directory_path(directory)
 
         # Handle task list file
-        fold_task_lists = {}
-        if task_list_file is not None:
-            if isinstance(task_list_file, str):
-                task_list_file = RichPath.create(task_list_file)
-            logger.info(f"Using task list file: {task_list_file}")
-
-            with open(str(task_list_file), "r") as f:
-                content = f.read().strip()
-
-            # Try to parse as JSON first
-            try:
-                import json
-
-                task_data = json.loads(content)
-                if isinstance(task_data, dict):
-                    # JSON format with fold-specific lists
-                    fold_task_lists = {
-                        "train": task_data.get("train", []),
-                        "valid": task_data.get("valid", []),
-                        "test": task_data.get("test", []),
-                    }
-                    logger.info(
-                        f"Loaded JSON task list: {len(fold_task_lists['train'])} train, "
-                        f"{len(fold_task_lists['valid'])} valid, {len(fold_task_lists['test'])} test tasks"
-                    )
-                else:
-                    # JSON format but not the expected structure
-                    logger.warning(
-                        "JSON task list file does not have expected structure, treating as general task list"
-                    )
-                    task_list = task_data if isinstance(task_data, list) else [str(task_data)]
-            except json.JSONDecodeError:
-                # Not JSON, treat as text file with one task per line
-                task_list = [line.strip() for line in content.split("\n") if line.strip()]
-                logger.info(f"Loaded text task list with {len(task_list)} tasks")
-        else:
-            task_list = None
+        fold_task_lists, task_list = temp_instance._load_task_list_file(task_list_file)
 
         def get_fold_file_names(data_fold_name: str) -> List[RichPath]:
-            fold_dir = directory.join(data_fold_name)
-            if not fold_dir.exists():
-                logger.warning(f"Directory {fold_dir} does not exist")
-                return []
-
-            # Convert to Path for file listing since RichPath doesn't have glob
-            from pathlib import Path
-
-            fold_path = Path(str(fold_dir))
-
-            # Get all .jsonl.gz files in the directory
-            jsonl_files = list(fold_path.glob("*.jsonl.gz"))
-
-            # Convert back to RichPath objects and filter by task list
-            rich_paths = []
-            for file_path in jsonl_files:
-                rich_path = RichPath.create(str(file_path))
-                task_name = get_task_name_from_path(rich_path)
-
-                # Use fold-specific task list if available, otherwise use general task list
-                if fold_task_lists:
-                    applicable_tasks = fold_task_lists.get(data_fold_name, [])
-                    if task_name in applicable_tasks:
-                        rich_paths.append(rich_path)
-                elif task_list is None or task_name in task_list:
-                    rich_paths.append(rich_path)
-
-            return rich_paths
+            return temp_instance._get_fold_file_names(directory, data_fold_name, fold_task_lists, task_list)
 
         train_data_paths = get_fold_file_names("train")
         valid_data_paths = get_fold_file_names("valid")
         test_data_paths = get_fold_file_names("test")
 
         logger.info(
-            f"Found {len(train_data_paths)} training, {len(valid_data_paths)} valid, and {len(test_data_paths)} test tasks"
+            f"Found {len(train_data_paths)} training, {len(valid_data_paths)} valid, "
+            f"and {len(test_data_paths)} test tasks"
         )
         return MoleculeDatasets(
             train_data_paths=train_data_paths,
@@ -227,22 +221,115 @@ class MoleculeDatasets:
             **kwargs,
         )
 
+    @contextmanager
+    def _safe_file_read(self, file_path: Union[str, RichPath]) -> Generator[str, None, None]:
+        """Context manager for safe file reading."""
+        try:
+            with open(str(file_path), "r", encoding="utf-8") as f:
+                yield f.read().strip()
+        except (OSError, IOError) as e:
+            raise DatasetValidationError("file_reading", f"Failed to read file {file_path}: {e}") from e
+        except UnicodeDecodeError as e:
+            raise DatasetValidationError(
+                "file_reading", f"Failed to decode file {file_path} as UTF-8: {e}"
+            ) from e
+
+    def _load_task_list_file(
+        self, task_list_file: Optional[Union[str, RichPath]]
+    ) -> Tuple[Dict[str, List[str]], Optional[List[str]]]:
+        """Load and parse task list file."""
+        if task_list_file is None:
+            return {}, None
+
+        if isinstance(task_list_file, str):
+            task_list_file = RichPath.create(task_list_file)
+
+        logger.info(f"Using task list file: {task_list_file}")
+
+        try:
+            with self._safe_file_read(task_list_file) as content:
+                try:
+                    task_data = json.loads(content)
+                    if isinstance(task_data, dict):
+                        fold_task_lists = {
+                            "train": task_data.get("train", []),
+                            "valid": task_data.get("valid", []),
+                            "test": task_data.get("test", []),
+                        }
+                        logger.info(
+                            f"Loaded JSON task list: {len(fold_task_lists['train'])} train, "
+                            f"{len(fold_task_lists['valid'])} valid, {len(fold_task_lists['test'])} test tasks"
+                        )
+                        return fold_task_lists, None
+                    else:
+                        task_list = task_data if isinstance(task_data, list) else [str(task_data)]
+                        return {}, task_list
+                except json.JSONDecodeError:
+                    task_list = [line.strip() for line in content.split("\n") if line.strip()]
+                    logger.info(f"Loaded text task list with {len(task_list)} tasks")
+                    return {}, task_list
+        except Exception as e:
+            raise DatasetValidationError(
+                "task_list_loading", f"Failed to load task list from {task_list_file}: {e}"
+            ) from e
+
+    def _get_fold_file_names(
+        self,
+        directory: RichPath,
+        data_fold_name: str,
+        fold_task_lists: Dict[str, List[str]],
+        task_list: Optional[List[str]],
+    ) -> List[RichPath]:
+        """Get file names for a specific data fold with task filtering."""
+        fold_dir = directory.join(data_fold_name)
+        if not fold_dir.exists():
+            logger.warning(f"Directory {fold_dir} does not exist")
+            return []
+
+        try:
+            fold_path = Path(str(fold_dir))
+            all_files: List[Path] = []
+            for ext in SUPPORTED_FILE_EXTENSIONS:
+                all_files.extend(fold_path.glob(f"*{ext}"))
+
+            rich_paths = []
+            for file_path in all_files:
+                try:
+                    rich_path = RichPath.create(str(file_path))
+                    task_name = get_task_name_from_path(rich_path)
+
+                    if fold_task_lists:
+                        applicable_tasks = fold_task_lists.get(data_fold_name, [])
+                        if task_name in applicable_tasks:
+                            rich_paths.append(rich_path)
+                    elif task_list is None or task_name in task_list:
+                        rich_paths.append(rich_path)
+                except Exception as e:
+                    logger.warning(f"Failed to process file {file_path}: {e}")
+                    continue
+
+            return rich_paths
+        except Exception as e:
+            logger.error(f"Failed to scan directory {fold_dir}: {e}")
+            return []
+
     def get_task_names(self, data_fold: DataFold) -> List[str]:
-        """Get list of task names in a specific fold.
-
-        Args:
-            data_fold (DataFold): The fold to get task names for.
-
-        Returns:
-            List[str]: List of task names in the fold.
-        """
+        """Get list of task names in a specific fold."""
+        self._validate_fold(data_fold)
         return [get_task_name_from_path(path) for path in self._fold_to_data_paths[data_fold]]
+
+    def get_all_task_names(self) -> Dict[DataFold, List[str]]:
+        """Get all task names organized by fold."""
+        return {
+            fold: self.get_task_names(fold)
+            for fold in [DataFold.TRAIN, DataFold.VALIDATION, DataFold.TEST]
+        }
 
     def load_datasets(self, folds: Optional[List[DataFold]] = None) -> Dict[str, MoleculeDataset]:
         """Load all datasets from specified folds.
 
         Args:
-            folds: List of folds to load. If None, loads all folds.
+            folds: List of folds to load. If None, loads all folds
 
         Returns:
             Dictionary mapping dataset names to loaded datasets
@@ -250,210 +337,151 @@ class MoleculeDatasets:
         if folds is None:
             folds = [DataFold.TRAIN, DataFold.VALIDATION, DataFold.TEST]
 
-        # Create mapping from fold values to names
-        fold_names = {DataFold.TRAIN: "train", DataFold.VALIDATION: "valid", DataFold.TEST: "test"}
+        self._validate_folds_list(folds)
 
         datasets = {}
         for fold in folds:
-            fold_name = fold_names[fold]
+            fold_name = FOLD_NAME_MAPPING[fold]
             for path in self._fold_to_data_paths[fold]:
                 dataset_name = f"{fold_name}_{get_task_name_from_path(path)}"
 
-                # Check if already loaded
                 if dataset_name not in self._loaded_datasets:
-                    logger.info(f"Loading dataset {dataset_name}")
-                    self._loaded_datasets[dataset_name] = MoleculeDataset.load_from_file(path)
+                    try:
+                        logger.info(f"Loading dataset {dataset_name}")
+                        self._loaded_datasets[dataset_name] = MoleculeDataset.load_from_file(path)
+                    except Exception as e:
+                        logger.error(f"Failed to load dataset {dataset_name}: {e}")
+                        raise DatasetValidationError(
+                            dataset_name, f"Failed to load dataset from {path}: {e}"
+                        ) from e
 
                 datasets[dataset_name] = self._loaded_datasets[dataset_name]
 
-        logger.info(f"Loaded {len(datasets)} datasets")
+        logger.info(f"Successfully loaded {len(datasets)} datasets")
         return datasets
 
-    def compute_all_features_with_deduplication(
-        self,
-        featurizer_name: str,
-        folds: Optional[List[DataFold]] = None,
-        batch_size: int = 1000,
-        n_jobs: int = -1,
-        force_recompute: bool = False,
-    ) -> Dict[str, np.ndarray]:
-        """Compute features for all datasets with global SMILES deduplication.
-
-        This method provides significant efficiency gains by:
-        1. Finding all unique SMILES across all datasets
-        2. Computing features only once per unique SMILES
-        3. Distributing computed features back to all datasets
-        4. Using persistent caching to avoid recomputation
+    def load_dataset_by_name(self, task_name: str, fold: DataFold) -> Optional[MoleculeDataset]:
+        """Load a specific dataset by name and fold.
 
         Args:
-            featurizer_name: Name of featurizer to use
-            folds: List of folds to process. If None, processes all folds
-            batch_size: Batch size for feature computation
-            n_jobs: Number of parallel jobs
-            force_recompute: Whether to force recomputation even if cached
+            task_name: Name of the task (e.g., "CHEMBL123456")
+            fold: Data fold to search in
 
         Returns:
-            Dictionary mapping dataset names to computed features
-
+            MoleculeDataset if found, None otherwise
         """
-        start_time = time.time()
+        self._validate_fold(fold)
+        fold_name = FOLD_NAME_MAPPING[fold]
+        full_name = f"{fold_name}_{task_name}"
 
-        if folds is None:
-            folds = [DataFold.TRAIN, DataFold.VALIDATION, DataFold.TEST]
+        if full_name in self._loaded_datasets:
+            return self._loaded_datasets[full_name]
 
-        # Load all datasets
-        datasets = self.load_datasets(folds)
-        dataset_list = list(datasets.values())
-        dataset_names = list(datasets.keys())
+        for path in self._fold_to_data_paths[fold]:
+            if get_task_name_from_path(path) == task_name:
+                try:
+                    self._loaded_datasets[full_name] = MoleculeDataset.load_from_file(path)
+                    return self._loaded_datasets[full_name]
+                except Exception as e:
+                    logger.error(f"Failed to load dataset {task_name}: {e}")
+                    return None
 
-        logger.info(f"Computing features for {len(dataset_list)} datasets using {featurizer_name}")
+        return None
 
-        # Global SMILES deduplication
-        if self.global_cache:
-            unique_smiles_map = self.global_cache.get_unique_smiles_across_datasets(dataset_list)
-            unique_smiles = list(unique_smiles_map.keys())
-
-            # Compute features for unique SMILES
-            smiles_to_features = self.global_cache.batch_compute_features(
-                unique_smiles=unique_smiles,
-                featurizer_name=featurizer_name,
-                batch_size=batch_size,
-                n_jobs=n_jobs,
-            )
-
-            # Distribute features back to datasets using proper interfaces
-            results = {}
-            global_cache = get_global_feature_cache()
-
-            for dataset_idx, (dataset_name, dataset) in enumerate(zip(dataset_names, dataset_list)):
-                logger.info(f"Distributing features to dataset {dataset_name}")
-
-                # Create feature array for this dataset and store in global cache
-                dataset_features = []
-                for mol in dataset.data:
-                    canonical_smiles = self.global_cache._canonicalize_smiles(mol.smiles)
-                    if canonical_smiles in smiles_to_features:
-                        feature_vector = smiles_to_features[canonical_smiles]
-                        dataset_features.append(feature_vector)
-
-                        # Store in global cache using proper interface
-                        cache_key = CacheKey(smiles=mol.smiles, featurizer_name=featurizer_name)
-                        global_cache.store(cache_key, feature_vector)
-                    else:
-                        # Fallback: zero features if SMILES not found
-                        feature_dim = len(next(iter(smiles_to_features.values())))
-                        zero_features = np.zeros(feature_dim)
-                        dataset_features.append(zero_features)
-
-                        cache_key = CacheKey(smiles=mol.smiles, featurizer_name=featurizer_name)
-                        global_cache.store(cache_key, zero_features)
-
-                dataset_features_array = np.array(dataset_features)
-
-                # Update dataset to track current featurizer (proper interface)
-                dataset._current_featurizer = featurizer_name
-
-                results[dataset_name] = dataset_features_array
-
-        else:
-            # Fallback: compute features for each dataset separately
-            logger.warning("Global cache not available, computing features separately for each dataset")
-            results = {}
-            for dataset_name, dataset in datasets.items():
-                logger.info(f"Computing features for dataset {dataset_name}")
-                features = dataset.get_features(
-                    featurizer_name=featurizer_name,
-                    n_jobs=n_jobs,
-                    force_recompute=force_recompute,
-                    batch_size=batch_size,
-                )
-                results[dataset_name] = features
-
-        elapsed_time = time.time() - start_time
-        total_molecules = sum(len(dataset.data) for dataset in dataset_list)
-        unique_molecules = len(unique_smiles) if self.global_cache else total_molecules
-
-        if total_molecules > 0:
-            deduplication_percentage = (total_molecules - unique_molecules) / total_molecules * 100
-            logger.info(
-                f"Computed features for {total_molecules} total molecules "
-                f"({unique_molecules} unique) in {elapsed_time:.2f} seconds. "
-                f"Deduplication saved {deduplication_percentage:.1f}% computation"
-            )
-        else:
-            logger.info(f"No molecules to process (empty datasets) - completed in {elapsed_time:.2f} seconds")
-
-        return results
-
-    def get_distance_computation_ready_features(
+    def get_datasets_for_distance_computation(
         self,
-        featurizer_name: str,
         source_fold: DataFold = DataFold.TRAIN,
         target_folds: Optional[List[DataFold]] = None,
-    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[str], List[str]]:
-        """Get features organized for efficient N×M distance matrix computation.
+    ) -> Tuple[List[MoleculeDataset], List[MoleculeDataset], List[str], List[str]]:
+        """Get datasets organized for N×M distance matrix computation.
 
         Args:
-            featurizer_name: Name of featurizer to use
             source_fold: Fold to use as source datasets (N)
             target_folds: Folds to use as target datasets (M)
 
         Returns:
             Tuple containing:
-            - source_features: List of feature arrays for source datasets
-            - target_features: List of feature arrays for target datasets
-            - source_names: List of source dataset names
-            - target_names: List of target dataset names
-
-        Notes:
-            if you dont provide target_folds, it will use the validation and test folds as default target folds.
+            - source_datasets: List of source MoleculeDataset objects
+            - target_datasets: List of target MoleculeDataset objects
+            - source_names: List of source task names
+            - target_names: List of target task names
         """
+        self._validate_fold(source_fold)
         if target_folds is None:
             target_folds = [DataFold.VALIDATION, DataFold.TEST]
+        self._validate_folds_list(target_folds)
 
-        # Compute features for all relevant datasets
+        # Load all relevant datasets
         all_folds = [source_fold] + target_folds
-        all_features = self.compute_all_features_with_deduplication(
-            featurizer_name=featurizer_name, folds=all_folds
-        )
+        all_datasets = self.load_datasets(all_folds)
 
-        # Create mapping from fold values to names
-        fold_names = {DataFold.TRAIN: "train", DataFold.VALIDATION: "valid", DataFold.TEST: "test"}
-
-        # Separate source and target features
-        source_features = []
+        # Separate by fold
+        source_datasets = []
         source_names = []
-        target_features = []
+        target_datasets = []
         target_names = []
 
-        for dataset_name, features in all_features.items():
-            fold_name = dataset_name.split("_")[0].lower()
+        source_prefix = FOLD_NAME_MAPPING[source_fold]
+        target_prefixes = [FOLD_NAME_MAPPING[f] for f in target_folds]
 
-            if fold_name == fold_names[source_fold]:
-                source_features.append(features)
-                source_names.append(dataset_name)
-            elif any(fold_name == fold_names[fold] for fold in target_folds):
-                target_features.append(features)
-                target_names.append(dataset_name)
+        for name, dataset in all_datasets.items():
+            prefix = name.split("_")[0]
+            if prefix == source_prefix:
+                source_datasets.append(dataset)
+                source_names.append(name)
+            elif prefix in target_prefixes:
+                target_datasets.append(dataset)
+                target_names.append(name)
 
         logger.info(
-            f"Prepared {len(source_features)} source and {len(target_features)} target datasets "
-            f"for {len(source_features)}×{len(target_features)} distance matrix computation"
+            f"Prepared {len(source_datasets)} source and {len(target_datasets)} target datasets "
+            f"for distance computation"
         )
 
-        return source_features, target_features, source_names, target_names
+        return source_datasets, target_datasets, source_names, target_names
 
-    def get_global_cache_stats(self) -> Optional[Dict]:
-        """Get statistics about the global cache usage.
+    def get_all_smiles(self, folds: Optional[List[DataFold]] = None) -> List[str]:
+        """Get all unique SMILES strings across specified folds.
+
+        Useful for batch featurization with deduplication.
+
+        Args:
+            folds: List of folds to include. If None, includes all folds.
 
         Returns:
-            Cache statistics if global cache is enabled, None otherwise
+            List of unique SMILES strings
         """
-        if self.global_cache is None or self.global_cache.persistent_cache is None:
-            return None
+        datasets = self.load_datasets(folds)
+        all_smiles = set()
+        for dataset in datasets.values():
+            all_smiles.update(dataset.smiles_list)
+        return list(all_smiles)
 
-        return {
-            "persistent_cache_stats": self.global_cache.persistent_cache.get_stats(),
-            "persistent_cache_size": self.global_cache.persistent_cache.get_cache_size_info(),
-            "loaded_datasets": len(self._loaded_datasets),
-        }
+    def get_smiles_to_datasets_mapping(
+        self, folds: Optional[List[DataFold]] = None
+    ) -> Dict[str, List[str]]:
+        """Get mapping from SMILES to dataset names containing them.
+
+        Useful for understanding SMILES overlap between datasets.
+
+        Args:
+            folds: List of folds to include. If None, includes all folds.
+
+        Returns:
+            Dictionary mapping SMILES to list of dataset names
+        """
+        datasets = self.load_datasets(folds)
+        smiles_to_datasets: Dict[str, List[str]] = {}
+
+        for name, dataset in datasets.items():
+            for smiles in dataset.smiles_list:
+                if smiles not in smiles_to_datasets:
+                    smiles_to_datasets[smiles] = []
+                smiles_to_datasets[smiles].append(name)
+
+        return smiles_to_datasets
+
+    def clear_loaded_datasets(self) -> None:
+        """Clear all loaded datasets from memory."""
+        self._loaded_datasets.clear()
+        logger.info("Cleared all loaded datasets from memory")

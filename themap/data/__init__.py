@@ -1,9 +1,9 @@
 # flake8: noqa: F405
-from .molecule_datapoint import MoleculeDatapoint
 from .molecule_dataset import MoleculeDataset
-from .molecule_datasets import DataFold, MoleculeDatasets
+from .molecule_datasets import MoleculeDatasets
+from .enums import DataFold
 from .protein_datasets import ProteinMetadataDataset, ProteinMetadataDatasets
-from .tasks import Tasks
+from .tasks import Task, Tasks
 from .torch_dataset import (
     MoleculeDataloader,
     ProteinDataloader,
@@ -12,12 +12,12 @@ from .torch_dataset import (
 )
 
 __all__ = [  # noqa: F405
-    "MoleculeDatapoint",
     "MoleculeDataset",
     "MoleculeDatasets",
     "DataFold",
     "ProteinMetadataDataset",
     "ProteinMetadataDatasets",
+    "Task",
     "Tasks",
     "TorchMoleculeDataset",
     "TorchProteinMetadataDataset",

@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 import torch
 
-from themap.data.molecule_datapoint import MoleculeDatapoint
 from themap.data.molecule_dataset import MoleculeDataset
 from themap.data.tasks import Task
 from themap.metalearning.data.episode_sampler import EpisodeSampler, MetaLearningDataset
@@ -23,18 +22,24 @@ class TestEpisodeSampler:
         tasks = []
 
         for task_id in range(3):
-            # Create mock datapoints with binary labels
+            # Create datapoints using the backward-compatible format
+            # The datapoints property in MoleculeDataset returns List[Dict] now
             datapoints = []
             for class_label in [0, 1]:
                 for i in range(20):  # 20 samples per class
-                    dp = Mock(spec=MoleculeDatapoint)
-                    dp.smiles = f"CC{'N' * i}C"  # Mock SMILES
-                    dp.labels = class_label
+                    dp = {
+                        "smiles": f"CC{'N' * i}C",
+                        "labels": class_label,
+                        "bool_label": bool(class_label),
+                        "numeric_label": None,
+                    }
                     datapoints.append(dp)
 
-            # Create mock dataset
+            # Create mock dataset that returns datapoints as list of dicts
             dataset = Mock(spec=MoleculeDataset)
             dataset.datapoints = datapoints
+            # Also set labels as numpy array for _get_class_counts method
+            dataset.labels = np.array([dp["labels"] for dp in datapoints], dtype=np.int32)
 
             # Create mock task
             task = Mock(spec=Task)
@@ -252,18 +257,23 @@ class TestMetaLearningDataset:
         tasks = []
 
         for task_id in range(3):
-            # Create mock datapoints with binary labels
+            # Create datapoints using the backward-compatible format
             datapoints = []
             for class_label in [0, 1]:
                 for i in range(20):  # 20 samples per class
-                    dp = Mock(spec=MoleculeDatapoint)
-                    dp.smiles = f"CC{'N' * i}C"  # Mock SMILES
-                    dp.labels = class_label
+                    dp = {
+                        "smiles": f"CC{'N' * i}C",
+                        "labels": class_label,
+                        "bool_label": bool(class_label),
+                        "numeric_label": None,
+                    }
                     datapoints.append(dp)
 
-            # Create mock dataset
+            # Create mock dataset that returns datapoints as list of dicts
             dataset = Mock(spec=MoleculeDataset)
             dataset.datapoints = datapoints
+            # Also set labels as numpy array for _get_class_counts method
+            dataset.labels = np.array([dp["labels"] for dp in datapoints], dtype=np.int32)
 
             # Create mock task
             task = Mock(spec=Task)

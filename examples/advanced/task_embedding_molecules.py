@@ -12,8 +12,8 @@ The script supports:
 - Performance monitoring
 
 Usage:
-    python scripts/task_embedding_molecules.py --featurizer ecfp --output_dir datasets/embeddings --n_jobs 32
-    python scripts/task_embedding_molecules.py --featurizer all --cache_dir cache --memory_limit 8GB
+    python examples/advanced/task_embedding_molecules.py --featurizer ecfp --output_dir datasets/embeddings --n_jobs 32
+    python examples/advanced/task_embedding_molecules.py --featurizer all --cache_dir cache --memory_limit 8GB
 """
 
 import argparse
@@ -59,25 +59,25 @@ logger = get_logger(__name__)
 # Available featurizers organized by category
 AVAILABLE_FEATURIZERS = {
     "fingerprints": [
-        "ecfp",  # Extended-Connectivity Fingerprints
-        "maccs",  # MACCS structural keys fingerprint
-        "fcfp",  # FCFP fingerprint
+        "ecfp",  # Extended-Connectivity Fingerprints (2048 bits, uint8)
+        "maccs",  # MACCS structural keys fingerprint (167 bits, uint8)
+        "fcfp",  # FCFP fingerprint (2048 bits, uint8)
     ],
     "descriptors": [
-        "mordred",  # Mordred molecular descriptors
-        "desc2D",  # 2D molecular descriptors
+        "mordred",  # Mordred molecular descriptors (1613 dimensions, float64)
+        "desc2D",  # 2D molecular descriptors (223 dimensions, float64)
     ],
     "language_models": [
-        "ChemBERTa-77M-MLM",  # ChemBERTa with masked language modeling
-        "ChemBERTa-77M-MTR",  # ChemBERTa with molecular translation
-        "Roberta-Zinc480M-102M",  # RoBERTa pretrained on ZINC
-        "MolT5",  # Text-to-molecule model
+        "ChemBERTa-77M-MLM",  # ChemBERTa with masked language modeling (384 dimensions, float64)
+        "ChemBERTa-77M-MTR",  # ChemBERTa with molecular translation (384 dimensions, float64)
+        "Roberta-Zinc480M-102M",  # RoBERTa pretrained on ZINC (768 dimensions, float64)
+        "MolT5",  # Text-to-molecule model (1024 dimensions, float64)
     ],
     "graph_networks": [
-        "gin_supervised_infomax",  # GIN with InfoMax pretraining
-        "gin_supervised_contextpred",  # GIN with context prediction
-        "gin_supervised_edgepred",  # GIN with edge prediction
-        "gin_supervised_masking",  # GIN with masking pretraining
+        "gin_supervised_infomax",  # GIN with InfoMax pretraining (300 dimensions, float64)
+        "gin_supervised_contextpred",  # GIN with context prediction (300 dimensions, float64)
+        "gin_supervised_edgepred",  # GIN with edge prediction (300 dimensions, float64)
+        "gin_supervised_masking",  # GIN with masking pretraining (300 dimensions, float64)
     ],
 }
 
@@ -597,9 +597,9 @@ Special values:
   graph_networks: Use all graph network featurizers
 
 Examples:
-  python scripts/task_embedding_molecules.py --featurizer ecfp
-  python scripts/task_embedding_molecules.py --featurizer all --n_jobs 16
-  python scripts/task_embedding_molecules.py --featurizer fingerprints --cache_dir /tmp/cache
+  python examples/advanced/task_embedding_molecules.py --featurizer ecfp
+  python examples/advanced/task_embedding_molecules.py --featurizer all --n_jobs 16
+  python examples/advanced/task_embedding_molecules.py --featurizer fingerprints --cache_dir /tmp/cache
         """,
     )
 

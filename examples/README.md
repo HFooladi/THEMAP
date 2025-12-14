@@ -7,7 +7,7 @@ This directory contains example scripts demonstrating how to use THEMAP's variou
 ```
 examples/
 ├── basic/          # Start here - fundamental concepts
-├── distance/       # Distance computation examples  
+├── distance/       # Distance computation examples
 ├── advanced/       # Complex workflows and analysis
 └── README.md       # This guide
 ```
@@ -105,7 +105,7 @@ python task_hardness_protein.py
 ## 📋 Prerequisites
 
 Most examples require:
-- **Basic setup**: `conda activate themap` 
+- **Basic setup**: `conda activate themap`
 - **Sample data**: Available in `datasets/` directory
 - **Dependencies**: Install with `pip install -e ".[dev,test]"`
 
@@ -179,7 +179,7 @@ We recommend this progression:
    - Learn the Task system
    - Get comfortable with data loading
 
-2. **Week 2**: Explore `distance/` examples  
+2. **Week 2**: Explore `distance/` examples
    - Compute basic distances
    - Try different distance metrics
    - Understand OTDD concepts
@@ -193,7 +193,7 @@ We recommend this progression:
 
 - **Documentation**: See `docs/` directory
 - **Tutorials**: Interactive Jupyter notebooks in `docs/tutorials/`
-- **API Reference**: `docs/api/` 
+- **API Reference**: `docs/api/`
 - **Pipeline Guide**: `docs/PIPELINE_GUIDE.md`
 
 ## 🤝 Contributing
@@ -207,7 +207,7 @@ Found a bug in an example? Want to add a new example?
 ## 💡 Tips for Success
 
 - **Read the docstrings**: Each script has detailed documentation
-- **Start with small datasets**: Use `--sample-size` for initial exploration  
+- **Start with small datasets**: Use `--sample-size` for initial exploration
 - **Check the logs**: Use `--log-level DEBUG` to understand what's happening
 - **Experiment**: Modify parameters and see how results change
 - **Ask for help**: Check issues or create new ones for questions
