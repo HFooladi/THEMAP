@@ -35,15 +35,19 @@ from .dataset_distance import (
     DatasetDistance,
     compute_dataset_distance_matrix,
 )
+
+# Exceptions
+from .exceptions import DataValidationError, DistanceComputationError
 from .metadata_distance import (
     MetadataDistance,
     combine_distance_matrices,
     compute_metadata_distance_matrix,
 )
-from .task_distance import TaskDistance, TaskDistanceCalculator
 
-# Exceptions
-from .exceptions import DataValidationError, DistanceComputationError
+# Legacy classes for backward compatibility with examples
+from .molecule_distance import MoleculeDatasetDistance
+from .protein_distance import ProteinDatasetDistance
+from .task_distance import TaskDistance, TaskDistanceCalculator
 
 # Constants for backward compatibility
 DATASET_DISTANCE_METHODS = ["otdd", "euclidean", "cosine"]
@@ -62,8 +66,10 @@ __all__ = [
     "compute_dataset_distance_matrix",
     "compute_metadata_distance_matrix",
     "combine_distance_matrices",
-    # Legacy alias
+    # Legacy classes
     "TaskDistance",
+    "MoleculeDatasetDistance",
+    "ProteinDatasetDistance",
     # Exceptions
     "DistanceComputationError",
     "DataValidationError",

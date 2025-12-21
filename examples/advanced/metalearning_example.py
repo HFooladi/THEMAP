@@ -2,6 +2,10 @@
 """
 Example script demonstrating prototypical networks for meta-learning on molecular tasks.
 
+NOTE: This is a placeholder example showing the intended API for the meta-learning module.
+Some features shown here are still under development and may not work yet.
+See themap/metalearning/__init__.py for currently available exports.
+
 This script shows how to:
 1. Load tasks and create meta-learning splits
 2. Configure and train a prototypical network
@@ -13,16 +17,27 @@ import logging
 from pathlib import Path
 
 # Import THEMAP modules
-from themap.data.molecule_datasets import load_tasks_from_directory
-from themap.metalearning import (
-    EvaluationConfig,
-    MetaLearningEvaluator,
-    MetaLearningTrainer,
-    PrototypicalNetworkConfig,
-    TrainingConfig,
-    create_meta_splits,
-    create_task_folders,
-)
+# Note: Some of these imports are placeholders for features under development
+try:
+    from themap.data.tasks import Tasks
+    from themap.metalearning import (
+        EvaluationConfig,
+        MetaLearningEvaluator,
+        MetaLearningTrainer,
+        PrototypicalNetwork,
+        TrainingConfig,
+        create_meta_splits,
+    )
+
+    # These are placeholder imports for future functionality
+    PrototypicalNetworkConfig = None  # Placeholder - use PrototypicalNetwork directly
+    create_task_folders = None  # Placeholder - not yet implemented
+    load_tasks_from_directory = None  # Placeholder - use Tasks.from_directory instead
+except ImportError as e:
+    raise ImportError(
+        f"Meta-learning module not fully available: {e}. "
+        "Some features in this example are still under development."
+    )
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -61,7 +76,7 @@ def main():
     logger.info(f"Task splits: {task_splits.summary()}")
 
     # Create folder structure
-    meta_folders = create_task_folders(
+    _meta_folders = create_task_folders(
         task_splits=task_splits,
         base_dir=output_dir / "task_splits",
     )
@@ -72,12 +87,13 @@ def main():
     sample_featurizer_name = "ecfp"
 
     # Get feature dimensions from a sample molecule
+    # datapoints returns list of dicts, not objects
     if sample_task.molecule_dataset and sample_task.molecule_dataset.datapoints:
         sample_datapoint = sample_task.molecule_dataset.datapoints[0]
         from themap.utils.featurizer_utils import get_featurizer
 
         featurizer = get_featurizer(sample_featurizer_name)
-        sample_features = featurizer(sample_datapoint.smiles)
+        sample_features = featurizer(sample_datapoint["smiles"])
         input_dim = len(sample_features)
         logger.info(f"Using input dimension: {input_dim}")
     else:

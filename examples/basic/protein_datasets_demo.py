@@ -19,7 +19,8 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from themap.data.protein_datasets import DataFold, ProteinMetadataDatasets
+from themap.data import DataFold
+from themap.data.protein_datasets import ProteinMetadataDatasets
 from themap.utils.logging import get_logger, setup_logging
 
 # Initialize logging

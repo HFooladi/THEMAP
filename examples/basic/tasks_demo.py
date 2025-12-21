@@ -23,7 +23,7 @@ from sklearn.metrics.pairwise import cosine_distances
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from themap.data.protein_datasets import DataFold
+from themap.data import DataFold
 from themap.data.tasks import Tasks
 from themap.utils.logging import get_logger, setup_logging
 

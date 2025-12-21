@@ -303,8 +303,9 @@ class MolecularEmbeddingGenerator:
         """Compute features for a single task with error handling."""
         try:
             # Extract SMILES, labels from MoleculeDataset
-            smiles_list = [item.smiles for item in task.data]
-            labels_list = [item.bool_label for item in task.data]
+            # datapoints/data returns list of dicts, not objects
+            smiles_list = [item["smiles"] for item in task.data]
+            labels_list = [item["bool_label"] for item in task.data]
 
             # Compute features using transformer
             features_array = transformer(smiles_list)

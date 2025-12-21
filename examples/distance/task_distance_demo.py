@@ -18,7 +18,7 @@ from typing import Optional
 
 import numpy as np
 
-from themap.data.metadata import DataFold
+from themap.data import DataFold
 from themap.data.tasks import Tasks
 from themap.distance import (
     MoleculeDatasetDistance,
@@ -61,9 +61,10 @@ def demo_combined_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) 
             protein_method="euclidean",
         )
 
-        source_num, target_num = calculator.source_task_ids, calculator.target_task_ids
+        source_count = tasks.get_num_fold_tasks(DataFold.TRAIN)
+        target_count = tasks.get_num_fold_tasks(DataFold.TEST)
         logger.info(
-            f"📊 Calculator created for tasks with {len(source_num)}/{len(target_num)} source/target tasks"
+            f"📊 Calculator created for tasks with {source_count}/{target_count} source/target tasks"
         )
 
         # Compute combined distance matrix
@@ -71,9 +72,9 @@ def demo_combined_task_distance(tasks: Tasks, cache_dir: Optional[Path] = None) 
         start_time = time.time()
 
         distance_dict = calculator.compute_combined_distance(
-            molecule_method="euclidean",
-            protein_method="euclidean",
-            combination_strategy="average",
+            molecule_featurizer="ecfp",
+            protein_featurizer="esm2_t33_650M_UR50D",
+            combination="average",
         )
 
         elapsed_time = time.time() - start_time
@@ -212,9 +213,9 @@ def demo_task_distance_methods(tasks: Tasks, cache_dir: Optional[Path] = None) -
 
         # Compute all distances at once
         all_distances = calculator.compute_all_distances(
-            molecule_method="euclidean",
-            protein_method="euclidean",
-            combination_strategy="average",
+            molecule_featurizer="ecfp",
+            protein_featurizer="esm2_t33_650M_UR50D",
+            combination="average",
         )
 
         # Analyze each distance type
@@ -234,10 +235,10 @@ def demo_task_distance_methods(tasks: Tasks, cache_dir: Optional[Path] = None) -
 
         for strategy in ["average", "weighted_average", "min", "max"]:
             try:
+                weights = {"molecules": 0.7, "protein": 0.3} if strategy == "weighted_average" else None
                 combined_dict = calculator.compute_combined_distance(
-                    combination_strategy=strategy,
-                    molecule_weight=0.7,
-                    protein_weight=0.3,
+                    combination=strategy,
+                    weights=weights,
                 )
                 target_names = list(combined_dict.keys())
                 if target_names:
