@@ -37,14 +37,47 @@ THEMAP is a Python library designed to calculate distances between chemical data
 
 ## Installation
 
-### Prerequisites
+### Quick Start (Recommended)
 
-- Python 3.10 or higher
-- For GPU features: CUDA-compatible GPU and drivers
+The easiest way to install THEMAP with all features:
 
-### Conda Environment (Recommended)
+```bash
+git clone https://github.com/HFooladi/THEMAP.git
+cd THEMAP
+source env.sh
+```
 
-For complete functionality including OTDD and GPU acceleration:
+This automatically:
+- Installs `uv` (fast Python package manager) if needed
+- Creates a virtual environment in `.venv`
+- Installs all dependencies
+- Activates the environment
+
+After installation, try an example:
+```bash
+python examples/basic/molecule_datasets_demo.py
+```
+
+To reactivate the environment later:
+```bash
+source .venv/bin/activate
+```
+
+### Manual Installation
+
+For more control, install with pip:
+
+```bash
+pip install themap                # Basic installation from PyPI
+pip install -e ".[all]"           # Full installation (editable)
+pip install -e ".[protein]"       # Protein analysis only
+pip install -e ".[otdd]"          # Optimal transport only
+pip install -e ".[dev,test]"      # Development + testing
+```
+
+### Conda Alternative
+
+For GPU support with specific CUDA versions:
 
 ```bash
 conda env create -f environment.yml
@@ -52,41 +85,10 @@ conda activate themap
 pip install -e . --no-deps
 ```
 
-### Basic Installation
+### Prerequisites
 
-```bash
-pip install themap
-```
-
-### Development Installation
-
-```bash
-git clone https://github.com/HFooladi/THEMAP.git
-cd THEMAP
-pip install -e .
-```
-
-### Feature-Specific Installation
-
-THEMAP offers modular installation options:
-
-```bash
-# Full installation with all features
-pip install -e ".[all]"
-
-# Specific feature sets
-pip install -e ".[ml]"        # Core ML functionality
-pip install -e ".[otdd]"      # Optimal transport distances
-pip install -e ".[protein]"   # Protein analysis
-pip install -e ".[dev]"       # Development tools
-pip install -e ".[test]"      # Testing framework
-```
-
-### Verify Installation
-
-```bash
-python -c "from themap.data.molecule_dataset import MoleculeDataset; print('✅ Core functionality works')"
-```
+- Python 3.10 or higher
+- For GPU features: CUDA-compatible GPU and drivers
 
 ## Quick Start
 

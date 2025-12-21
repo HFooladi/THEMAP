@@ -3,21 +3,44 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "THEMAP"
+name = "themap"
 dynamic = ["version"]
 authors = [
   {name="Hosein Fooladi", email="fooladi.hosein@gmail.com"}
 ]
 description = "Package for task hardness estimation for molecular activity prediction"
 requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = [
+    "chemistry",
+    "machine-learning",
+    "dataset-distance",
+    "molecular",
+    "drug-discovery",
+    "cheminformatics",
+    "transfer-learning",
+    "domain-adaptation",
+    "task-hardness",
+]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy",
     "pandas",
+    "scipy",
     "matplotlib",
     "seaborn",
     "scikit-learn",
@@ -30,13 +53,13 @@ dependencies = [
     "pytz",
     "pydantic",
     "chembl-webresource-client",
-    "torch==2.4.0",
-    "torchvision==0.19.0",
-    "torchaudio==2.4.0",
-    "molfeat==0.11.0",
+    "torch>=2.0.0,<3.0.0",
+    "torchvision>=0.15.0,<1.0.0",
+    "torchaudio>=2.0.0,<3.0.0",
+    "molfeat>=0.10.0",
     "dgl<=2.0",
     "dgllife>=0.3.2",
-    "pytorch_geometric",
+    "torch-geometric",
     "fcd_torch",
 ]
 
@@ -51,9 +74,9 @@ protein = [
 
 # Optimal transport distances
 otdd = [
-  "torch==2.4.0",
-  "torchvision==0.19.0",
-  "torchaudio==2.4.0",
+  "torch>=2.0.0,<3.0.0",
+  "torchvision>=0.15.0,<1.0.0",
+  "torchaudio>=2.0.0,<3.0.0",
   "pot",
   "pykeops",
   "geomloss",
@@ -63,13 +86,13 @@ otdd = [
 
 # All features
 all = [
-  "torch==2.4.0",
-  "torchvision==0.19.0",
-  "torchaudio==2.4.0",
-  "molfeat==0.11.0",
+  "torch>=2.0.0,<3.0.0",
+  "torchvision>=0.15.0,<1.0.0",
+  "torchaudio>=2.0.0,<3.0.0",
+  "molfeat>=0.10.0",
   "dgl<=2.0",
   "dgllife>=0.3.2",
-  "pytorch_geometric",
+  "torch-geometric",
   "fcd_torch",
   "biopython",
   "esm",
@@ -100,6 +123,7 @@ dev = [
   "celluloid",
   "ipycache",
   "watermark",
+  "psutil",
 ]
 
 docs = [
@@ -118,6 +142,8 @@ docs = [
 [project.urls]
 "Homepage" = "https://github.com/HFooladi/THEMAP"
 "Bug Tracker" = "https://github.com/HFooladi/THEMAP/issues"
+"Documentation" = "https://hfooladi.github.io/THEMAP/"
+"Changelog" = "https://github.com/HFooladi/THEMAP/blob/main/CHANGELOG.md"
 
 [project.readme]
 file="README.md"

@@ -29,16 +29,26 @@ else
     echo ""
 fi
 
-# Check Python version
+# Check Python version (requires Python 3.10+)
 echo "🐍 Checking Python version..."
-if command -v python3.11 &> /dev/null; then
+if command -v python3.12 &> /dev/null; then
+    PYTHON_CMD="python3.12"
+elif command -v python3.11 &> /dev/null; then
     PYTHON_CMD="python3.11"
 elif command -v python3.10 &> /dev/null; then
     PYTHON_CMD="python3.10"
-elif command -v python3.9 &> /dev/null; then
-    PYTHON_CMD="python3.9"
 else
     PYTHON_CMD="python3"
+fi
+
+# Verify Python version is at least 3.10
+PYTHON_VERSION_NUM=$($PYTHON_CMD -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+PYTHON_MAJOR=$($PYTHON_CMD -c "import sys; print(sys.version_info.major)")
+PYTHON_MINOR=$($PYTHON_CMD -c "import sys; print(sys.version_info.minor)")
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 10 ]); then
+    echo "❌ Error: Python 3.10 or higher is required (found $PYTHON_VERSION_NUM)"
+    echo "   Please install Python 3.10+ and try again"
+    exit 1
 fi
 
 PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
