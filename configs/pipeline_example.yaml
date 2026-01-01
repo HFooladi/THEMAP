@@ -1,0 +1,34 @@
+# THEMAP Pipeline Configuration Example
+# Run with: themap run configs/pipeline_example.yaml
+
+data:
+  directory: "datasets"      # Path to dataset directory
+  task_list: null            # Optional: task list JSON file (auto-discover if null)
+
+distances:
+  molecule:
+    enabled: true
+    featurizer: "ecfp"       # Options: ecfp, maccs, desc2D, mordred, ChemBERTa-77M-MLM, etc.
+    method: "euclidean"      # Options: euclidean, cosine, otdd
+
+  protein:
+    enabled: false           # Set to true if you have protein FASTA files
+    featurizer: "esm2_t33_650M_UR50D"
+    method: "cosine"         # Options: euclidean, cosine, manhattan
+    layer: null              # Auto-detect based on model
+
+combination:
+  strategy: "weighted_average"  # Options: average, weighted_average, separate
+  weights:
+    molecule: 0.7
+    protein: 0.3
+
+output:
+  directory: "output/"
+  format: "csv"              # Options: csv, json, npz
+  save_features: true        # Cache features for reuse
+
+compute:
+  n_jobs: 8                  # Parallel workers
+  batch_size: 1000           # Batch size for featurization
+  device: "auto"             # Options: auto, cpu, cuda

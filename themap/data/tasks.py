@@ -89,6 +89,9 @@ class Task:
     def get_molecule_features(self, featurizer_name: str, **kwargs: Any) -> Optional[NDArray[np.float32]]:
         """Get molecular features for this task.
 
+        This method returns pre-computed features if available (set via set_features or FeaturizationPipeline),
+        or computes features on demand using the specified featurizer.
+
         Args:
             featurizer_name: Name of molecular featurizer to use
             **kwargs: Additional featurizer arguments
@@ -99,7 +102,32 @@ class Task:
         if self.molecule_dataset is None:
             return None
 
-        return self.molecule_dataset.get_features(featurizer_name=featurizer_name, **kwargs)
+        # Check if features are already computed with matching featurizer
+        if self.molecule_dataset.has_features():
+            if self.molecule_dataset.featurizer_name == featurizer_name:
+                return self.molecule_dataset.features
+            else:
+                logger.debug(
+                    f"Task {self.task_id}: requested featurizer '{featurizer_name}' differs from "
+                    f"cached '{self.molecule_dataset.featurizer_name}', recomputing..."
+                )
+
+        # Compute features on demand using the featurizer
+        try:
+            from ..utils.featurizer_utils import get_featurizer
+
+            featurizer = get_featurizer(featurizer_name)
+            features_list = []
+            for smiles in self.molecule_dataset.smiles_list:
+                feat = featurizer(smiles)
+                features_list.append(feat)
+
+            features = np.array(features_list, dtype=np.float32)
+            self.molecule_dataset.set_features(features, featurizer_name)
+            return features
+        except Exception as e:
+            logger.error(f"Failed to compute features for task {self.task_id}: {e}")
+            return None
 
     def get_protein_features(
         self, featurizer_name: str = "esm2_t33_650M_UR50D", layer: int = 33, **kwargs: Any
@@ -552,6 +580,9 @@ class Tasks:
 
         # Compute features for each task
         results: Dict[str, NDArray[np.float32]] = {}
+        failed_tasks: List[str] = []
+        feature_dim: Optional[int] = None
+
         for task, task_name in zip(all_tasks, task_names):
             try:
                 logger.debug(f"Computing features for task {task.task_id}")
@@ -563,10 +594,20 @@ class Tasks:
                     **kwargs,
                 )
                 results[task_name] = features
+                # Track expected feature dimension from first successful computation
+                if feature_dim is None:
+                    feature_dim = len(features)
             except Exception as e:
                 logger.error(f"Failed to compute features for task {task.task_id}: {e}")
-                # Use zero features as fallback
-                results[task_name] = np.zeros(100, dtype=np.float32)
+                failed_tasks.append(task_name)
+
+        # Fill in fallback zeros for failed tasks with correct dimension
+        if failed_tasks:
+            if feature_dim is None:
+                feature_dim = 100  # Default if no tasks succeeded
+                logger.warning("No tasks succeeded; using default feature dimension 100")
+            for task_name in failed_tasks:
+                results[task_name] = np.zeros(feature_dim, dtype=np.float32)
 
         # Cache results
         self._feature_cache[cache_key] = results

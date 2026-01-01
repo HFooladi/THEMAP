@@ -12,110 +12,133 @@ This tutorial will walk you through the basic concepts and usage of THEMAP for t
 
 In this tutorial, you will learn how to:
 
-1. Load molecular and protein datasets
-2. Compute basic distances between datasets
-3. Work with the unified task system
-4. Interpret distance results
+1. Set up your data directory
+2. Compute distances between datasets
+3. Analyze the results
+4. Estimate task hardness
 
-## Step 1: Loading Your First Dataset
+## Step 1: Setting Up Your Data
 
-```python
-from themap.data import MoleculeDataset
-from dpu_utils.utils.richpath import RichPath
+Organize your data in this structure:
 
-# Load a molecular dataset
-dataset_path = RichPath.create("datasets/train/CHEMBL1023359.jsonl.gz")
-dataset = MoleculeDataset.load_from_file(dataset_path)
-
-print(f"Loaded dataset with {len(dataset)} molecules")
-print(f"Task ID: {dataset.task_id}")
-print(f"Sample molecule: {dataset[0].smiles}")
+```
+datasets/
+├── train/                        # Source datasets
+│   ├── CHEMBL123456.jsonl.gz
+│   └── ...
+└── test/                         # Target datasets
+    ├── CHEMBL111111.jsonl.gz
+    └── ...
 ```
 
-## Step 2: Computing Simple Distances
-
-```python
-from themap.distance import MoleculeDatasetDistance
-
-# Load two datasets to compare
-source_dataset = MoleculeDataset.load_from_file(
-    RichPath.create("datasets/train/CHEMBL1023359.jsonl.gz")
-)
-target_dataset = MoleculeDataset.load_from_file(
-    RichPath.create("datasets/test/CHEMBL2219358.jsonl.gz")
-)
-
-# Create distance calculator
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,
-    molecule_method="euclidean"  # Start with fastest method
-)
-
-# Set up the comparison
-distance_calc.source_molecule_datasets = [source_dataset]
-distance_calc.target_molecule_datasets = [target_dataset]
-distance_calc.source_task_ids = [source_dataset.task_id]
-distance_calc.target_task_ids = [target_dataset.task_id]
-
-# Compute distance
-result = distance_calc.get_distance()
-print(f"Distance: {result}")
+Each `.jsonl.gz` file contains molecules in JSON lines format:
+```json
+{"SMILES": "CCO", "Property": 1}
+{"SMILES": "CCCO", "Property": 0}
 ```
 
-## Step 3: Working with Protein Data
+## Step 2: Computing Distances (One-liner)
+
+The simplest way to compute distances:
 
 ```python
-from themap.data import ProteinMetadataDatasets
-from themap.distance import ProteinDatasetDistance
+from themap import quick_distance
 
-# Load protein sequences
-proteins = ProteinMetadataDatasets.from_directory("datasets/train/")
-print(f"Loaded {len(proteins)} protein sequences")
-
-# Compute protein similarities
-protein_distance = ProteinDatasetDistance(
-    tasks=None,
-    protein_method="euclidean"
+results = quick_distance(
+    data_dir="datasets",
+    output_dir="output",
+    molecule_featurizer="ecfp",
+    molecule_method="euclidean",
 )
 
-protein_distance.source_protein_datasets = proteins
-protein_distance.target_protein_datasets = proteins
-
-distances = protein_distance.get_distance()
-print("Protein distance matrix computed")
+print("Results saved to output/molecule_distances.csv")
 ```
 
-## Step 4: Understanding Results
+## Step 3: Using a Config File
+
+For reproducible experiments:
+
+```python
+from themap import run_pipeline
+
+# Create config file
+config_content = """
+data:
+  directory: "datasets"
+
+molecule:
+  enabled: true
+  featurizer: "ecfp"
+  method: "euclidean"
+
+output:
+  directory: "output"
+  format: "csv"
+"""
+
+# Save and run
+with open("config.yaml", "w") as f:
+    f.write(config_content)
+
+results = run_pipeline("config.yaml")
+```
+
+## Step 4: Analyzing Results
+
+```python
+import pandas as pd
+
+# Load computed distances
+distances = pd.read_csv("output/molecule_distances.csv", index_col=0)
+
+print(f"Distance matrix shape: {distances.shape}")
+print(f"Sources (rows): {list(distances.index)}")
+print(f"Targets (columns): {list(distances.columns)}")
+
+# Find closest source for each target
+for target in distances.columns:
+    closest = distances[target].idxmin()
+    dist = distances[target].min()
+    print(f"{target} <- {closest} (distance: {dist:.4f})")
+```
+
+## Step 5: Estimating Task Hardness
+
+Task hardness is estimated from the average distance to the k-nearest source tasks:
+
+```python
+# Compute task hardness for each target
+k = 3
+for target in distances.columns:
+    k_nearest = distances[target].nsmallest(k).mean()
+    print(f"Task hardness for {target}: {k_nearest:.4f}")
+```
+
+Higher hardness values indicate tasks that are more different from available training data.
+
+## Understanding Results
 
 Distance values have the following interpretations:
 
-- **Lower values**: More similar datasets
-- **Higher values**: More different datasets
-- **Scale**: Depends on the method used
-
-```python
-# Analyze distance results
-for target_id, source_distances in result.items():
-    print(f"Target task: {target_id}")
-    for source_id, distance in source_distances.items():
-        print(f"  Distance from {source_id}: {distance:.3f}")
-```
+- **Lower values**: More similar datasets (easier transfer learning)
+- **Higher values**: More different datasets (harder transfer learning)
+- **Scale**: Depends on the method and featurizer used
 
 ## Next Steps
 
 Now that you understand the basics:
 
 1. Try different distance methods (`cosine`, `otdd`)
-2. Explore the unified task system
-3. Learn about task hardness estimation
-4. Check out the advanced examples
+2. Try different featurizers (`maccs`, `desc2D`)
+3. Learn about [performance optimization](performance-optimization.md)
+4. Check out the [examples](../examples/index.md)
 
 ## Common Issues
 
 ### Import Errors
 Make sure all dependencies are installed:
 ```bash
-pip install -e ".[ml]"
+pip install -e ".[all]"
 ```
 
 ### Memory Issues

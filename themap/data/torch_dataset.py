@@ -87,8 +87,8 @@ class TorchMoleculeDataset(Dataset):
             RuntimeError: If features or labels cannot be converted to tensors
         """
         try:
-            # Get features
-            features = self._dataset.get_computed_features
+            # Get features - use the features property from MoleculeDataset
+            features = self._dataset.features
             if features is None:
                 logger.warning("Dataset does not have features, creating dummy features")
                 X = torch.ones(len(self._dataset), 2, dtype=torch.float32)
@@ -97,8 +97,8 @@ class TorchMoleculeDataset(Dataset):
                     raise RuntimeError(f"Features must be numpy array, got {type(features)}")
                 X = torch.from_numpy(features).float()
 
-            # Get labels
-            labels = self._dataset.get_labels
+            # Get labels - use the labels attribute from MoleculeDataset
+            labels = self._dataset.labels
             if isinstance(labels, np.ndarray):
                 y = torch.from_numpy(labels).long()
             elif isinstance(labels, torch.Tensor):
@@ -196,7 +196,7 @@ class TorchMoleculeDataset(Dataset):
         Returns:
             list[str]: List of SMILES strings
         """
-        return self._dataset.get_smiles
+        return self._dataset.smiles_list
 
     def refresh_tensors(self) -> None:
         """Refresh cached tensors from the underlying dataset.

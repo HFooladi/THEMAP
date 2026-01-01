@@ -12,7 +12,7 @@ The key distinction from dataset distance:
 This makes metadata distance much simpler and faster - just scipy.cdist.
 """
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -43,10 +43,7 @@ def _matrix_to_dict(
         Dict[target_id][source_id] = distance
     """
     return {
-        target_ids[i]: {
-            source_ids[j]: float(matrix[i, j])
-            for j in range(len(source_ids))
-        }
+        target_ids[i]: {source_ids[j]: float(matrix[i, j]) for j in range(len(source_ids))}
         for i in range(len(target_ids))
     }
 
@@ -91,9 +88,7 @@ class MetadataDistance:
             ValueError: If method is not supported
         """
         if method not in self.SUPPORTED_METHODS:
-            raise ValueError(
-                f"Method '{method}' not supported. Use one of: {self.SUPPORTED_METHODS}"
-            )
+            raise ValueError(f"Method '{method}' not supported. Use one of: {self.SUPPORTED_METHODS}")
         self.method = method
 
     def compute_matrix(
@@ -119,18 +114,14 @@ class MetadataDistance:
         """
         if len(source_vectors) != len(source_ids):
             raise ValueError(
-                f"Source vectors ({len(source_vectors)}) and ids ({len(source_ids)}) "
-                "must have same length"
+                f"Source vectors ({len(source_vectors)}) and ids ({len(source_ids)}) must have same length"
             )
         if len(target_vectors) != len(target_ids):
             raise ValueError(
-                f"Target vectors ({len(target_vectors)}) and ids ({len(target_ids)}) "
-                "must have same length"
+                f"Target vectors ({len(target_vectors)}) and ids ({len(target_ids)}) must have same length"
             )
 
-        logger.info(
-            f"Computing {len(target_ids)}×{len(source_ids)} {self.method} metadata distance"
-        )
+        logger.info(f"Computing {len(target_ids)}×{len(source_ids)} {self.method} metadata distance")
 
         # Map method names to scipy metric names
         metric_map = {
@@ -187,10 +178,7 @@ class MetadataDistance:
             Distance value
         """
         result = self.compute_matrix(
-            source_vector.reshape(1, -1),
-            target_vector.reshape(1, -1),
-            ["source"],
-            ["target"]
+            source_vector.reshape(1, -1), target_vector.reshape(1, -1), ["source"], ["target"]
         )
         return result["target"]["source"]
 
@@ -228,9 +216,7 @@ def compute_metadata_distance_matrix(
         ... )
     """
     calculator = MetadataDistance(method=method)
-    return calculator.compute_matrix(
-        source_vectors, target_vectors, source_ids, target_ids
-    )
+    return calculator.compute_matrix(source_vectors, target_vectors, source_ids, target_ids)
 
 
 def combine_distance_matrices(

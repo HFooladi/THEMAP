@@ -1,6 +1,6 @@
 # Basic Distance Computation
 
-This tutorial covers the fundamentals of computing distances between molecular and protein datasets using THEMAP.
+This tutorial covers the fundamentals of computing distances between molecular datasets using THEMAP.
 
 ## Overview
 
@@ -8,8 +8,23 @@ Distance computation is at the core of THEMAP's functionality. This tutorial wil
 
 1. Choose appropriate distance metrics
 2. Configure distance calculations
-3. Handle different data types
+3. Analyze results
 4. Optimize performance
+
+## Quick Start
+
+The simplest way to compute distances:
+
+```python
+from themap import quick_distance
+
+results = quick_distance(
+    data_dir="datasets",
+    output_dir="output",
+    molecule_featurizer="ecfp",
+    molecule_method="euclidean",
+)
+```
 
 ## Distance Methods Comparison
 
@@ -19,10 +34,8 @@ Distance computation is at the core of THEMAP's functionality. This tutorial wil
 - Works with any embedding
 
 ```python
-from themap.distance import MoleculeDatasetDistance
-
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,
+results = quick_distance(
+    data_dir="datasets",
     molecule_method="euclidean"
 )
 ```
@@ -33,8 +46,8 @@ distance_calc = MoleculeDatasetDistance(
 - Normalized by vector magnitude
 
 ```python
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,
+results = quick_distance(
+    data_dir="datasets",
     molecule_method="cosine"
 )
 ```
@@ -45,145 +58,90 @@ distance_calc = MoleculeDatasetDistance(
 - Best for detailed analysis
 
 ```python
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,
+results = quick_distance(
+    data_dir="datasets",
     molecule_method="otdd"
 )
 ```
 
-## Working with Different Data Types
+## Featurizer Options
 
-### Molecular Datasets
+Different molecular representations:
 
-```python
-from themap.data import MoleculeDataset
-from themap.distance import MoleculeDatasetDistance
-
-# Load datasets
-datasets = [
-    MoleculeDataset.load_from_file(f"datasets/train/{task_id}.jsonl.gz")
-    for task_id in ["CHEMBL1023359", "CHEMBL1613776"]
-]
-
-# Compute all pairwise distances
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,
-    molecule_method="cosine"
-)
-
-# Set up for pairwise comparison
-distance_calc.source_molecule_datasets = datasets
-distance_calc.target_molecule_datasets = datasets
-distance_calc.source_task_ids = [d.task_id for d in datasets]
-distance_calc.target_task_ids = [d.task_id for d in datasets]
-
-distances = distance_calc.get_distance()
-```
-
-### Protein Datasets
+| Featurizer | Description | Speed |
+|------------|-------------|-------|
+| `ecfp` | Extended Connectivity Fingerprints | Fast |
+| `maccs` | MACCS structural keys | Fast |
+| `desc2D` | 2D molecular descriptors | Medium |
+| `desc3D` | 3D molecular descriptors | Slow |
 
 ```python
-from themap.data import ProteinMetadataDatasets
-from themap.distance import ProteinDatasetDistance
-
-# Load protein sequences
-proteins = ProteinMetadataDatasets.from_directory("datasets/train/")
-
-# Compute protein distances
-protein_distance = ProteinDatasetDistance(
-    tasks=None,
-    protein_method="euclidean"
-)
-
-protein_distance.source_protein_datasets = proteins
-protein_distance.target_protein_datasets = proteins
-
-protein_distances = protein_distance.get_distance()
-```
-
-## Batch Processing
-
-For multiple datasets:
-
-```python
-import os
-from pathlib import Path
-
-def compute_all_distances(data_dir, method="euclidean"):
-    """Compute distances between all datasets in a directory."""
-
-    # Find all dataset files
-    dataset_files = list(Path(data_dir).glob("*.jsonl.gz"))
-
-    # Load all datasets
-    datasets = []
-    for file_path in dataset_files:
-        try:
-            dataset = MoleculeDataset.load_from_file(str(file_path))
-            datasets.append(dataset)
-        except Exception as e:
-            print(f"Failed to load {file_path}: {e}")
-
-    # Compute distances
-    if datasets:
-        distance_calc = MoleculeDatasetDistance(
-            tasks=None,
-            molecule_method=method
-        )
-
-        distance_calc.source_molecule_datasets = datasets
-        distance_calc.target_molecule_datasets = datasets
-        distance_calc.source_task_ids = [d.task_id for d in datasets]
-        distance_calc.target_task_ids = [d.task_id for d in datasets]
-
-        return distance_calc.get_distance()
-
-    return {}
-
-# Example usage
-distances = compute_all_distances("datasets/train/")
-```
-
-## Performance Optimization
-
-### Memory Management
-
-```python
-# For large datasets, use euclidean instead of OTDD
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,
-    molecule_method="euclidean"  # Much faster than OTDD
+# Using different featurizers
+results = quick_distance(
+    data_dir="datasets",
+    molecule_featurizer="maccs",  # or "ecfp", "desc2D"
+    molecule_method="euclidean",
 )
 ```
 
-### OTDD Configuration
+## Using Config Files
 
-```python
-# Limit samples for OTDD to reduce computation time
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,
-    molecule_method="otdd"
-)
+For reproducible experiments:
 
-# OTDD parameters are handled internally
-# but you can monitor progress
+```yaml
+# config.yaml
+data:
+  directory: "datasets"
+
+molecule:
+  enabled: true
+  featurizer: "ecfp"
+  method: "euclidean"
+
+output:
+  directory: "output"
+  format: "csv"
+  save_features: true
 ```
 
-## Interpreting Results
-
-Distance results are returned as nested dictionaries:
-
 ```python
-# Result structure: {target_id: {source_id: distance}}
-distances = distance_calc.get_distance()
+from themap import run_pipeline
 
-for target_id, source_distances in distances.items():
-    print(f"Target: {target_id}")
-    for source_id, distance in source_distances.items():
-        print(f"  From {source_id}: {distance:.4f}")
+results = run_pipeline("config.yaml")
 ```
 
-### Distance Interpretation
+## Analyzing Results
+
+### Loading Distance Matrix
+
+```python
+import pandas as pd
+
+distances = pd.read_csv("output/molecule_distances.csv", index_col=0)
+print(f"Matrix shape: {distances.shape}")
+```
+
+### Finding Most Similar Datasets
+
+```python
+# Find closest source for each target
+for target in distances.columns:
+    closest = distances[target].idxmin()
+    dist = distances[target].min()
+    print(f"{target} <- {closest} (distance: {dist:.4f})")
+```
+
+### Task Hardness Estimation
+
+```python
+# Estimate hardness as average distance to k-nearest sources
+k = 3
+for target in distances.columns:
+    hardness = distances[target].nsmallest(k).mean()
+    print(f"Hardness for {target}: {hardness:.4f}")
+```
+
+## Distance Interpretation
 
 - **0.0**: Identical datasets
 - **Low values (< 1.0)**: Very similar datasets
@@ -192,61 +150,26 @@ for target_id, source_distances in distances.items():
 
 Note: Actual ranges depend on the distance method and data characteristics.
 
-## Common Patterns
+## Performance Optimization
 
-### Finding Most Similar Datasets
+### For Large Datasets
 
 ```python
-def find_most_similar(distances, target_task_id, top_k=3):
-    """Find the most similar source tasks for a target task."""
-
-    if target_task_id not in distances:
-        return []
-
-    source_distances = distances[target_task_id]
-
-    # Sort by distance (ascending = most similar first)
-    sorted_sources = sorted(
-        source_distances.items(),
-        key=lambda x: x[1]
-    )
-
-    return sorted_sources[:top_k]
-
-# Example usage
-similar_tasks = find_most_similar(distances, "CHEMBL2219358", top_k=3)
-for source_id, distance in similar_tasks:
-    print(f"Similar task: {source_id} (distance: {distance:.3f})")
+# Use fast featurizer and method
+results = quick_distance(
+    data_dir="datasets",
+    molecule_featurizer="ecfp",   # Fast fingerprints
+    molecule_method="euclidean",  # Faster than OTDD
+    n_jobs=8,                     # Parallel processing
+)
 ```
 
-### Creating Distance Matrix
+### Caching Features
 
-```python
-import pandas as pd
-
-def create_distance_matrix(distances):
-    """Convert nested distance dict to pandas DataFrame."""
-
-    # Get all unique task IDs
-    all_tasks = set()
-    for target_id, source_dict in distances.items():
-        all_tasks.add(target_id)
-        all_tasks.update(source_dict.keys())
-
-    all_tasks = sorted(list(all_tasks))
-
-    # Create matrix
-    matrix = pd.DataFrame(index=all_tasks, columns=all_tasks)
-
-    for target_id, source_dict in distances.items():
-        for source_id, distance in source_dict.items():
-            matrix.loc[target_id, source_id] = distance
-
-    return matrix
-
-# Create and display matrix
-distance_matrix = create_distance_matrix(distances)
-print(distance_matrix)
+```yaml
+# config.yaml
+output:
+  save_features: true  # Cache features for reuse
 ```
 
 ## Troubleshooting
@@ -254,18 +177,17 @@ print(distance_matrix)
 ### Common Errors
 
 1. **Memory Error**: Use euclidean distance or reduce dataset size
-2. **Import Error**: Install required dependencies
+2. **Import Error**: Install required dependencies with `pip install -e ".[all]"`
 3. **File Not Found**: Check file paths and data structure
 
 ### Performance Tips
 
 1. Start with euclidean distance for exploration
 2. Use OTDD only for final analysis
-3. Cache results for repeated computations
-4. Process in batches for large datasets
+3. Enable feature caching for repeated computations
+4. Use parallel processing (`n_jobs` parameter)
 
 ## Next Steps
 
-- Learn about [working with tasks](working-with-tasks.md)
-- Explore [performance optimization](performance-optimization.md)
-- Try the unified task system
+- Learn about [performance optimization](performance-optimization.md)
+- Check out the [examples](../examples/index.md)

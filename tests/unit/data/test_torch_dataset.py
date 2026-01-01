@@ -130,9 +130,9 @@ def sample_molecule_dataset():
     mock_dataset = Mock(spec=MoleculeDataset)
     mock_dataset.task_id = "CHEMBL123456"
     mock_dataset.__len__ = Mock(return_value=10)
-    mock_dataset.get_computed_features = np.random.rand(10, 128).astype(np.float32)
-    mock_dataset.get_labels = np.random.randint(0, 2, 10).astype(np.int32)
-    mock_dataset.get_smiles = [f"C{i}" for i in range(10)]
+    mock_dataset.features = np.random.rand(10, 128).astype(np.float32)
+    mock_dataset.labels = np.random.randint(0, 2, 10).astype(np.int32)
+    mock_dataset.smiles_list = [f"C{i}" for i in range(10)]
     mock_dataset.get_statistics = Mock(return_value={"size": 10, "classes": 2})
     return mock_dataset
 
@@ -196,7 +196,7 @@ class TestEnhancedTorchMoleculeDataset:
         dataset = TorchMoleculeDataset(sample_molecule_dataset)
 
         # Modify underlying dataset
-        sample_molecule_dataset.get_computed_features = np.random.rand(10, 64).astype(np.float32)
+        sample_molecule_dataset.features = np.random.rand(10, 64).astype(np.float32)
 
         # Refresh should update tensors
         dataset.refresh_tensors()
@@ -225,8 +225,8 @@ class TestEnhancedTorchMoleculeDataset:
     def test_tensor_preparation_errors(self, sample_molecule_dataset):
         """Test error handling during tensor preparation."""
         # Simulate mismatched feature and label counts
-        sample_molecule_dataset.get_computed_features = np.random.rand(5, 128).astype(np.float32)
-        sample_molecule_dataset.get_labels = np.random.randint(0, 2, 10).astype(np.int32)
+        sample_molecule_dataset.features = np.random.rand(5, 128).astype(np.float32)
+        sample_molecule_dataset.labels = np.random.randint(0, 2, 10).astype(np.int32)
 
         with pytest.raises(RuntimeError) as exc_info:
             TorchMoleculeDataset(sample_molecule_dataset)
@@ -260,12 +260,13 @@ class TestTorchProteinDataset:
         assert "Expected ProteinMetadataDataset" in str(exc_info.value)
 
     def test_initialization_empty_sequence(self):
-        """Test initialization with empty sequence."""
-        protein_dataset = ProteinMetadataDataset(task_id="EMPTY", uniprot_id="P00000", sequence="")
+        """Test that ProteinMetadataDataset validates empty sequences at construction."""
+        # ProteinMetadataDataset now validates at construction, so creating with empty sequence raises error
+        from themap.data.exceptions import DatasetValidationError
 
-        with pytest.raises(ValueError) as exc_info:
-            TorchProteinMetadataDataset(protein_dataset)
-        assert "empty sequence" in str(exc_info.value)
+        with pytest.raises(DatasetValidationError) as exc_info:
+            ProteinMetadataDataset(task_id="EMPTY", uniprot_id="P00000", sequence="")
+        assert "non-empty string" in str(exc_info.value)
 
     def test_getitem_success(self, sample_protein_dataset):
         """Test successful item retrieval."""
@@ -389,14 +390,15 @@ class TestIntegrationScenarios:
         stats = dataset.get_statistics()
         assert stats["size"] == 10
 
-        smiles = dataset.get_smiles()
+        # Access smiles_list via the wrapper
+        smiles = dataset.smiles_list
         assert len(smiles) == 10
 
     @patch("themap.data.torch_dataset.logger")
     def test_error_logging(self, mock_logger, sample_molecule_dataset):
         """Test that errors are properly logged."""
         # Simulate tensor preparation error by providing invalid features
-        sample_molecule_dataset.get_computed_features = "invalid_features"
+        sample_molecule_dataset.features = "invalid_features"
 
         with pytest.raises(RuntimeError):
             TorchMoleculeDataset(sample_molecule_dataset)

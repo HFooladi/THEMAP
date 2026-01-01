@@ -184,3 +184,37 @@ results/
 
 # ignore CLAUDE file
 CLAUDE.md
+
+# ignore .ruff_cache
+.ruff_cache/
+
+# ignore .coverage
+.coverage/
+
+# ignore .pytest_cache
+.pytest_cache/
+
+# ignore .mypy_cache
+.mypy_cache/
+
+# ignore .ipynb_checkpoints
+.ipynb_checkpoints/
+
+# ignore .pytest_cache
+.pytest_cache/
+
+# ignore all the output folders
+output/
+output_cache/
+output_results/
+output_cache/
+test_output/
+cli_output/
+
+# ignore all the cache folders
+task_distance_cache/
+
+# ignore embeddings and generated cache files
+datasets/embeddings/
+datasets/protein_features_cache.pkl
+datasets/processing_summary.json

@@ -19,7 +19,7 @@ A Python library for calculating distances between chemical datasets to enable i
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Usage Examples](#usage-examples)
-- [Use Cases](#use-cases)
+- [Reproducing FS-Mol Experiments](#reproducing-fs-mol-experiments)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [Citation](#citation)
@@ -92,109 +92,90 @@ pip install -e . --no-deps
 
 ## Quick Start
 
-### Basic Dataset Analysis
+### Compute Dataset Distances
+
+The simplest way to compute distances between molecular datasets:
 
 ```python
-import os
-from dpu_utils.utils.richpath import RichPath
-from themap.data.molecule_dataset import MoleculeDataset
+from themap import quick_distance
 
-# Load datasets
-source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
-source_dataset = MoleculeDataset.load_from_file(source_dataset_path)
+results = quick_distance(
+    data_dir="datasets",          # Directory with train/ and test/ folders
+    output_dir="output",          # Where to save results
+    molecule_featurizer="ecfp",   # Fingerprint type (ecfp, maccs, etc.)
+    molecule_method="euclidean",  # Distance metric
+)
 
-# Basic dataset analysis (works with minimal installation)
-print(f"Dataset size: {len(source_dataset)}")
-print(f"Positive ratio: {source_dataset.get_ratio}")
-print(f"Dataset statistics: {source_dataset.get_statistics()}")
-
-# Validate dataset integrity
-try:
-    source_dataset.validate_dataset_integrity()
-    print("✅ Dataset is valid")
-except ValueError as e:
-    print(f"❌ Dataset validation failed: {e}")
+# Results saved to output/molecule_distances.csv
 ```
 
-### Molecular Embeddings
+### Using a Config File
+
+For reproducible experiments, use a YAML configuration:
 
 ```python
-# Only works with pip install -e ".[ml]" or higher
-from themap.data.molecule_dataset import MoleculeDataset
-dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
+from themap import run_pipeline
 
-# Load dataset
-dataset = MoleculeDataset.load_from_file(dataset_path)
-
-# Calculate molecular embeddings (requires ML dependencies)
-try:
-    features = dataset.get_features("ecfp")
-    print(f"Features shape: {features.shape}")
-except ImportError:
-    print("❌ ML dependencies not installed. Use: pip install -e '.[ml]'")
+results = run_pipeline("config.yaml")
 ```
 
-### Distance Calculation
+Example `config.yaml`:
+```yaml
+data:
+  directory: "datasets"
 
-```python
-# Only works with pip install -e ".[all]"
-from themap.data.tasks import Tasks, Task
-from themap.distance import MoleculeDatasetDistance, ProteinDatasetDistance, TaskDistance
+molecule:
+  enabled: true
+  featurizer: "ecfp"
+  method: "euclidean"
 
-# Create Tasks collection from your datasets
-source_dataset_path = RichPath.create(os.path.join("datasets", "train", "CHEMBL1023359.jsonl.gz"))
-source_dataset = MoleculeDataset.load_from_file(source_dataset_path)
-target_dataset_path = RichPath.create(os.path.join("datasets", "test", "CHEMBL2219358.jsonl.gz"))
-target_dataset = MoleculeDataset.load_from_file(target_dataset_path)
-source_task = Task(task_id="CHEMBL1023359", molecule_dataset=source_dataset)
-target_task = Task(task_id="CHEMBL2219358", molecule_dataset=target_dataset)
+output:
+  directory: "output"
+  format: "csv"
+```
 
-# Step 1: Create Tasks collection with train/test split
-tasks = Tasks(train_tasks=[source_task], test_tasks=[target_task])
+### Data Format
 
-# Step 2: Compute molecule distance with method-specific configuration
-try:
-    # Use different methods for different data types
-    mol_dist = MoleculeDatasetDistance(
-        tasks=tasks,
-        molecule_method="otdd",     # OTDD for molecules
-    )
-    mol_dist._compute_features()
-    distance = mol_dist.get_distance()
-    print(distance)
+Organize your data in this structure:
 
-except ImportError:
-    print("❌ Distance calculation dependencies not installed. Use: pip install -e '.[all]'")
+```
+datasets/
+├── train/                        # Source datasets
+│   ├── CHEMBL123456.jsonl.gz
+│   └── ...
+└── test/                         # Target datasets
+    ├── CHEMBL111111.jsonl.gz
+    └── ...
+```
+
+Each `.jsonl.gz` file contains molecules in JSON lines format:
+```json
+{"SMILES": "CCO", "Property": 1}
+{"SMILES": "CCCO", "Property": 0}
 ```
 
 
 ## Usage Examples
 
-### Transfer Learning Dataset Selection
-```python
-# Find the most similar training datasets for your target task
-candidate_datasets = ["CHEMBL1023359", "CHEMBL2219358", "CHEMBL1243967"]
-target_dataset = "my_target_assay"
+### Analyzing Distance Results
 
-distances = calculate_all_distances(candidate_datasets, target_dataset)
-best_source = min(distances, key=distances.get)  # Closest dataset for transfer learning
-```
-
-### Domain Adaptation Assessment
 ```python
-# Assess how much domain shift exists between datasets
-domain_gap = calculate_dataset_distance(source_domain, target_domain)
-if domain_gap < threshold:
-    print("Direct transfer likely to work well")
-else:
-    print("Domain adaptation strategies recommended")
-```
+import pandas as pd
 
-### Task Hardness Prediction
-```python
-# Predict task difficulty based on dataset characteristics
-hardness_score = estimate_task_hardness(dataset, reference_datasets)
-print(f"Predicted task difficulty: {hardness_score}")
+# Load computed distances
+distances = pd.read_csv("output/molecule_distances.csv", index_col=0)
+
+# Find closest source for each target (transfer learning selection)
+for target in distances.columns:
+    closest = distances[target].idxmin()
+    dist = distances[target].min()
+    print(f"{target} <- {closest} (distance: {dist:.4f})")
+
+# Estimate task hardness (average distance to k-nearest sources)
+k = 3
+for target in distances.columns:
+    hardness = distances[target].nsmallest(k).mean()
+    print(f"Task hardness for {target}: {hardness:.4f}")
 ```
 
 ## Reproducing FS-Mol Experiments
@@ -204,7 +185,7 @@ Pre-computed molecular embeddings and distance matrices for the FS-Mol dataset a
 ### Setup
 1. Download data from [Zenodo](https://zenodo.org/records/10605093)
 2. Extract to `datasets/fsmol_hardness/`
-3. Run the provided Jupyter notebooks in the `notebooks/` directory
+3. See `examples/` directory for usage examples
 
 ## Documentation
 
@@ -261,11 +242,8 @@ If you use THEMAP in your research, please cite our paper:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🤝 Support
+## Support
 
- - 📖 [Documentation](https://hfooladi.github.io/THEMAP/)
- - 🐛 [Issue Tracker](https://github.com/HFooladi/THEMAP/issues)
- - 💬 [Discussions](https://github.com/HFooladi/THEMAP/discussions)
----
-
-**Ready to optimize your chemical dataset selection for machine learning?** Start with THEMAP today! 🚀
+- [Documentation](https://hfooladi.github.io/THEMAP/)
+- [Issue Tracker](https://github.com/HFooladi/THEMAP/issues)
+- [Discussions](https://github.com/HFooladi/THEMAP/discussions)

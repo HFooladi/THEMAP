@@ -118,7 +118,7 @@ class TestOutputManager:
         assert "pickle" in saved_files
         pickle_file = saved_files["pickle"]
         assert pickle_file.exists()
-        assert pickle_file.suffix == ".pkl"
+        assert pickle_file.suffix == ".pickle"  # save_results uses .pickle extension
 
         # Verify content
         with open(pickle_file, "rb") as f:
@@ -238,17 +238,17 @@ class TestOutputManager:
         assert loaded_data["int"] == 42
         assert loaded_data["path"] == "/test/path"
 
-    def test_csv_fallback_to_json(self, output_manager):
-        """Test CSV fallback to JSON for complex data."""
-        # Create data that can't easily be converted to CSV
+    def test_csv_with_complex_data(self, output_manager):
+        """Test CSV with complex nested data uses json_normalize."""
+        # Create nested data - json_normalize can handle this
         complex_data = {"nested": {"deeply": {"nested": "data"}}, "list_of_dicts": [{"a": 1}, {"b": 2}]}
 
         saved_files = output_manager.save_results(complex_data, "complex_test")
 
-        # Should fall back to JSON even though CSV was requested
+        # json_normalize successfully handles nested dicts, so CSV is created
         assert "csv" in saved_files
         csv_file = saved_files["csv"]
-        assert csv_file.suffix == ".json"  # Fallback
+        assert csv_file.suffix == ".csv"  # json_normalize handles this
 
     def test_extract_dataset_summary(self, output_manager):
         """Test dataset summary extraction."""

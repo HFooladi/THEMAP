@@ -62,94 +62,73 @@ import themap
 print(f"THEMAP version: {themap.__version__}")
 
 # Test basic functionality
-from themap.data import MoleculeDataset
-from themap.distance import MoleculeDatasetDistance
-print("✅ Installation successful!")
+from themap import quick_distance
+print("Installation successful!")
 ```
 
 ## Quick Start
 
-### 1. Molecular Dataset Distance
+### 1. One-liner Distance Computation
 
-Compute distances between molecular datasets to understand chemical space similarity:
+The simplest way to compute distances between molecular datasets:
 
 ```python
-import os
-from dpu_utils.utils.richpath import RichPath
-from themap.data import MoleculeDataset
-from themap.distance import MoleculeDatasetDistance
+from themap import quick_distance
 
-# Load datasets
-source_path = RichPath.create("datasets/train/CHEMBL1023359.jsonl.gz")
-target_path = RichPath.create("datasets/test/CHEMBL2219358.jsonl.gz")
-
-source_dataset = MoleculeDataset.load_from_file(source_path)
-target_dataset = MoleculeDataset.load_from_file(target_path)
-
-# Compute distance using OTDD
-distance_calc = MoleculeDatasetDistance(
-    tasks=None,  # Will be auto-extracted from datasets
-    molecule_method="otdd"
+results = quick_distance(
+    data_dir="datasets",          # Directory with train/ and test/ folders
+    output_dir="output",          # Where to save results
+    molecule_featurizer="ecfp",   # Fingerprint type (ecfp, maccs, etc.)
+    molecule_method="euclidean",  # Distance metric
 )
 
-distances = distance_calc.get_distance()
-print(distances)
-# Output: {'CHEMBL2219358': {'CHEMBL1023359': 7.074298858642578}}
+# Results saved to output/molecule_distances.csv
 ```
 
-### 2. Protein Dataset Distance
+### 2. Config File Approach
 
-Analyze protein similarity using sequence features:
+For reproducible experiments, use a YAML configuration:
 
 ```python
-from themap.data import ProteinMetadataDatasets
-from themap.distance import ProteinDatasetDistance
+from themap import run_pipeline
 
-# Load protein datasets
-source_proteins = ProteinMetadataDatasets.from_directory("datasets/train/")
-target_proteins = ProteinMetadataDatasets.from_directory("datasets/test/")
-
-# Compute euclidean distance between protein features
-protein_distance = ProteinDatasetDistance(
-    tasks=None,  # Will be auto-extracted
-    protein_method="euclidean"
-)
-
-distances = protein_distance.get_distance()
-print(distances)
+results = run_pipeline("config.yaml")
 ```
 
-### 3. Unified Task Analysis
+Example `config.yaml`:
+```yaml
+data:
+  directory: "datasets"
 
-Work with the unified task system that integrates multiple data modalities:
+molecule:
+  enabled: true
+  featurizer: "ecfp"
+  method: "euclidean"
+
+output:
+  directory: "output"
+  format: "csv"
+```
+
+### 3. Analyzing Results
 
 ```python
-from themap.data.tasks import Tasks
-from themap.distance import TaskDistance
+import pandas as pd
 
-# Load integrated tasks
-tasks = Tasks.from_directory(
-    directory="datasets/",
-    task_list_file="datasets/sample_tasks_list.json",
-    load_molecules=True,
-    load_proteins=True,
-    load_metadata=True,
-    cache_dir="cache/"
-)
+# Load computed distances
+distances = pd.read_csv("output/molecule_distances.csv", index_col=0)
 
-print(f"Loaded {len(tasks)} tasks")
-print(f"Train tasks: {tasks.get_num_fold_tasks('TRAIN')}")
-print(f"Test tasks: {tasks.get_num_fold_tasks('TEST')}")
+# Find closest source for each target
+for target in distances.columns:
+    closest = distances[target].idxmin()
+    dist = distances[target].min()
+    print(f"{target} <- {closest} (distance: {dist:.4f})")
 
-# Compute combined distances
-task_distance = TaskDistance(
-    tasks=tasks,
-    molecule_method="cosine",
-    protein_method="euclidean"
-)
-
-# Get all distance types
-all_distances = task_distance.compute_all_distances()
+# Estimate task hardness (average distance to k-nearest sources)
+k = 3
+for target in distances.columns:
+    hardness = distances[target].nsmallest(k).mean()
+    print(f"Task hardness for {target}: {hardness:.4f}")
 ```
 
 ## Core Concepts
@@ -228,41 +207,44 @@ If you encounter import errors:
 ```python
 # Check if optional dependencies are installed
 try:
-    from themap.distance import MoleculeDatasetDistance
-    print("✅ Distance module available")
+    from themap import quick_distance
+    print("Distance module available")
 except ImportError as e:
-    print(f"❌ Missing dependencies: {e}")
-    print("Install with: pip install -e '.[otdd]'")
+    print(f"Missing dependencies: {e}")
+    print("Install with: pip install -e '.[all]'")
 ```
 
 ### Memory Issues
 
-For large datasets:
+For large datasets, use faster distance methods:
 
 ```python
-# Reduce memory usage
-distance_calc = MoleculeDatasetDistance(
-    tasks=tasks,
-    molecule_method="euclidean"  # Use instead of OTDD for large datasets
-)
+from themap import quick_distance
 
-# Or limit OTDD samples
-hopts = {"maxsamples": 500}  # Default is 1000
+# Use euclidean instead of OTDD for large datasets
+results = quick_distance(
+    data_dir="datasets",
+    molecule_featurizer="ecfp",
+    molecule_method="euclidean",  # Faster than OTDD
+)
 ```
 
 ### Data Format Issues
 
 Ensure your data follows the expected format:
 
-```python
-# Validate molecular data
-dataset = MoleculeDataset.load_from_file("your_data.jsonl.gz")
-print(f"Dataset contains {len(dataset)} molecules")
-print(f"Sample molecule: {dataset[0].smiles}")
+```
+datasets/
+├── train/
+│   └── CHEMBL123456.jsonl.gz
+└── test/
+    └── CHEMBL111111.jsonl.gz
+```
 
-# Validate protein data
-proteins = ProteinMetadataDatasets.from_directory("proteins/")
-print(f"Loaded {len(proteins)} protein sequences")
+Each `.jsonl.gz` file should contain JSON lines:
+```json
+{"SMILES": "CCO", "Property": 1}
+{"SMILES": "CCCO", "Property": 0}
 ```
 
 Ready to dive deeper? Continue with our [comprehensive tutorials](../tutorials/index.md)!

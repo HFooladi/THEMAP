@@ -298,12 +298,15 @@ class TestMoleculeDatasetPrototype:
             labels=np.array([1, 1, 0, 0], dtype=np.int32),
         )
         # Set features with known values
-        features = np.array([
-            [1.0, 2.0, 3.0],  # positive
-            [2.0, 3.0, 4.0],  # positive
-            [5.0, 6.0, 7.0],  # negative
-            [6.0, 7.0, 8.0],  # negative
-        ], dtype=np.float32)
+        features = np.array(
+            [
+                [1.0, 2.0, 3.0],  # positive
+                [2.0, 3.0, 4.0],  # positive
+                [5.0, 6.0, 7.0],  # negative
+                [6.0, 7.0, 8.0],  # negative
+            ],
+            dtype=np.float32,
+        )
         dataset.set_features(features, "test_featurizer")
         return dataset
 

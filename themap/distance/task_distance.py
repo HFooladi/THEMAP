@@ -27,7 +27,7 @@ Usage:
     distances = compute_dataset_distance_matrix(...)
 """
 
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -35,8 +35,8 @@ from numpy.typing import NDArray
 from ..data.enums import DataFold
 from ..data.tasks import Task, Tasks
 from ..utils.logging import get_logger
-from .dataset_distance import DatasetDistance, compute_dataset_distance_matrix
-from .metadata_distance import MetadataDistance, combine_distance_matrices, compute_metadata_distance_matrix
+from .dataset_distance import DatasetDistance
+from .metadata_distance import MetadataDistance, combine_distance_matrices
 
 logger = get_logger(__name__)
 
@@ -182,10 +182,7 @@ class TaskDistanceCalculator:
             **kwargs,
         )
 
-        logger.info(
-            f"Computed molecule distance matrix: "
-            f"{len(target_names)}×{len(source_names)}"
-        )
+        logger.info(f"Computed molecule distance matrix: {len(target_names)}×{len(source_names)}")
         return self.molecule_distances
 
     def compute_protein_distance(
@@ -235,10 +232,7 @@ class TaskDistanceCalculator:
             target_ids=target_names,
         )
 
-        logger.info(
-            f"Computed protein distance matrix: "
-            f"{len(target_names)}×{len(source_names)}"
-        )
+        logger.info(f"Computed protein distance matrix: {len(target_names)}×{len(source_names)}")
         return self.protein_distances
 
     def compute_combined_distance(
@@ -397,7 +391,7 @@ class TaskDistanceCalculator:
         # Strip fold prefix if present
         for prefix in ["train_", "valid_", "test_"]:
             if name.startswith(prefix):
-                task_id = name[len(prefix):]
+                task_id = name[len(prefix) :]
                 break
         else:
             task_id = name

@@ -135,8 +135,7 @@ class MoleculeDataset:
         """
         if len(features) != len(self.smiles_list):
             raise ValueError(
-                f"Feature count ({len(features)}) must match "
-                f"dataset size ({len(self.smiles_list)})"
+                f"Feature count ({len(features)}) must match dataset size ({len(self.smiles_list)})"
             )
         self._features = features.astype(np.float32)
         self._featurizer_name = featurizer_name
@@ -147,10 +146,62 @@ class MoleculeDataset:
         self._features = None
         self._featurizer_name = None
 
-    def get_prototype(self) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+    def get_features(self, featurizer_name: str = "ecfp", **kwargs: Any) -> NDArray[np.float32]:
+        """Get molecular features, computing on demand if necessary.
+
+        This method returns pre-computed features if available (set via set_features or FeaturizationPipeline),
+        or computes features on demand using the specified featurizer.
+
+        Args:
+            featurizer_name: Name of molecular featurizer to use (e.g., "ecfp", "maccs", "desc2D")
+            **kwargs: Additional featurizer arguments
+
+        Returns:
+            Feature matrix of shape (n_molecules, feature_dim)
+
+        Raises:
+            ValueError: If no molecules in dataset or featurization fails
+        """
+        # Check if features are already computed with matching featurizer
+        if self._features is not None:
+            if self._featurizer_name == featurizer_name:
+                return self._features
+            else:
+                logger.debug(
+                    f"Task {self.task_id}: requested featurizer '{featurizer_name}' differs from "
+                    f"cached '{self._featurizer_name}', recomputing..."
+                )
+
+        if len(self.smiles_list) == 0:
+            raise ValueError(f"Cannot compute features for empty dataset {self.task_id}")
+
+        # Compute features on demand using the featurizer
+        try:
+            from ..utils.featurizer_utils import get_featurizer
+
+            featurizer = get_featurizer(featurizer_name)
+            features_list = []
+            for smiles in self.smiles_list:
+                feat = featurizer(smiles)
+                features_list.append(feat)
+
+            features = np.array(features_list, dtype=np.float32)
+            self.set_features(features, featurizer_name)
+            return features
+        except Exception as e:
+            logger.error(f"Failed to compute features for dataset {self.task_id}: {e}")
+            raise ValueError(f"Feature computation failed: {e}") from e
+
+    def get_prototype(
+        self, featurizer_name: Optional[str] = None
+    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
         """Compute positive and negative prototypes from features.
 
         Prototypes are the mean feature vectors for each class.
+
+        Args:
+            featurizer_name: Optional featurizer name. If provided and features
+                aren't yet computed, they will be computed on demand.
 
         Returns:
             Tuple of (positive_prototype, negative_prototype)
@@ -158,6 +209,10 @@ class MoleculeDataset:
         Raises:
             ValueError: If features haven't been set or no examples exist for a class
         """
+        # If featurizer_name is provided and features aren't set, compute them
+        if featurizer_name is not None and self._features is None:
+            self.get_features(featurizer_name)
+
         if self._features is None:
             raise ValueError(
                 f"Features must be set before computing prototype for {self.task_id}. "
@@ -241,8 +296,7 @@ class MoleculeDataset:
         numeric_array = None
         if any(v is not None for v in numeric_labels):
             numeric_array = np.array(
-                [v if v is not None else np.nan for v in numeric_labels],
-                dtype=np.float32
+                [v if v is not None else np.nan for v in numeric_labels], dtype=np.float32
             )
 
         logger.info(f"Loaded {len(smiles_list)} molecules for {task_id}")
@@ -271,7 +325,9 @@ class MoleculeDataset:
             task_id=data["task_id"],
             smiles_list=data["smiles_list"],
             labels=np.array(data["labels"], dtype=np.int32),
-            numeric_labels=np.array(data["numeric_labels"], dtype=np.float32) if data.get("numeric_labels") else None,
+            numeric_labels=np.array(data["numeric_labels"], dtype=np.float32)
+            if data.get("numeric_labels")
+            else None,
         )
 
     def filter_by_indices(self, indices: List[int]) -> "MoleculeDataset":

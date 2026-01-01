@@ -8,16 +8,14 @@ for N×M distance matrix computation.
 
 import json
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
-import numpy as np
 from dpu_utils.utils import RichPath
 
 from ..utils.logging import get_logger, setup_logging
 from .enums import DataFold
-from .exceptions import DatasetValidationError, FeaturizationError
+from .exceptions import DatasetValidationError
 from .molecule_dataset import MoleculeDataset, get_task_name_from_path
 
 # Setup logging
@@ -321,8 +319,7 @@ class MoleculeDatasets:
     def get_all_task_names(self) -> Dict[DataFold, List[str]]:
         """Get all task names organized by fold."""
         return {
-            fold: self.get_task_names(fold)
-            for fold in [DataFold.TRAIN, DataFold.VALIDATION, DataFold.TEST]
+            fold: self.get_task_names(fold) for fold in [DataFold.TRAIN, DataFold.VALIDATION, DataFold.TEST]
         }
 
     def load_datasets(self, folds: Optional[List[DataFold]] = None) -> Dict[str, MoleculeDataset]:
@@ -457,9 +454,7 @@ class MoleculeDatasets:
             all_smiles.update(dataset.smiles_list)
         return list(all_smiles)
 
-    def get_smiles_to_datasets_mapping(
-        self, folds: Optional[List[DataFold]] = None
-    ) -> Dict[str, List[str]]:
+    def get_smiles_to_datasets_mapping(self, folds: Optional[List[DataFold]] = None) -> Dict[str, List[str]]:
         """Get mapping from SMILES to dataset names containing them.
 
         Useful for understanding SMILES overlap between datasets.

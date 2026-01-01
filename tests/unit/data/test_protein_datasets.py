@@ -1,5 +1,6 @@
 import pytest
 
+from themap.data.exceptions import DatasetValidationError
 from themap.data.protein_datasets import ProteinMetadataDataset
 
 
@@ -24,20 +25,20 @@ def test_ProteinMetadataDataset_validation():
     assert dataset.uniprot_id == "P00000"
     assert dataset.sequence == "LNMHMNVQNG"
 
-    # Test invalid task_id
-    with pytest.raises(TypeError):
+    # Test invalid task_id (must be non-empty string)
+    with pytest.raises(DatasetValidationError):
         ProteinMetadataDataset(
-            task_id=123,  # Should be string
+            task_id="",  # Empty string not allowed
             uniprot_id="P00000",
             sequence="LNMHMNVQNG",
         )
 
-    # Test invalid sequence
-    with pytest.raises(TypeError):
+    # Test invalid sequence (must be non-empty string)
+    with pytest.raises(DatasetValidationError):
         ProteinMetadataDataset(
             task_id="test_task",
             uniprot_id="P00000",
-            sequence=123,  # Should be string, not int
+            sequence="",  # Empty sequence not allowed
         )
 
 

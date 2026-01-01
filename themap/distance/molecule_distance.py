@@ -344,6 +344,9 @@ class MoleculeDatasetDistance(AbstractTasksDistance):
                         # Cosine distance = 1 - cosine_similarity
                         # Cosine similarity = dot(a, b) / (||a|| * ||b||)
                         def cosine_distance(a, b):
+                            # Ensure arrays are flattened to 1D
+                            a = np.asarray(a).flatten()
+                            b = np.asarray(b).flatten()
                             dot_product = np.dot(a, b)
                             norm_a = np.linalg.norm(a)
                             norm_b = np.linalg.norm(b)

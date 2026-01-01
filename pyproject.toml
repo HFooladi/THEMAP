@@ -52,6 +52,8 @@ dependencies = [
     "h5py",
     "pytz",
     "pydantic",
+    "pyyaml",
+    "click>=8.0.0",
     "chembl-webresource-client",
     "torch>=2.0.0,<3.0.0",
     "torchvision>=0.15.0,<1.0.0",
@@ -62,6 +64,9 @@ dependencies = [
     "torch-geometric",
     "fcd_torch",
 ]
+
+[project.scripts]
+themap = "themap.cli:main"
 
 [project.optional-dependencies]
 

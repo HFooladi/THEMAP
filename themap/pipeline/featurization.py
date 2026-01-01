@@ -22,7 +22,6 @@ Usage:
     )
 """
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -72,9 +71,7 @@ class FeatureStore:
         """Get path for molecule features."""
         return self.cache_dir / "molecules" / featurizer_name / f"{task_id}.npz"
 
-    def _get_metadata_path(
-        self, task_id: str, metadata_type: str, featurizer_name: str
-    ) -> Path:
+    def _get_metadata_path(self, task_id: str, metadata_type: str, featurizer_name: str) -> Path:
         """Get path for metadata features."""
         return self.cache_dir / metadata_type / featurizer_name / f"{task_id}.npy"
 
@@ -98,9 +95,7 @@ class FeatureStore:
         np.savez_compressed(path, features=features.astype(np.float32), labels=labels.astype(np.int32))
         logger.debug(f"Saved molecule features for {task_id} at {path}")
 
-    def load_molecule_features(
-        self, task_id: str, featurizer_name: str
-    ) -> Optional[Dict[str, NDArray]]:
+    def load_molecule_features(self, task_id: str, featurizer_name: str) -> Optional[Dict[str, NDArray]]:
         """Load molecule dataset features.
 
         Args:
@@ -158,9 +153,7 @@ class FeatureStore:
         """Check if molecule features exist for a task."""
         return self._get_molecule_path(task_id, featurizer_name).exists()
 
-    def has_metadata_features(
-        self, task_id: str, metadata_type: str, featurizer_name: str
-    ) -> bool:
+    def has_metadata_features(self, task_id: str, metadata_type: str, featurizer_name: str) -> bool:
         """Check if metadata features exist for a task."""
         return self._get_metadata_path(task_id, metadata_type, featurizer_name).exists()
 
@@ -296,7 +289,9 @@ class FeaturizationPipeline:
             logger.info("All datasets already cached, skipping featurization")
             return {d.task_id: True for d in datasets}
 
-        logger.info(f"Processing {len(datasets_to_process)} datasets (skipped {len(datasets) - len(datasets_to_process)} cached)")
+        logger.info(
+            f"Processing {len(datasets_to_process)} datasets (skipped {len(datasets) - len(datasets_to_process)} cached)"
+        )
 
         # Collect all unique SMILES
         all_smiles = set()
@@ -307,9 +302,7 @@ class FeaturizationPipeline:
         logger.info(f"Found {len(unique_smiles)} unique SMILES across all datasets")
 
         # Batch compute features for unique SMILES
-        smiles_to_features = self._batch_featurize_smiles(
-            unique_smiles, n_jobs, batch_size
-        )
+        smiles_to_features = self._batch_featurize_smiles(unique_smiles, n_jobs, batch_size)
 
         # Distribute and save features for each dataset
         results = {}
@@ -421,9 +414,7 @@ class FeaturizationPipeline:
                 continue
 
             # Try to load from disk
-            cached = self.store.load_molecule_features(
-                dataset.task_id, self.molecule_featurizer
-            )
+            cached = self.store.load_molecule_features(dataset.task_id, self.molecule_featurizer)
             if cached is not None:
                 features_list.append(cached["features"])
                 labels_list.append(cached["labels"])
@@ -431,10 +422,7 @@ class FeaturizationPipeline:
                 # Also set on dataset object
                 dataset.set_features(cached["features"], self.molecule_featurizer)
             else:
-                logger.warning(
-                    f"No features found for {dataset.task_id}. "
-                    "Run featurize_all_datasets first."
-                )
+                logger.warning(f"No features found for {dataset.task_id}. Run featurize_all_datasets first.")
 
         logger.info(f"Loaded features for {len(valid_names)}/{len(datasets)} datasets")
         return features_list, labels_list, valid_names
@@ -470,12 +458,8 @@ class FeaturizationPipeline:
             - target_labels: List of M label arrays
             - target_ids: List of M dataset names
         """
-        source_features, source_labels, source_ids = self.load_dataset_features(
-            source_datasets, source_names
-        )
-        target_features, target_labels, target_ids = self.load_dataset_features(
-            target_datasets, target_names
-        )
+        source_features, source_labels, source_ids = self.load_dataset_features(source_datasets, source_names)
+        target_features, target_labels, target_ids = self.load_dataset_features(target_datasets, target_names)
 
         return (
             source_features,
@@ -492,9 +476,7 @@ class FeaturizationPipeline:
         Returns:
             Dictionary with cache statistics
         """
-        cached_molecules = self.store.get_cached_task_ids(
-            self.molecule_featurizer, "molecules"
-        )
+        cached_molecules = self.store.get_cached_task_ids(self.molecule_featurizer, "molecules")
 
         stats = {
             "cache_dir": str(self.store.cache_dir),

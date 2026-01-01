@@ -59,9 +59,7 @@ class MoleculeConfig:
 
         for featurizer in self.featurizers:
             if featurizer not in AVAILABLE_FEATURIZERS:
-                raise ValueError(
-                    f"Unknown featurizer: {featurizer}. Available: {list(AVAILABLE_FEATURIZERS.keys())}"
-                )
+                raise ValueError(f"Unknown featurizer: {featurizer}. Available: {AVAILABLE_FEATURIZERS}")
 
         for method in self.distance_methods:
             if method not in MOLECULE_DISTANCE_METHODS:
@@ -220,10 +218,10 @@ class PipelineConfig:
             datasets = None
             directory = None
 
-            if "datasets" in molecule_data:
+            if "datasets" in molecule_data and molecule_data["datasets"]:
                 datasets = [DatasetConfig(**ds) for ds in molecule_data["datasets"]]
 
-            if "directory" in molecule_data:
+            if "directory" in molecule_data and molecule_data["directory"] is not None:
                 directory = DirectoryConfig(**molecule_data["directory"])
 
             config_data["molecule"] = MoleculeConfig(
@@ -239,10 +237,10 @@ class PipelineConfig:
             datasets = None
             directory = None
 
-            if "datasets" in protein_data:
+            if "datasets" in protein_data and protein_data["datasets"]:
                 datasets = [DatasetConfig(**ds) for ds in protein_data["datasets"]]
 
-            if "directory" in protein_data:
+            if "directory" in protein_data and protein_data["directory"] is not None:
                 directory = DirectoryConfig(**protein_data["directory"])
 
             config_data["protein"] = ProteinConfig(
