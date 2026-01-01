@@ -261,9 +261,9 @@ THEMAP is released under the MIT License. See [LICENSE](https://github.com/HFool
 
     ---
 
-    Understand the unified task system for multi-modal data
+    Learn how to work with tasks and multi-modal data
 
-    [:octicons-arrow-right-24: Task system](UNIFIED_TASK_SYSTEM.md)
+    [:octicons-arrow-right-24: Working with Tasks](tutorials/working-with-tasks.md)
 
 -   **Need inspiration?**
 

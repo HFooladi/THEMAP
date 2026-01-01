@@ -269,9 +269,9 @@ prot_features = task.get_protein_features("esm2_t33_650M_UR50D")
 
 ## TorchDataset
 
-### MoleculeTorchDataset
+### TorchMoleculeDataset
 
-::: themap.data.torch_dataset.MoleculeTorchDataset
+::: themap.data.torch_dataset.TorchMoleculeDataset
     options:
       show_root_heading: true
       heading_level: 3
@@ -279,11 +279,11 @@ prot_features = task.get_protein_features("esm2_t33_650M_UR50D")
 ### Usage Examples
 
 ```python
-from themap.data.torch_dataset import MoleculeTorchDataset
+from themap.data.torch_dataset import TorchMoleculeDataset
 from torch.utils.data import DataLoader
 
 # Create PyTorch dataset
-torch_dataset = MoleculeTorchDataset(
+torch_dataset = TorchMoleculeDataset(
     dataset=molecule_dataset,
     featurizer="ecfp"
 )
