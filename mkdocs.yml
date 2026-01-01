@@ -1,9 +1,9 @@
 site_name: "THEMAP"
-site_description: "THEMAP:  Task Hardness Estimation for Molecular Activity Predcition"
-site_url: "https://github.com/HFooladi/THEMAP"
+site_description: "THEMAP: Task Hardness Estimation for Molecular Activity Prediction"
+site_url: "https://hfooladi.github.io/THEMAP/"
 repo_url: "https://github.com/HFooladi/THEMAP"
 repo_name: "HFooladi/THEMAP"
-copyright: Copyright 2023 - 2025 Hosein Fooladi
+copyright: Copyright 2023 - 2026 Hosein Fooladi
 
 remote_branch: "gh-pages"
 use_directory_urls: false
@@ -18,7 +18,7 @@ nav:
   - User Guide:
       - Getting Started: user-guide/getting-started.md
       - Distance Computation: user-guide/distance-computation.md
-      - Unified Task System: UNIFIED_TASK_SYSTEM.md
+      - Command Line Interface: user-guide/cli.md
 
   - Tutorials:
       - Overview: tutorials/index.md
@@ -26,7 +26,7 @@ nav:
       - Basic Distance Computation: tutorials/basic-distance-computation.md
       - Working with Tasks: tutorials/working-with-tasks.md
       - Performance Optimization: tutorials/performance-optimization.md
-      - The Basics: tutorials/Basics.ipynb
+      - Interactive Notebook: tutorials/Basics.ipynb
 
   - Examples:
       - Code Examples: examples/index.md
@@ -34,24 +34,46 @@ nav:
   - API Reference:
       - Data Module: api/data.md
       - Distance Module: api/distance.md
+      - Features Module: api/features.md
+      - Pipeline Module: api/pipeline.md
 
 theme:
   name: material
-  # NOTE(hadim): to customize the material primary and secondary color,
-  # see check `docs/assets/css/custom.css`.
   palette:
-    primary: deep purple
-    accent: indigo
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  font:
+    text: Inter
+    code: JetBrains Mono
 
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
+    - navigation.expand
     - navigation.path
     - navigation.top
     - navigation.footer
+    - navigation.indexes
     - toc.follow
     - content.code.copy
     - content.code.annotate
+    - search.suggest
+    - search.highlight
+
   favicon: assets/images/logo-black.svg
   logo: assets/images/logo-white.svg
 
@@ -67,8 +89,15 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.tabbed:
@@ -77,8 +106,14 @@ markdown_extensions:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
-  - pymdownx.emoji
-
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.mark
+  - pymdownx.critic
+  - pymdownx.keys
 
 watch:
   - themap/
@@ -102,14 +137,26 @@ plugins:
             separate_signature: true
             show_signature_annotations: true
             line_length: 80
+            docstring_style: google
 
   - mkdocs-jupyter:
       execute: False
+      include_source: True
 
   - mike:
       version_selector: true
+      css_dir: css
+      javascript_dir: js
 
 extra:
   version:
-    # Multi versioning provider for mkdocs-material (used for the JS selector)
     provider: mike
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/HFooladi/THEMAP
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/themap/
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX

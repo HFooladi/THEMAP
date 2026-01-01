@@ -1,0 +1,279 @@
+/* THEMAP Documentation Custom Styling
+ * Professional theme enhancements for MkDocs Material
+ */
+
+/* ===== Root Variables ===== */
+:root {
+  --md-primary-fg-color: #5e35b1;
+  --md-primary-fg-color--light: #7e57c2;
+  --md-primary-fg-color--dark: #4527a0;
+  --md-accent-fg-color: #651fff;
+  --md-code-bg-color: #f5f5f5;
+  --themap-gradient-start: #5e35b1;
+  --themap-gradient-end: #3949ab;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-code-bg-color: #1e1e2e;
+  --md-default-bg-color: #0d1117;
+}
+
+/* ===== Typography ===== */
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+
+.md-typeset h2 {
+  font-weight: 600;
+  margin-top: 2rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--md-primary-fg-color--light);
+}
+
+.md-typeset h3 {
+  font-weight: 600;
+  color: var(--md-primary-fg-color);
+}
+
+/* ===== Code Blocks ===== */
+.md-typeset code {
+  border-radius: 4px;
+  font-size: 0.85em;
+  padding: 0.15em 0.4em;
+}
+
+.md-typeset pre {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.md-typeset pre > code {
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+/* Code copy button styling */
+.md-clipboard {
+  color: var(--md-default-fg-color--lighter);
+}
+
+.md-clipboard:hover {
+  color: var(--md-accent-fg-color);
+}
+
+/* ===== Navigation ===== */
+.md-nav__title {
+  font-weight: 600;
+}
+
+.md-nav__link {
+  font-size: 0.9rem;
+}
+
+.md-nav__link--active {
+  font-weight: 600;
+  color: var(--md-accent-fg-color) !important;
+}
+
+/* Tab navigation styling */
+.md-tabs__link {
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.md-tabs__link--active {
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* ===== Tables ===== */
+.md-typeset table:not([class]) {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.9rem;
+}
+
+.md-typeset table:not([class]) th {
+  background: var(--md-primary-fg-color);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.md-typeset table:not([class]) td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.md-typeset table:not([class]) tr:last-child td {
+  border-bottom: none;
+}
+
+.md-typeset table:not([class]) tr:hover td {
+  background: rgba(94, 53, 177, 0.04);
+}
+
+/* ===== Admonitions ===== */
+.md-typeset .admonition {
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  border-left-width: 4px;
+}
+
+.md-typeset .admonition-title {
+  font-weight: 600;
+}
+
+/* Custom tip styling */
+.md-typeset .admonition.tip {
+  border-color: var(--md-accent-fg-color);
+}
+
+/* ===== Cards Grid ===== */
+.md-typeset .grid.cards > ul {
+  gap: 1rem;
+}
+
+.md-typeset .grid.cards > ul > li {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* ===== Footer ===== */
+.md-footer {
+  background: linear-gradient(135deg, var(--themap-gradient-start), var(--themap-gradient-end));
+}
+
+.md-footer-meta {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Header ===== */
+.md-header {
+  background: linear-gradient(90deg, var(--themap-gradient-start), var(--themap-gradient-end));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Search ===== */
+.md-search__input {
+  border-radius: 8px;
+}
+
+/* ===== Buttons ===== */
+.md-typeset a.md-button {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.md-typeset a.md-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(94, 53, 177, 0.3);
+}
+
+.md-typeset a.md-button--primary {
+  background: linear-gradient(135deg, var(--themap-gradient-start), var(--themap-gradient-end));
+  border: none;
+}
+
+/* ===== API Documentation ===== */
+.doc-heading {
+  border-bottom: 2px solid var(--md-primary-fg-color--light);
+  padding-bottom: 0.5rem;
+}
+
+.doc-object {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: rgba(94, 53, 177, 0.03);
+  border: 1px solid rgba(94, 53, 177, 0.1);
+}
+
+/* Parameter and return type styling */
+.doc-param-name {
+  font-weight: 600;
+  color: var(--md-primary-fg-color);
+}
+
+/* ===== Content Width ===== */
+.md-content__inner {
+  max-width: 900px;
+}
+
+/* ===== Version Selector ===== */
+.md-version {
+  font-weight: 500;
+}
+
+.md-version__current {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+}
+
+/* ===== Tabbed Content ===== */
+.md-typeset .tabbed-set {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.md-typeset .tabbed-labels {
+  background: rgba(94, 53, 177, 0.05);
+}
+
+.md-typeset .tabbed-labels > label {
+  font-weight: 500;
+}
+
+/* ===== Scrollbar Styling ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(94, 53, 177, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(94, 53, 177, 0.5);
+}
+
+/* ===== Responsive Adjustments ===== */
+@media screen and (max-width: 76.1875em) {
+  .md-content__inner {
+    padding: 0 1rem;
+  }
+}
+
+/* ===== Print Styles ===== */
+@media print {
+  .md-typeset h2 {
+    border-bottom: 1px solid #ccc;
+  }
+  
+  .md-typeset pre {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+}
+
