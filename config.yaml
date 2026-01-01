@@ -1,0 +1,26 @@
+data:
+  directory: datasets
+  task_list: null
+distances:
+  molecule:
+    enabled: true
+    featurizer: ecfp
+    method: euclidean
+  protein:
+    enabled: false
+    featurizer: esm2_t33_650M_UR50D
+    method: cosine
+    layer: null
+combination:
+  strategy: weighted_average
+  weights:
+    molecule: 0.5
+    protein: 0.5
+output:
+  directory: output
+  format: csv
+  save_features: true
+compute:
+  n_jobs: 8
+  batch_size: 1000
+  device: auto
