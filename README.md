@@ -44,7 +44,7 @@ The easiest way to install THEMAP with all features:
 ```bash
 git clone https://github.com/HFooladi/THEMAP.git
 cd THEMAP
-source env.sh
+source install.sh
 ```
 
 This automatically:

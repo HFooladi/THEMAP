@@ -4,8 +4,8 @@
 # This script sets up a Python virtual environment using uv and installs all dependencies
 #
 # Usage:
-#   source env.sh    (recommended - keeps environment activated)
-#   bash env.sh      (requires manual activation after)
+#   source install.sh    (recommended - keeps environment activated)
+#   bash install.sh      (requires manual activation after)
 
 set -e  # Exit on error
 
@@ -109,7 +109,7 @@ if [ $? -eq 0 ]; then
         echo "   source .venv/bin/activate"
         echo ""
         echo "Or run this script with 'source' to auto-activate:"
-        echo "   source env.sh"
+        echo "   source install.sh"
         echo ""
     fi
 else
