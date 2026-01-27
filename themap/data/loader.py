@@ -5,13 +5,18 @@ This module provides utilities for loading datasets from directory structures,
 auto-discovering files, and converting between formats.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from ..utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from .molecule_dataset import MoleculeDataset
 
 logger = get_logger(__name__)
 
@@ -418,7 +423,7 @@ class DatasetLoader:
         Returns:
             Dictionary with dataset counts and information.
         """
-        stats = {
+        stats: Dict[str, Any] = {
             "data_dir": str(self.data_dir),
             "task_list_provided": self.task_list is not None,
             "folds": {},

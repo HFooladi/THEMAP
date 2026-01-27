@@ -210,11 +210,13 @@ def compute_task_hardness_from_distance_matrix(
         returns a single tensor. If 'both', returns [mean_tensor, median_tensor]
 
     Raises:
-        AssertionError: If training set is not larger than test set
+        ValueError: If training set is not larger than test set
     """
-    assert distance_matrix.shape[0] > distance_matrix.shape[1], (
-        "training set tasks should be larger than test set tasks"
-    )
+    if distance_matrix.shape[0] <= distance_matrix.shape[1]:
+        raise ValueError(
+            f"Training set tasks ({distance_matrix.shape[0]}) should be larger than "
+            f"test set tasks ({distance_matrix.shape[1]})"
+        )
 
     # Sort the distance matrix along the test dimension
     sorted_distance_matrix = torch.sort(distance_matrix, dim=0)[0]
@@ -435,9 +437,10 @@ def calculate_task_hardness_weight(
         Tensor containing task hardness weights (higher values indicate easier tasks)
 
     Raises:
-        AssertionError: If method is not one of the supported methods
+        ValueError: If method is not one of the supported methods
     """
-    assert method in ["rf", "knn", "scaffold"], "Method should be within valid methods"
+    if method not in ["rf", "knn", "scaffold"]:
+        raise ValueError(f"Method must be one of ['rf', 'knn', 'scaffold'], got '{method}'")
 
     weights: List[float] = []
     for chembl_id in chembl_ids:
@@ -603,17 +606,15 @@ def protein_hardness_from_distance_matrix(path: str, k: int) -> pd.DataFrame:
         DataFrame containing protein hardness values and metrics
 
     Raises:
-        AssertionError: If required keys are missing from the distance matrix file
+        KeyError: If required keys are missing from the distance matrix file
     """
     with open(path, "rb") as f:
         protein_distance_matrix: Dict[str, Any] = pickle.load(f)
 
-    assert "distance_matrices" in protein_distance_matrix.keys(), (
-        "distance_matrices key should be present in the dictionary"
-    )
-    assert "test_chembl_ids" in protein_distance_matrix.keys(), (
-        "test_chembl_ids key should be present in the dictionary"
-    )
+    if "distance_matrices" not in protein_distance_matrix.keys():
+        raise KeyError("'distance_matrices' key should be present in the dictionary")
+    if "test_chembl_ids" not in protein_distance_matrix.keys():
+        raise KeyError("'test_chembl_ids' key should be present in the dictionary")
 
     hardness_protein = compute_task_hardness_from_distance_matrix(
         protein_distance_matrix["distance_matrices"], aggr="mean_median", proportion=k

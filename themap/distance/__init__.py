@@ -30,6 +30,9 @@ Example:
     ... )
 """
 
+# Base class
+from .base import AbstractTasksDistance
+
 # New unified distance classes
 from .dataset_distance import (
     DatasetDistance,
@@ -58,6 +61,8 @@ MOLECULE_DISTANCE_METHODS = DATASET_DISTANCE_METHODS
 PROTEIN_DISTANCE_METHODS = METADATA_DISTANCE_METHODS
 
 __all__ = [
+    # Base class
+    "AbstractTasksDistance",
     # New unified classes
     "DatasetDistance",
     "MetadataDistance",

@@ -317,7 +317,7 @@ def compute_dataset_distance_matrix(
     target_labels: List[NDArray[np.int32]],
     source_ids: List[str],
     target_ids: List[str],
-    method: str = "euclidean",
+    method: DatasetDistanceMethod = "euclidean",
     n_jobs: int = 1,
     **kwargs: Any,
 ) -> DistanceMatrix:

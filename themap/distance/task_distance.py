@@ -27,7 +27,7 @@ Usage:
     distances = compute_dataset_distance_matrix(...)
 """
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -114,8 +114,13 @@ class TaskDistanceCalculator:
         self.metadata_method = metadata_method
 
         # Initialize distance calculators
-        self._dataset_distance = DatasetDistance(method=dataset_method)
-        self._metadata_distance = MetadataDistance(method=metadata_method)
+        # Cast to Literal types for mypy
+        self._dataset_distance = DatasetDistance(
+            method=cast(Literal["otdd", "euclidean", "cosine"], dataset_method)
+        )
+        self._metadata_distance = MetadataDistance(
+            method=cast(Literal["euclidean", "cosine", "manhattan"], metadata_method)
+        )
 
         # Storage for computed distances
         self.molecule_distances: Optional[DistanceMatrix] = None

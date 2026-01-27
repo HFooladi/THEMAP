@@ -9,8 +9,17 @@ import requests as r
 import torch
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-from chembl_webresource_client.new_client import new_client
 from tqdm import tqdm
+
+# ChEMBL client is optional - it connects to a web service on import
+try:
+    from chembl_webresource_client.new_client import new_client
+
+    CHEMBL_AVAILABLE = True
+except Exception:
+    # ChEMBL service may be unavailable or package not installed
+    new_client = None
+    CHEMBL_AVAILABLE = False
 
 # Global model cache to avoid reloading models
 _MODEL_CACHE: Dict[str, Any] = {}
@@ -30,9 +39,15 @@ def get_protein_accession(target_chembl_id: str) -> Optional[str]:
         Optional[str]: The protein accession ID if found, None otherwise.
 
     Raises:
+        RuntimeError: If ChEMBL client is not available.
         Exception: If there is an error fetching the protein accession ID. For example,
         if the target ID is invalid.
     """
+    if not CHEMBL_AVAILABLE or new_client is None:
+        raise RuntimeError(
+            "ChEMBL client is not available. Install chembl-webresource-client "
+            "and ensure the ChEMBL API service is accessible."
+        )
     target = new_client.target
     try:
         target_result: Dict[str, Any] = target.get(target_chembl_id)
@@ -54,9 +69,15 @@ def get_target_chembl_id(assay_chembl_id: str) -> Optional[str]:
         Optional[str]: The target ChEMBL ID if found, None otherwise.
 
     Raises:
+        RuntimeError: If ChEMBL client is not available.
         Exception: If there is an error fetching the target ChEMBL ID. For example,
         if the assay ID is invalid.
     """
+    if not CHEMBL_AVAILABLE or new_client is None:
+        raise RuntimeError(
+            "ChEMBL client is not available. Install chembl-webresource-client "
+            "and ensure the ChEMBL API service is accessible."
+        )
     assay = new_client.assay
     try:
         assay_result: Dict[str, Any] = assay.get(assay_chembl_id)

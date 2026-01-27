@@ -188,7 +188,7 @@ def compute_metadata_distance_matrix(
     target_vectors: NDArray[np.float32],
     source_ids: List[str],
     target_ids: List[str],
-    method: str = "euclidean",
+    method: MetadataDistanceMethod = "euclidean",
 ) -> DistanceMatrix:
     """Convenience function to compute metadata distance matrix.
 

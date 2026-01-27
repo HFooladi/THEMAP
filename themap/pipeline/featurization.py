@@ -192,15 +192,15 @@ class FeatureStore:
         import shutil
 
         if featurizer_name:
-            for subdir in ["molecules", "protein", "metadata"]:
-                path = self.cache_dir / subdir / featurizer_name
+            for subdir_name in ["molecules", "protein", "metadata"]:
+                path = self.cache_dir / subdir_name / featurizer_name
                 if path.exists():
                     shutil.rmtree(path)
-                    logger.info(f"Cleared cache for {featurizer_name} in {subdir}")
+                    logger.info(f"Cleared cache for {featurizer_name} in {subdir_name}")
         else:
-            for subdir in self.cache_dir.iterdir():
-                if subdir.is_dir():
-                    shutil.rmtree(subdir)
+            for subdir_path in self.cache_dir.iterdir():
+                if subdir_path.is_dir():
+                    shutil.rmtree(subdir_path)
             logger.info(f"Cleared all feature cache at {self.cache_dir}")
 
 
@@ -399,15 +399,17 @@ class FeaturizationPipeline:
             - labels_list: List of label arrays, one per dataset
             - valid_names: List of dataset names that were successfully loaded
         """
-        features_list = []
-        labels_list = []
-        valid_names = []
+        features_list: List[NDArray[np.float32]] = []
+        labels_list: List[NDArray[np.int32]] = []
+        valid_names: List[str] = []
 
         names = dataset_names or [d.task_id for d in datasets]
 
         for dataset, name in zip(datasets, names):
             # Try to get from dataset object first
             if dataset.has_features() and dataset.featurizer_name == self.molecule_featurizer:
+                # has_features() guarantees features is not None
+                assert dataset.features is not None
                 features_list.append(dataset.features)
                 labels_list.append(dataset.labels)
                 valid_names.append(name)

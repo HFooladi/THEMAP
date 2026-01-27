@@ -141,7 +141,7 @@ def create_meta_splits(
     n_total = len(tasks_copy)
     n_train = int(n_total * train_ratio)
     n_val = int(n_total * val_ratio)
-    n_test = n_total - n_train - n_val  # Ensure all tasks are used
+    _n_test = n_total - n_train - n_val  # Ensure all tasks are used (noqa: computed for verification)
 
     # Create splits
     train_tasks = tasks_copy[:n_train]

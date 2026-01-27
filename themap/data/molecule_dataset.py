@@ -355,7 +355,7 @@ class MoleculeDataset:
         if len(self) == 0:
             return {"size": 0, "positive_ratio": 0.0}
 
-        stats = {
+        stats: Dict[str, Any] = {
             "size": len(self),
             "positive_count": int(self.labels.sum()),
             "negative_count": int((self.labels == 0).sum()),

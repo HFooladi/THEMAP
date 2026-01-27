@@ -23,8 +23,8 @@ from tqdm import tqdm
 REPO_PATH = Path(__file__).parent.absolute()
 sys.path.insert(0, str(REPO_PATH))
 
-from themap.utils.logging import get_logger, setup_logging
-from themap.utils.protein_utils import get_protein_features
+from themap.utils.logging import get_logger, setup_logging  # noqa: E402
+from themap.utils.protein_utils import get_protein_features  # noqa: E402
 
 # Initialize logging
 setup_logging()

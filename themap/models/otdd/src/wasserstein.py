@@ -1,6 +1,5 @@
 import itertools
 import logging
-import pdb
 import sys
 
 import geomloss
@@ -82,8 +81,10 @@ def wasserstein_gauss_distance(
     if cost_function == "euclidean":
         mean_diff = ((μ_1 - μ_2) ** 2).sum(axis=-1)  # I think this is faster than torch.norm(μ_1-μ_2)**2
     else:
-        mean_diff = cost_function(μ_1, μ_2)
-        pdb.set_trace(header="TODO: what happens to bures distance for embedded cost function?")
+        raise NotImplementedError(
+            "Custom cost functions are not yet supported for Wasserstein-Gauss distance. "
+            "Only 'euclidean' cost function is currently implemented."
+        )
 
     cova_diff = bbures_distance(Σ1, Σ2, sqrtΣ1=sqrtΣ1, squared=True, **kwargs)
     d = torch.relu(mean_diff + cova_diff)

@@ -32,11 +32,20 @@ class TaskHardness:
 
     @staticmethod
     def compute_from_distance(task_distance: "TaskHardness") -> None:
-        if task_distance.external_chemical_space is not None:
-            pass
-        elif task_distance.external_protein_space is not None:
-            pass
-        elif task_distance.internal_chemical_space is not None:
-            pass
+        """Compute hardness from task distance.
 
-        pass
+        This method is a placeholder for future implementation of hardness
+        computation from pre-computed task distances.
+
+        Args:
+            task_distance: TaskHardness object containing distance components
+
+        Raises:
+            NotImplementedError: This method is not yet implemented
+        """
+        raise NotImplementedError(
+            "compute_from_distance is not yet implemented. "
+            "Use compute_hardness() method instead to compute hardness from "
+            "the existing distance components (external_chemical_space, "
+            "external_protein_space, internal_chemical_space)."
+        )

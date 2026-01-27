@@ -126,7 +126,6 @@ class PipelineRunner:
             List of dataset information dictionaries
         """
         self.logger.info("Loading datasets...")
-        datasets_info = []
 
         # Check if any modality uses directory-based configuration
         uses_directory_mode = (
@@ -582,8 +581,8 @@ class PipelineRunner:
 
             tasks.append(Task(**task_kwargs))
 
-        # Create distance computer
-        task_distance = TaskDistance(
+        # Create distance computer (kept for potential future use)
+        _task_distance = TaskDistance(
             combination_strategy=self.config.task_distance.combination_strategy,
             weights=self.config.task_distance.weights,
             max_workers=self.config.compute.max_workers,

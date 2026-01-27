@@ -5,12 +5,17 @@ This module provides efficient molecular featurization using molfeat,
 with support for batch processing and SMILES deduplication.
 """
 
-from typing import Any, Dict, List, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
 from ..utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from ..data.molecule_dataset import MoleculeDataset
 
 logger = get_logger(__name__)
 

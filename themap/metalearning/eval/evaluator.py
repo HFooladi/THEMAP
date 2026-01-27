@@ -171,7 +171,7 @@ class MetaLearningEvaluator:
         all_predictions = []
         all_true_labels = []
 
-        total_episodes = len(self.task_splits.test_tasks) * self.config.num_episodes_per_task
+        _total_episodes = len(self.task_splits.test_tasks) * self.config.num_episodes_per_task
 
         with torch.no_grad():
             for task_idx, task in enumerate(self.task_splits.test_tasks):

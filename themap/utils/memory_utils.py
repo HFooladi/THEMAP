@@ -400,4 +400,6 @@ class MemoryEfficientFeatureStorage:
         try:
             self.cleanup()
         except Exception:
-            pass  # Ignore errors during cleanup
+            # Ignore errors during destructor cleanup; the object is being
+            # garbage collected and errors here should not propagate
+            pass

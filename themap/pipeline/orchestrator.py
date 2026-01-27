@@ -16,7 +16,7 @@ Example:
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -210,7 +210,7 @@ class Pipeline:
             target_labels=test_labels_list,
             source_ids=train_ids,
             target_ids=test_ids,
-            method=self.config.molecule.method,
+            method=cast(Literal["otdd", "euclidean", "cosine"], self.config.molecule.method),
             n_jobs=self.config.compute.n_jobs,
         )
 
@@ -301,7 +301,7 @@ class Pipeline:
             target_vectors=test_vectors,
             source_ids=train_with_protein,
             target_ids=test_with_protein,
-            method=self.config.protein.method,
+            method=cast(Literal["euclidean", "cosine", "manhattan"], self.config.protein.method),
         )
 
     def _load_or_compute_protein_features(

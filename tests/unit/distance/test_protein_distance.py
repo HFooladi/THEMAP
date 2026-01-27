@@ -262,7 +262,7 @@ class TestProteinDatasetDistance:
         """Test _compute_features method calls Tasks.get_distance_computation_ready_features."""
         distance = ProteinDatasetDistance(tasks=sample_tasks)
 
-        result = distance._compute_features(protein_featurizer="custom_esm", combination_method="average")
+        _result = distance._compute_features(protein_featurizer="custom_esm", combination_method="average")
 
         # Verify that the tasks method was called with correct parameters
         sample_tasks.get_distance_computation_ready_features.assert_called_once()

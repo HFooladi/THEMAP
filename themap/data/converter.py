@@ -80,6 +80,7 @@ def validate_smiles(smiles: str, strict: bool = True) -> Tuple[bool, Optional[st
             if pd.isna(smiles):
                 return False, "NaN SMILES value"
         except (TypeError, ValueError):
+            # pd.isna() can raise on certain input types; continue with validation
             pass
 
     if not RDKIT_AVAILABLE:
@@ -181,6 +182,7 @@ def safe_float_convert(value: Any) -> Optional[float]:
             if pd.isna(value):
                 return None
         except (TypeError, ValueError):
+            # pd.isna() can raise on certain input types; continue with conversion
             pass
 
     try:

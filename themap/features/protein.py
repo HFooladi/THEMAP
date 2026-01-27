@@ -232,8 +232,8 @@ class ProteinFeaturizer:
     def _read_fasta_simple(self, path: Path) -> Dict[str, str]:
         """Simple FASTA parser without BioPython."""
         sequences = {}
-        current_id = None
-        current_seq = []
+        current_id: Optional[str] = None
+        current_seq: List[str] = []
 
         with open(path, "r") as f:
             for line in f:

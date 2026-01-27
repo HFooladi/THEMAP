@@ -95,10 +95,13 @@ def get_featurizer(
         Featurizer object.
 
     Raises:
+        TypeError: If featurizer is not a string or n_jobs is not an integer.
         ValueError: If the specified featurizer is not found.
     """
-    assert isinstance(featurizer, str), "Featurizer must be a string"
-    assert isinstance(n_jobs, int), "Number of jobs must be an integer"
+    if not isinstance(featurizer, str):
+        raise TypeError(f"Featurizer must be a string, got {type(featurizer).__name__}")
+    if not isinstance(n_jobs, int):
+        raise TypeError(f"Number of jobs must be an integer, got {type(n_jobs).__name__}")
 
     if featurizer in ["ecfp", "fcfp", "mordred", "desc2D", "maccs"]:
         transformer = MoleculeTransformer(featurizer, n_jobs=n_jobs)
