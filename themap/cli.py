@@ -9,11 +9,12 @@ Usage:
     themap run config.yaml -o output/   # Run with custom output
     themap init                         # Create sample config file
     themap convert input.csv CHEMBL123  # Convert CSV to JSONL.GZ
+    themap featurize datasets/ -f ecfp  # Featurize datasets (no distance computation)
     themap list-featurizers             # List available featurizers
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import click
 
@@ -315,6 +316,193 @@ def info(data_dir: str) -> None:
 
     if "proteins" in stats:
         click.echo(f"\nProteins: {stats['proteins']['count']} FASTA files")
+
+
+@cli.command()
+@click.argument("data_path", type=click.Path(exists=True))
+@click.option(
+    "--featurizer",
+    "-f",
+    multiple=True,
+    default=["ecfp"],
+    help="Featurizer(s) to use (can be specified multiple times)",
+)
+@click.option("--cache-dir", "-c", default="feature_cache", help="Directory to cache features")
+@click.option(
+    "--fold",
+    type=click.Choice(["train", "test", "valid", "all"]),
+    default="all",
+    help="Which fold(s) to featurize",
+)
+@click.option("--n-jobs", "-j", default=1, help="Number of parallel jobs for featurization")
+@click.option("--force", is_flag=True, help="Recompute features even if cached")
+@click.pass_context
+def featurize(
+    ctx: click.Context,
+    data_path: str,
+    featurizer: Tuple[str, ...],
+    cache_dir: str,
+    fold: str,
+    n_jobs: int,
+    force: bool,
+) -> None:
+    """Compute and cache molecular features without distance computation.
+
+    DATA_PATH can be either:
+    - A directory with train/test/valid folders containing datasets
+    - A single dataset file (.jsonl.gz or .csv)
+
+    Features are cached to disk and can be reused by other commands.
+
+    Examples:
+        # Featurize all datasets in a directory with ECFP
+        themap featurize datasets/ -f ecfp
+
+        # Featurize with multiple featurizers
+        themap featurize datasets/ -f ecfp -f maccs -f desc2D
+
+        # Featurize only training data
+        themap featurize datasets/ -f ecfp --fold train
+
+        # Featurize a single file
+        themap featurize datasets/train/CHEMBL123.jsonl.gz -f ecfp
+
+        # Force recomputation (ignore cache)
+        themap featurize datasets/ -f ecfp --force
+
+        # Custom cache directory
+        themap featurize datasets/ -f ecfp --cache-dir my_cache/
+    """
+    from .data.loader import DatasetLoader
+    from .data.molecule_dataset import MoleculeDataset
+    from .pipeline.featurization import FeaturizationPipeline
+
+    data_path_obj = Path(data_path)
+    cache_path = Path(cache_dir)
+    featurizer_list: List[str] = list(featurizer)
+
+    click.echo(f"Featurizing data from: {data_path}")
+    click.echo(f"Featurizers: {', '.join(featurizer_list)}")
+    click.echo(f"Cache directory: {cache_path}")
+
+    try:
+        # Determine if input is a file or directory
+        if data_path_obj.is_file():
+            # Single file mode
+            click.echo(f"\nProcessing single file: {data_path_obj.name}")
+            task_id = data_path_obj.stem.replace(".jsonl", "")
+
+            dataset = MoleculeDataset.load_from_file(data_path_obj)
+            datasets = [dataset]
+            dataset_names = [task_id]
+
+            click.echo(f"  Loaded {len(dataset)} molecules")
+        else:
+            # Directory mode
+            loader = DatasetLoader(data_path_obj)
+            stats = loader.get_statistics()
+
+            click.echo(f"\nDataset directory: {stats['data_dir']}")
+
+            datasets = []
+            dataset_names = []
+
+            # Determine which folds to process
+            folds_to_process = ["train", "test", "valid"] if fold == "all" else [fold]
+
+            for fold_name in folds_to_process:
+                if fold_name not in stats.get("folds", {}):
+                    continue
+
+                fold_stats = stats["folds"][fold_name]
+                click.echo(f"\n{fold_name.capitalize()} fold: {fold_stats['task_count']} tasks")
+
+                fold_datasets = loader.load_datasets(fold_name)
+                for task_id, ds in fold_datasets.items():
+                    datasets.append(ds)
+                    dataset_names.append(f"{fold_name}_{task_id}")
+
+            if not datasets:
+                click.echo("No datasets found to featurize.", err=True)
+                raise SystemExit(1)
+
+            click.echo(f"\nTotal datasets to featurize: {len(datasets)}")
+
+        # Process each featurizer
+        for feat_name in featurizer_list:
+            click.echo(f"\n{'=' * 50}")
+            click.echo(f"Featurizer: {feat_name}")
+            click.echo(f"{'=' * 50}")
+
+            pipeline = FeaturizationPipeline(
+                cache_dir=cache_path,
+                molecule_featurizer=feat_name,
+            )
+
+            # Check cache status
+            if not force:
+                cached_count = 0
+                for ds in datasets:
+                    if pipeline.store.has_molecule_features(ds.task_id, feat_name):
+                        cached_count += 1
+
+                if cached_count > 0:
+                    click.echo(f"  Found {cached_count}/{len(datasets)} datasets already cached")
+                    if cached_count == len(datasets):
+                        click.echo("  All datasets already cached. Use --force to recompute.")
+                        continue
+
+            # Clear cache if force flag is set
+            if force:
+                click.echo("  Clearing existing cache...")
+                pipeline.store.clear_cache(feat_name)
+
+            # Featurize all datasets
+            click.echo(f"  Computing features for {len(datasets)} datasets...")
+
+            with click.progressbar(
+                zip(datasets, dataset_names),
+                length=len(datasets),
+                label="  Featurizing",
+            ) as bar:
+                success_count = 0
+                fail_count = 0
+
+                for ds, name in bar:
+                    try:
+                        # Check if already cached
+                        if not force and pipeline.store.has_molecule_features(ds.task_id, feat_name):
+                            success_count += 1
+                            continue
+
+                        # Featurize
+                        pipeline.featurize_all_datasets([ds])
+                        success_count += 1
+                    except Exception as e:
+                        fail_count += 1
+                        if ctx.obj.get("verbose"):
+                            click.echo(f"\n  Error featurizing {name}: {e}", err=True)
+
+            click.echo(f"  Completed: {success_count} succeeded, {fail_count} failed")
+
+            # Show cache location
+            cache_subdir = cache_path / "molecules" / feat_name
+            if cache_subdir.exists():
+                n_cached = len(list(cache_subdir.glob("*.npz")))
+                click.echo(f"  Cached features: {cache_subdir} ({n_cached} files)")
+
+        click.echo("\nFeaturization complete!")
+        click.echo(f"Features cached at: {cache_path}")
+        click.echo("\nTo use cached features in distance computation:")
+        click.echo(f"  themap quick {data_path} --featurizer {featurizer_list[0]}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if ctx.obj.get("verbose"):
+            import traceback
+
+            traceback.print_exc()
+        raise SystemExit(1)
 
 
 def main() -> None:
