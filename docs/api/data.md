@@ -173,7 +173,7 @@ csv_files = Path("raw_data").glob("*.csv")
 for csv_file in csv_files:
     task_id = csv_file.stem
     output_path = Path(f"datasets/train/{task_id}.jsonl.gz")
-    
+
     stats = converter.convert(csv_file, output_path, task_id)
     print(f"{task_id}: {stats.valid_molecules} molecules")
 ```
@@ -257,7 +257,7 @@ task = tasks.get_task("CHEMBL123456")
 if task.molecule_dataset:
     smiles = task.molecule_dataset.smiles_list
     labels = task.molecule_dataset.labels
-    
+
 # Protein data
 if task.protein_dataset:
     sequences = task.protein_dataset.sequences

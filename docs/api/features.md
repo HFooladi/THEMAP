@@ -251,7 +251,7 @@ try:
     features = featurizer.featurize(smiles_list)
 except ValueError as e:
     print(f"Invalid SMILES: {e}")
-    
+
 # Or use safe mode
 features = featurizer.featurize(
     smiles_list,
@@ -304,4 +304,3 @@ from themap.features.protein import ESM2_MODELS, ESM3_MODELS
 print("ESM2 models:", ESM2_MODELS)
 print("ESM3 models:", ESM3_MODELS)
 ```
-

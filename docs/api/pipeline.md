@@ -304,19 +304,19 @@ class CustomPipeline(Pipeline):
     def run(self):
         # Pre-processing
         self.validate_data()
-        
+
         # Run standard pipeline
         results = super().run()
-        
+
         # Post-processing
         results = self.analyze_results(results)
-        
+
         return results
-    
+
     def validate_data(self):
         """Custom validation logic."""
         pass
-    
+
     def analyze_results(self, results):
         """Custom analysis."""
         return results
@@ -364,10 +364,10 @@ all_results = {}
 
 for i in range(0, len(target_tasks), batch_size):
     batch_targets = target_tasks[i:i+batch_size]
-    
+
     batch_results = pipeline.run_for_targets(batch_targets)
     all_results.update(batch_results)
-    
+
     print(f"Processed {i+batch_size}/{len(target_tasks)} targets")
 ```
 
@@ -404,4 +404,3 @@ compute:
 output:
   save_features: true  # Cache for reuse
 ```
-
