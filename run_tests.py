@@ -84,7 +84,7 @@ def main():
         cmd.append("tests/integration/")
         description = "Running integration tests"
     elif args.test_type == "distance":
-        cmd.extend(["tests/distance/"])
+        cmd.extend(["tests/unit/distance/"])
         description = "Running distance module tests"
     elif args.test_type == "fast":
         cmd.extend(["-m", "not slow"])

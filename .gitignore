@@ -182,9 +182,6 @@ benchmarking_datasets/
 # ignore results
 results/
 
-# ignore CLAUDE file
-CLAUDE.md
-
 # ignore .ruff_cache
 .ruff_cache/
 
