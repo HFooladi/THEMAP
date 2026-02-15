@@ -27,7 +27,16 @@ source .venv/bin/activate   # reactivate later (required before every session)
 ### Code Quality
 - `ruff check --fix .` — lint with auto-fix
 - `ruff format .` — format
-- `mypy themap/` — type check
+- `mypy -p themap` — type check
+
+### Makefile
+- `make ci` — run all CI checks locally (lint, format, type-check, test-fast, docs-build)
+- `make test-fast` / `make test-unit` / `make test-coverage` — test shortcuts
+- `make lint` / `make format` — auto-fix variants
+- `make lint-check` / `make format-check` — CI-mode (no auto-fix)
+- `make clean` — remove build, cache, and coverage artifacts
+- `make install-dev` — install with dev + test deps via uv
+- `make help` — list all targets
 
 ### CLI Tool (`themap`)
 
