@@ -556,7 +556,7 @@ def rot(v, theta):
 
 def rot_evecs(M, theta):
     "Rotate eigenvectors of matrix M"
-    evals, evecs = torch.eig(M, eigenvectors=True)
+    evals, evecs = torch.linalg.eigh(M)
     evecs_rot = rot(evecs, theta)
     return spectrally_prescribed_matrix(evals, evecs_rot)
 

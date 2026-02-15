@@ -28,8 +28,8 @@ def symsqrt_v1(A, func="symeig"):
     ## Recall that for Sym Real matrices, SVD, EVD coincide, |λ_i| = σ_i, so
     ## for PSD matrices, these are equal and coincide, so we can use either.
     if func == "symeig":
-        s, v = A.symeig(
-            eigenvectors=True
+        s, v = torch.linalg.eigh(
+            A
         )  # This is faster in GPU than CPU, fails gradcheck. See https://github.com/pytorch/pytorch/issues/30578
     elif func == "svd":
         _, s, v = A.svd()  # But this passes torch.autograd.gradcheck()
@@ -55,8 +55,8 @@ def symsqrt_v1(A, func="symeig"):
 def symsqrt_v2(A, func="symeig"):
     """Compute the square root of a symmetric positive definite matrix."""
     if func == "symeig":
-        s, v = A.symeig(
-            eigenvectors=True
+        s, v = torch.linalg.eigh(
+            A
         )  # This is faster in GPU than CPU, fails gradcheck. See https://github.com/pytorch/pytorch/issues/30578
     elif func == "svd":
         _, s, v = A.svd()  # But this passes torch.autograd.gradcheck()
@@ -83,7 +83,7 @@ def symsqrt_v2(A, func="symeig"):
 
 def special_sylvester(a, b):
     """Solves the eqation `A @ X + X @ A = B` for a positive definite `A`."""
-    s, v = a.symeig(eigenvectors=True)
+    s, v = torch.linalg.eigh(a)
     d = s.unsqueeze(-1)
     d = d + d.transpose(-2, -1)
     vt = v.transpose(-2, -1)
@@ -232,7 +232,7 @@ def main():
 
     def func(S):
         x = 0.5 * (S + S.transpose(-2, -1))
-        return torch.symeig(x, eigenvectors=True)
+        return torch.linalg.eigh(x)
 
     print("Grad check for symeig", gradcheck(func, [S]))
 

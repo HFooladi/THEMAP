@@ -9,6 +9,8 @@ The key distinction from metadata distance:
 - Metadata distance: Computes distance between SINGLE vectors (simple pairwise)
 """
 
+import logging
+import math
 from typing import Any, Dict, List, Literal, Tuple
 
 import numpy as np
@@ -237,7 +239,15 @@ class DatasetDistance:
         # Create temporary datasets for OTDD computation
         source_loaders = []
         for features, labels, task_id in zip(source_features, source_labels, source_ids):
-            # Create minimal dataset for OTDD
+            nan_count = np.isnan(features).sum()
+            if nan_count > 0:
+                nan_pct = nan_count / features.size * 100
+                logger.warning(
+                    f"Dataset {task_id}: {nan_count} NaN values ({nan_pct:.1f}%) in features. "
+                    "Replacing NaN with 0 for OTDD computation."
+                )
+                features = np.nan_to_num(features, nan=0.0)
+
             dataset = MoleculeDataset(
                 task_id=task_id,
                 smiles_list=["C"] * len(labels),  # Placeholder SMILES
@@ -248,6 +258,15 @@ class DatasetDistance:
 
         target_loaders = []
         for features, labels, task_id in zip(target_features, target_labels, target_ids):
+            nan_count = np.isnan(features).sum()
+            if nan_count > 0:
+                nan_pct = nan_count / features.size * 100
+                logger.warning(
+                    f"Dataset {task_id}: {nan_count} NaN values ({nan_pct:.1f}%) in features. "
+                    "Replacing NaN with 0 for OTDD computation."
+                )
+                features = np.nan_to_num(features, nan=0.0)
+
             dataset = MoleculeDataset(
                 task_id=task_id,
                 smiles_list=["C"] * len(labels),
@@ -261,6 +280,7 @@ class DatasetDistance:
         hopts = {
             "maxsamples": maxsamples,
             "device": "cpu",
+            "verbose": 1 if logger.isEnabledFor(logging.DEBUG) else 0,
             **kwargs,
         }
 
@@ -270,12 +290,26 @@ class DatasetDistance:
                 try:
                     dist_calc = OTDDDistance(src_loader, tgt_loader, **hopts)
                     dist_value = dist_calc.distance(maxsamples=maxsamples)
-                    distances[tgt_id][src_id] = float(dist_value)
+                    dist_float = float(dist_value)
+                    if not math.isfinite(dist_float):
+                        logger.warning(
+                            f"OTDD returned non-finite value ({dist_float}) for {src_id}->{tgt_id}"
+                        )
+                    distances[tgt_id][src_id] = dist_float
                 except Exception as e:
-                    logger.warning(f"OTDD failed for {src_id}->{tgt_id}: {e}")
+                    logger.error(f"OTDD computation failed for {src_id}->{tgt_id}: {type(e).__name__}: {e}")
                     distances[tgt_id][src_id] = float("inf")
 
             logger.debug(f"Completed OTDD row {i + 1}/{len(target_ids)}")
+
+        # Summarize results
+        total = sum(len(row) for row in distances.values())
+        inf_count = sum(1 for row in distances.values() for v in row.values() if not math.isfinite(v))
+        if inf_count > 0:
+            logger.error(
+                f"OTDD distance matrix: {inf_count}/{total} pairs failed (returned inf). "
+                "Run with -v flag for detailed error messages."
+            )
 
         return distances
 

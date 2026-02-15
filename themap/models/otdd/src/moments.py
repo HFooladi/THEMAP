@@ -388,11 +388,11 @@ def compute_label_stats(
             elif eigen_correction == "jitter":
                 S[i] += torch.diag(λ * torch.ones(S.shape[1], device=device).uniform_(0.99, 1.01))
             elif eigen_correction == "exact":
-                s, v = torch.symeig(S[i])
+                s = torch.linalg.eigvalsh(S[i])
                 print(s.min())
                 s, v = torch.lobpcg(S[i], largest=False)
                 print(s.min())
-                s = torch.eig(S[i], eigenvectors=False).eigenvalues
+                s = torch.linalg.eigvalsh(S[i])
                 print(s.min())
                 pdb.set_trace()
                 s_min = s.min()
