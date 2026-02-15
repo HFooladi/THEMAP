@@ -29,6 +29,37 @@ source .venv/bin/activate   # reactivate later (required before every session)
 - `ruff format .` — format
 - `mypy themap/` — type check
 
+### CLI Tool (`themap`)
+
+The `themap` command is installed as a console script. All commands support `--help`.
+
+```bash
+# Quick distance computation (no config file needed)
+themap quick datasets/ -f ecfp -m euclidean -o output/
+themap quick datasets/ -f maccs -m cosine
+
+# Full pipeline with YAML config
+themap init                              # generate config.yaml template
+themap run config.yaml                   # run pipeline
+themap run config.yaml -o results/ -j 4  # custom output dir and parallelism
+themap run config.yaml --molecule-only   # skip protein distances
+
+# Pre-compute and cache features (no distance computation)
+themap featurize datasets/ -f ecfp                        # single featurizer
+themap featurize datasets/ -f ecfp -f maccs -f desc2D     # multiple featurizers
+themap featurize datasets/ -f ecfp --fold train            # specific fold
+themap featurize datasets/test/CHEMBL123.jsonl.gz -f ecfp  # single file
+themap featurize datasets/ -f ecfp --force                 # ignore cache
+
+# Data utilities
+themap convert data.csv CHEMBL123456                      # CSV to JSONL.GZ
+themap convert data.csv CHEMBL123456 --smiles-column SMILES --activity-column pIC50
+themap info datasets/                                     # dataset statistics
+themap list-featurizers                                   # show all featurizers
+```
+
+Global flag: `themap -v <command>` enables verbose/debug output.
+
 ### Documentation
 - `mkdocs serve` — local docs at http://127.0.0.1:8000
 - `python build_docs.py build` — build static docs
@@ -59,28 +90,39 @@ themap/
 │   ├── molecule_dataset.py  # MoleculeDataset (SMILES + labels as numpy arrays)
 │   ├── molecule_datasets.py # MoleculeDatasets (train/val/test fold manager)
 │   ├── protein_datasets.py  # ProteinMetadataDataset
-│   ├── task.py              # Task, Tasks (unified multi-modal abstraction)
+│   ├── tasks.py             # Task, Tasks (unified multi-modal abstraction)
+│   ├── loader.py            # DatasetLoader (discovers and loads datasets from directories)
+│   ├── metadata.py          # DataFold enum, metadata classes
 │   ├── converter.py         # [mypy ignored]
 │   ├── torch_dataset.py     # [mypy ignored]
 │   └── exceptions.py        # FeaturizationError, InvalidSMILESError
 ├── distance/
-│   ├── base.py              # DatasetDistance, MetadataDistance, DATASET_DISTANCE_METHODS, METADATA_DISTANCE_METHODS
-│   ├── calculator.py        # TaskDistanceCalculator, combine_distance_matrices()
-│   └── exceptions.py        # DistanceComputationError
+│   ├── base.py              # DATASET_DISTANCE_METHODS, METADATA_DISTANCE_METHODS, base utilities
+│   ├── dataset_distance.py  # DatasetDistance (molecule-level distances)
+│   ├── metadata_distance.py # MetadataDistance (task-level metadata distances)
+│   ├── task_distance.py     # TaskDistance (legacy)
+│   └── exceptions.py        # DistanceComputationError, DataValidationError
 ├── pipeline/
-│   ├── feature_store.py     # FeatureStore (disk cache, .npz format)
-│   ├── featurization.py     # FeaturizationPipeline (batch featurize with SMILES dedup)
-│   ├── orchestrator.py      # Pipeline (top-level entry point)
+│   ├── featurization.py     # FeatureStore + FeaturizationPipeline (batch featurize with SMILES dedup)
+│   ├── orchestrator.py      # Pipeline, quick_distance (top-level entry points)
+│   ├── config.py            # Pipeline-specific config classes
 │   ├── output.py            # [mypy ignored]
 │   ├── runner.py            # [mypy ignored]
 │   └── cli.py               # [mypy ignored]
 ├── models/otdd/             # Optimal Transport Dataset Distance implementation
 ├── metalearning/            # [mypy ignored — entire subpackage]
-├── features/cache.py        # [mypy ignored]
+├── hardness/                # TaskHardness (lazy-loaded)
+├── features/
+│   ├── molecule.py          # MoleculeFeaturizer (imports featurizer constants from utils)
+│   ├── protein.py           # ProteinFeaturizer, ESM2_MODELS, ESM3_MODELS
+│   └── cache.py             # FeatureCache [mypy ignored]
 └── utils/
-    ├── featurizer_utils.py  # get_featurizer(), AVAILABLE_FEATURIZERS (single source of truth for all featurizer lists)
+    ├── featurizer_utils.py  # get_featurizer(), AVAILABLE_FEATURIZERS (single source of truth)
     ├── logging.py           # logging config
-    └── config.py            # utility config helpers
+    ├── config.py            # LoggingConfig, utility config helpers
+    ├── distance_utils.py    # distance computation helpers
+    ├── metric_utils.py      # metric computation helpers
+    └── protein_utils.py     # protein sequence utilities
 ```
 
 ## Key Constants
@@ -88,7 +130,7 @@ themap/
 | Constant | Location | Values |
 |---|---|---|
 | `DATASET_DISTANCE_METHODS` | `themap/distance/base.py` | `["otdd", "euclidean", "cosine"]` |
-| `METADATA_DISTANCE_METHODS` | `themap/distance/base.py` | `["euclidean", "cosine", "manhattan"]` |
+| `METADATA_DISTANCE_METHODS` | `themap/distance/base.py` | `["euclidean", "cosine", "manhattan", "jaccard"]` |
 | `FINGERPRINT_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["ecfp", "fcfp", "maccs", "avalon", "topological", "atompair", "pattern", "layered", "secfp", "erg", "estate", "rdkit"]` |
 | `COUNT_FINGERPRINT_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["ecfp-count", "fcfp-count", "topological-count", "atompair-count", "rdkit-count", "avalon-count"]` |
 | `DESCRIPTOR_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["desc2D", "mordred", "cats2D", "pharm2D", "scaffoldkeys"]` |
@@ -108,6 +150,7 @@ tests/
 │   ├── data/                                # MoleculeDataset, MoleculeDatasets, protein tests
 │   ├── distance/                            # test_base.py, test_protein_distance.py
 │   ├── pipeline/                            # test_config.py, test_output.py
+│   ├── models/                              # model-specific tests
 │   └── test_featurizer_list_consistency.py  # featurizer list sync across modules
 └── integration/
     ├── test_pipeline_integration.py         # end-to-end pipeline

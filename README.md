@@ -1,6 +1,6 @@
 # THEMAP
 
-[![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs--jcim--3c01774-blue)](https://doi.org/10.1021/acs.jcim.4c00160)
+[![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs.jcim.4c00160-blue)](https://doi.org/10.1021/acs.jcim.4c00160)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI version](https://badge.fury.io/py/themap.svg)](https://badge.fury.io/py/themap)
@@ -18,6 +18,7 @@ A Python library for calculating distances between chemical datasets to enable i
 - [Overview](#overview)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [CLI Reference](#cli-reference)
 - [Usage Examples](#usage-examples)
 - [Reproducing FS-Mol Experiments](#reproducing-fs-mol-experiments)
 - [Documentation](#documentation)
@@ -55,7 +56,7 @@ This automatically:
 
 After installation, try an example:
 ```bash
-python examples/basic/molecule_datasets_demo.py
+python examples/quickstart.py
 ```
 
 To reactivate the environment later:
@@ -124,10 +125,11 @@ Example `config.yaml`:
 data:
   directory: "datasets"
 
-molecule:
-  enabled: true
-  featurizer: "ecfp"
-  method: "euclidean"
+distances:
+  molecule:
+    enabled: true
+    featurizer: "ecfp"
+    method: "euclidean"
 
 output:
   directory: "output"
@@ -154,6 +156,71 @@ Each `.jsonl.gz` file contains molecules in JSON lines format:
 {"SMILES": "CCCO", "Property": 0}
 ```
 
+
+## CLI Reference
+
+THEMAP provides a command-line interface for all core operations. After installation, the `themap` command is available in your terminal.
+
+```bash
+themap --help              # Show all available commands
+themap <command> --help    # Show help for a specific command
+```
+
+### Quick Distance Computation
+
+Compute distances between datasets with minimal setup — no config file needed:
+
+```bash
+themap quick datasets/ -f ecfp -m euclidean -o output/
+themap quick datasets/ -f maccs -m cosine -j 4
+```
+
+### Full Pipeline with Config File
+
+For reproducible experiments, use a YAML configuration:
+
+```bash
+themap init                              # Generate a config.yaml template
+themap run config.yaml                   # Run the full pipeline
+themap run config.yaml -o results/       # Custom output directory
+themap run config.yaml --molecule-only   # Skip protein distances
+themap run config.yaml -j 4             # Set parallel workers
+```
+
+### Pre-compute Features
+
+Featurize datasets and cache to disk (useful before running multiple distance computations):
+
+```bash
+# Single featurizer
+themap featurize datasets/ -f ecfp
+
+# Multiple featurizers at once
+themap featurize datasets/ -f ecfp -f maccs -f desc2D
+
+# Featurize a specific fold or file
+themap featurize datasets/ -f ecfp --fold train
+themap featurize datasets/test/CHEMBL123.jsonl.gz -f ecfp
+
+# Force recompute (ignore cached features)
+themap featurize datasets/ -f ecfp --force
+```
+
+### Data Utilities
+
+```bash
+# Convert CSV to THEMAP's JSONL.GZ format
+themap convert data.csv CHEMBL123456
+themap convert data.csv CHEMBL123456 --smiles-column SMILES --activity-column pIC50
+
+# Inspect a dataset directory
+themap info datasets/
+
+# List all available featurizers (27 molecule + 5 protein featurizers)
+themap list-featurizers
+```
+
+Add `-v` before any command for verbose/debug output: `themap -v quick datasets/`
 
 ## Usage Examples
 
@@ -189,7 +256,7 @@ Pre-computed molecular embeddings and distance matrices for the FS-Mol dataset a
 
 ## Documentation
 
-Full documentation is available at [themap.readthedocs.io](https://hfooladi.github.io/THEMAP/) or can be built locally:
+Full documentation is available at [hfooladi.github.io/THEMAP](https://hfooladi.github.io/THEMAP/) or can be built locally:
 
 ```bash
 mkdocs serve  # Serve locally at http://127.0.0.1:8000
@@ -204,21 +271,30 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 ```bash
 git clone https://github.com/HFooladi/THEMAP.git
 cd THEMAP
-pip install -e ".[dev,test]"
+source install.sh           # creates .venv and installs all deps
+```
+
+Or manually:
+```bash
+pip install -e ".[dev,test,ml]"
 ```
 
 ### Running Tests
 
 ```bash
-pytest
-pytest --cov=themap  # with coverage
+source .venv/bin/activate    # always activate venv first
+python run_tests.py          # all tests
+python run_tests.py fast     # skip slow tests
+python run_tests.py coverage # with coverage
+pytest -k "test_name"        # specific test by name
 ```
 
 ### Code Quality
 
 ```bash
-ruff check && ruff format  # linting and formatting
-mypy themap/               # type checking
+ruff check .                 # linting
+ruff format .                # formatting
+mypy -p themap               # type checking
 ```
 
 ## Citation
