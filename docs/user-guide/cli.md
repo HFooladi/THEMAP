@@ -383,4 +383,4 @@ CUDA_VISIBLE_DEVICES="" themap run config.yaml
 
 - Learn about [distance computation](distance-computation.md)
 - Explore the [Python API](../api/distance.md)
-- Check out [examples](../examples/index.md)
+- Browse the [tutorials](../tutorials/index.md)

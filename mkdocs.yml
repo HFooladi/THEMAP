@@ -14,22 +14,17 @@ strict: false
 
 nav:
   - Home: index.md
+  - Getting Started: user-guide/getting-started.md
 
   - User Guide:
-      - Getting Started: user-guide/getting-started.md
       - Distance Computation: user-guide/distance-computation.md
       - Command Line Interface: user-guide/cli.md
 
   - Tutorials:
       - Overview: tutorials/index.md
-      - Getting Started: tutorials/getting-started.md
       - Basic Distance Computation: tutorials/basic-distance-computation.md
       - Working with Tasks: tutorials/working-with-tasks.md
       - Performance Optimization: tutorials/performance-optimization.md
-      - Interactive Notebook: tutorials/Basics.ipynb
-
-  - Examples:
-      - Code Examples: examples/index.md
 
   - API Reference:
       - Data Module: api/data.md
@@ -62,8 +57,6 @@ theme:
   features:
     - navigation.tabs
     - navigation.tabs.sticky
-    - navigation.sections
-    - navigation.expand
     - navigation.path
     - navigation.top
     - navigation.footer
@@ -81,7 +74,6 @@ extra_css:
   - assets/css/custom-splito.css
 
 extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 markdown_extensions:

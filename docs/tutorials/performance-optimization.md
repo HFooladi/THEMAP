@@ -160,5 +160,4 @@ for method in methods:
 
 ## Next Steps
 
-- Check out the [examples](../examples/index.md)
 - Read the [API documentation](../api/distance.md)

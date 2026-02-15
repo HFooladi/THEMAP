@@ -187,7 +187,34 @@ output:
 3. Enable feature caching for repeated computations
 4. Use parallel processing (`n_jobs` parameter)
 
+## Visualization
+
+### Distance Matrix Heatmap
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+distances = pd.read_csv("output/molecule_distances.csv", index_col=0)
+
+plt.figure(figsize=(10, 8))
+sns.heatmap(
+    distances,
+    annot=True,
+    fmt='.3f',
+    cmap='viridis',
+    cbar_kws={'label': 'Distance'},
+)
+plt.title("Dataset Distances")
+plt.xlabel("Target Tasks")
+plt.ylabel("Source Tasks")
+plt.tight_layout()
+plt.savefig("distance_heatmap.png", dpi=300)
+plt.show()
+```
+
 ## Next Steps
 
 - Learn about [performance optimization](performance-optimization.md)
-- Check out the [examples](../examples/index.md)
+- See the [Distance Computation Guide](../user-guide/distance-computation.md) for method details
