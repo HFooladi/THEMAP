@@ -1,18 +1,8 @@
 # Features Module
 
-The features module provides unified feature extraction for molecules and proteins. It handles featurization, caching, and batch processing.
+The features module provides unified feature extraction for molecules and proteins.
 
-## Overview
-
-The features system consists of three main components:
-
-- **`MoleculeFeaturizer`** - Extract molecular representations (fingerprints, descriptors, embeddings)
-- **`ProteinFeaturizer`** - Extract protein sequence embeddings (ESM2, ESM3)
-- **`FeatureCache`** - Efficient caching for expensive feature computations
-
-## Molecule Featurizer
-
-### MoleculeFeaturizer
+## MoleculeFeaturizer
 
 ::: themap.features.molecule.MoleculeFeaturizer
     options:
@@ -21,23 +11,36 @@ The features system consists of three main components:
 
 ### Available Featurizers
 
-#### Fingerprints (Fast)
+#### Fingerprints
 
 | Featurizer | Description | Dimensions |
 |------------|-------------|------------|
 | `ecfp` | Extended Connectivity Fingerprints | 2048 |
+| `fcfp` | Functional Connectivity Fingerprints | 2048 |
 | `maccs` | MACCS Structural Keys | 167 |
 | `topological` | Topological Fingerprints | 2048 |
 | `avalon` | Avalon Fingerprints | 512 |
+| `atompair` | Atom Pair Fingerprints | 2048 |
+| `pattern` | Pattern Fingerprints | 2048 |
+| `layered` | Layered Fingerprints | 2048 |
+| `secfp` | SMILES Extended Connectivity Fingerprints | 2048 |
+| `erg` | Extended Reduced Graph | varies |
+| `estate` | E-State Fingerprints | 79 |
+| `rdkit` | RDKit Fingerprints | 2048 |
 
-#### Descriptors (Medium Speed)
+Count variants (`ecfp-count`, `fcfp-count`, etc.) are also available.
+
+#### Descriptors
 
 | Featurizer | Description | Dimensions |
 |------------|-------------|------------|
 | `desc2D` | 2D Molecular Descriptors | ~200 |
 | `mordred` | Mordred Descriptors | ~1600 |
+| `cats2D` | CATS2D Pharmacophore | varies |
+| `pharm2D` | 2D Pharmacophore | varies |
+| `scaffoldkeys` | Scaffold Keys | varies |
 
-#### Neural Embeddings (Slow, GPU Recommended)
+#### Neural Embeddings
 
 | Featurizer | Description | Dimensions |
 |------------|-------------|------------|
@@ -45,52 +48,14 @@ The features system consists of three main components:
 | `ChemBERTa-77M-MTR` | ChemBERTa multi-task regression | 384 |
 | `MolT5` | Molecular T5 embeddings | 768 |
 | `Roberta-Zinc480M-102M` | RoBERTa trained on ZINC | 768 |
-| `gin_supervised_*` | Graph neural network embeddings | 300 |
+| `gin_supervised_infomax` | GIN infomax embeddings | 300 |
+| `gin_supervised_contextpred` | GIN context prediction | 300 |
+| `gin_supervised_edgepred` | GIN edge prediction | 300 |
+| `gin_supervised_masking` | GIN masking embeddings | 300 |
 
-### Usage Examples
+Run `themap list-featurizers` to see all available featurizers.
 
-```python
-from themap.features import MoleculeFeaturizer
-
-# Initialize featurizer
-featurizer = MoleculeFeaturizer(
-    featurizer_name="ecfp",
-    n_jobs=8
-)
-
-# Featurize a list of SMILES
-smiles_list = ["CCO", "CCCO", "CC(=O)O"]
-features = featurizer.featurize(smiles_list)
-
-print(f"Features shape: {features.shape}")
-# Features shape: (3, 2048)
-```
-
-#### Batch Processing with Deduplication
-
-```python
-from themap.features import MoleculeFeaturizer
-
-featurizer = MoleculeFeaturizer(featurizer_name="ecfp")
-
-# Featurize multiple datasets with global deduplication
-datasets = {
-    "task1": dataset1,  # MoleculeDataset objects
-    "task2": dataset2,
-}
-
-features = featurizer.featurize_datasets(
-    datasets,
-    deduplicate=True  # Avoid re-computing for duplicate SMILES
-)
-
-for task_id, task_features in features.items():
-    print(f"{task_id}: {task_features.shape}")
-```
-
-## Protein Featurizer
-
-### ProteinFeaturizer
+## ProteinFeaturizer
 
 ::: themap.features.protein.ProteinFeaturizer
     options:
@@ -114,193 +79,11 @@ for task_id, task_features in features.items():
 |-------|-------------|
 | `esm3_sm_open_v1` | ESM3 small open model |
 
-### Usage Examples
-
-```python
-from themap.features import ProteinFeaturizer
-
-# Initialize with ESM2
-featurizer = ProteinFeaturizer(
-    model_name="esm2_t33_650M_UR50D",
-    device="cuda"  # Use GPU if available
-)
-
-# Featurize protein sequences
-sequences = [
-    "MKTVRQERLKSIVRILERSKEPVSG",
-    "MGSSHHHHHHSSGLVPRGSHM"
-]
-
-embeddings = featurizer.featurize(sequences)
-print(f"Embeddings shape: {embeddings.shape}")
-# Embeddings shape: (2, 1280)
-```
-
-#### Reading from FASTA Files
-
-```python
-from themap.features.protein import read_fasta_file
-
-# Read sequences from FASTA
-sequences = read_fasta_file("proteins.fasta")
-
-for seq_id, sequence in sequences.items():
-    print(f"{seq_id}: {len(sequence)} residues")
-```
-
-## Feature Cache
-
-### FeatureCache
+## FeatureCache
 
 ::: themap.features.cache.FeatureCache
     options:
       show_root_heading: true
       heading_level: 3
 
-### Usage Examples
-
-```python
-from themap.features import FeatureCache
-
-# Initialize cache
-cache = FeatureCache(cache_dir="cache/features")
-
-# Check if features are cached
-cache_key = "ecfp_task1"
-if cache.has(cache_key):
-    features = cache.load(cache_key)
-else:
-    features = compute_features()
-    cache.save(cache_key, features)
-```
-
-#### Automatic Caching
-
-```python
-from themap.features import MoleculeFeaturizer, FeatureCache
-
-cache = FeatureCache(cache_dir="cache/")
-featurizer = MoleculeFeaturizer(
-    featurizer_name="ecfp",
-    cache=cache  # Enable automatic caching
-)
-
-# First call computes and caches
-features1 = featurizer.featurize(smiles_list)
-
-# Second call loads from cache (fast)
-features2 = featurizer.featurize(smiles_list)
-```
-
-## Performance Optimization
-
-### Choosing the Right Featurizer
-
-```python
-def choose_featurizer(dataset_size: int, accuracy_priority: bool) -> str:
-    """Choose appropriate featurizer based on requirements."""
-    if dataset_size > 100000:
-        return "ecfp"  # Fast fingerprints for large datasets
-    elif accuracy_priority:
-        return "ChemBERTa-77M-MLM"  # Neural embeddings for accuracy
-    else:
-        return "desc2D"  # Good balance of speed and quality
-```
-
-### Parallel Processing
-
-```python
-from themap.features import MoleculeFeaturizer
-
-# Use multiple CPU cores
-featurizer = MoleculeFeaturizer(
-    featurizer_name="mordred",
-    n_jobs=16  # Use 16 parallel workers
-)
-```
-
-### GPU Acceleration
-
-```python
-from themap.features import ProteinFeaturizer
-
-# Use GPU for neural models
-featurizer = ProteinFeaturizer(
-    model_name="esm2_t33_650M_UR50D",
-    device="cuda:0"  # Specific GPU
-)
-
-# Batch processing for efficiency
-embeddings = featurizer.featurize(
-    sequences,
-    batch_size=32  # Process 32 sequences at a time
-)
-```
-
-## Error Handling
-
-```python
-from themap.features import MoleculeFeaturizer
-
-featurizer = MoleculeFeaturizer(featurizer_name="ecfp")
-
-# Handle invalid SMILES
-smiles_list = ["CCO", "invalid_smiles", "CCCO"]
-
-try:
-    features = featurizer.featurize(smiles_list)
-except ValueError as e:
-    print(f"Invalid SMILES: {e}")
-
-# Or use safe mode
-features = featurizer.featurize(
-    smiles_list,
-    on_error="skip"  # Skip invalid molecules
-)
-```
-
-## Integration with Distance Computation
-
-```python
-from themap.features import MoleculeFeaturizer
-from themap.distance import compute_dataset_distance_matrix
-import numpy as np
-
-# Featurize datasets
-featurizer = MoleculeFeaturizer(featurizer_name="ecfp")
-
-source_features = featurizer.featurize(source_smiles)
-target_features = featurizer.featurize(target_smiles)
-
-# Compute distances
-distances = compute_dataset_distance_matrix(
-    source_features,
-    target_features,
-    method="euclidean"
-)
-```
-
-## Constants
-
-### Available Featurizer Names
-
-```python
-from themap.features.molecule import (
-    FINGERPRINT_FEATURIZERS,
-    DESCRIPTOR_FEATURIZERS,
-    NEURAL_FEATURIZERS,
-)
-
-print("Fingerprints:", FINGERPRINT_FEATURIZERS)
-print("Descriptors:", DESCRIPTOR_FEATURIZERS)
-print("Neural:", NEURAL_FEATURIZERS)
-```
-
-### ESM Model Names
-
-```python
-from themap.features.protein import ESM2_MODELS, ESM3_MODELS
-
-print("ESM2 models:", ESM2_MODELS)
-print("ESM3 models:", ESM3_MODELS)
-```
+See the [Performance Optimization tutorial](../tutorials/performance-optimization.md) for caching and parallelism tips.

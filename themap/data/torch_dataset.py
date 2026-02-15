@@ -23,7 +23,7 @@ class TorchMoleculeDataset(Dataset):
         target_transform (callable, optional): Transform to apply to labels
         lazy_loading (bool, optional): Whether to load data lazily. Defaults to False.
 
-    Example:
+    Examples:
         >>> from themap.data import MoleculeDataset
         >>> from themap.data.torch_dataset import TorchMoleculeDataset
         >>>
@@ -229,7 +229,7 @@ class TorchMoleculeDataset(Dataset):
         Returns:
             DataLoader: PyTorch data loader
 
-        Example:
+        Examples:
             >>> loader = TorchMoleculeDataset.create_dataloader(
             ...     dataset,
             ...     batch_size=32,
@@ -254,7 +254,7 @@ class TorchProteinMetadataDataset(Dataset):
         lazy_loading (bool, optional): Whether to load data lazily. Defaults to False.
         sequence_length (int, optional): Fixed sequence length for padding/truncation
 
-    Example:
+    Examples:
         >>> from themap.data import ProteinMetadataDataset
         >>> from themap.data.torch_dataset import TorchProteinMetadataDataset
         >>>
@@ -532,7 +532,7 @@ def MoleculeDataloader(
     Returns:
         dataset_loader (DataLoader): PyTorch dataloader
 
-    Example:
+    Examples:
         >>> from themap.data.torch_dataset import MoleculeDataloader
         >>> from themap.data.tasks import Tasks
         >>> tasks = Tasks.from_directory(
@@ -574,7 +574,7 @@ def ProteinDataloader(
     Returns:
         dataset_loader (DataLoader): PyTorch dataloader
 
-    Example:
+    Examples:
         >>> from themap.data.torch_dataset import ProteinDataloader
         >>> from themap.data.protein_datasets import ProteinMetadataDataset
         >>>

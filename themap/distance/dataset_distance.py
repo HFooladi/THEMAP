@@ -39,7 +39,7 @@ def _matrix_to_dict(
         target_ids: List of target task identifiers
 
     Returns:
-        Dict[target_id][source_id] = distance
+        Nested dict mapping ``target_id -> source_id -> distance``.
     """
     return {
         target_ids[i]: {source_ids[j]: float(matrix[i, j]) for j in range(len(source_ids))}
@@ -94,18 +94,17 @@ class DatasetDistance:
     Args:
         method: Distance computation method ('otdd', 'euclidean', 'cosine')
 
-    Example:
+    Examples:
         >>> distance_calc = DatasetDistance(method="euclidean")
         >>> matrix = distance_calc.compute_matrix(
-        ...     source_features=[src_feat_1, src_feat_2, ...],
-        ...     source_labels=[src_labels_1, src_labels_2, ...],
-        ...     target_features=[tgt_feat_1, tgt_feat_2, ...],
-        ...     target_labels=[tgt_labels_1, tgt_labels_2, ...],
-        ...     source_ids=["train_task1", "train_task2", ...],
-        ...     target_ids=["test_task1", "test_task2", ...],
+        ...     source_features=[src_feat_1, src_feat_2],
+        ...     source_labels=[src_labels_1, src_labels_2],
+        ...     target_features=[tgt_feat_1, tgt_feat_2],
+        ...     target_labels=[tgt_labels_1, tgt_labels_2],
+        ...     source_ids=["CHEMBL001", "CHEMBL002"],
+        ...     target_ids=["CHEMBL100", "CHEMBL101"],
         ...     n_jobs=8
         ... )
-        >>> # matrix["test_task1"]["train_task1"] = distance value
     """
 
     SUPPORTED_METHODS = ["otdd", "euclidean", "cosine"]
@@ -147,7 +146,7 @@ class DatasetDistance:
             **kwargs: Additional arguments for specific methods
 
         Returns:
-            Dict[target_id][source_id] = distance value
+            Nested dict mapping ``target_id -> source_id -> distance``.
         """
         if len(source_features) != len(source_labels) != len(source_ids):
             raise ValueError("Source features, labels, and ids must have same length")
@@ -372,9 +371,9 @@ def compute_dataset_distance_matrix(
         **kwargs: Additional method-specific arguments
 
     Returns:
-        Dict[target_id][source_id] = distance
+        Nested dict mapping ``target_id -> source_id -> distance``.
 
-    Example:
+    Examples:
         >>> distances = compute_dataset_distance_matrix(
         ...     source_features, source_labels,
         ...     target_features, target_labels,

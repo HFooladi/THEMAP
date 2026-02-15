@@ -40,7 +40,7 @@ def _matrix_to_dict(
         target_ids: List of target task identifiers
 
     Returns:
-        Dict[target_id][source_id] = distance
+        Nested dict mapping ``target_id -> source_id -> distance``.
     """
     return {
         target_ids[i]: {source_ids[j]: float(matrix[i, j]) for j in range(len(source_ids))}
@@ -65,15 +65,14 @@ class MetadataDistance:
     Args:
         method: Distance computation method ('euclidean', 'cosine', 'manhattan')
 
-    Example:
+    Examples:
         >>> distance_calc = MetadataDistance(method="cosine")
         >>> matrix = distance_calc.compute_matrix(
-        ...     source_vectors=protein_embeddings_train,  # Shape: (N, d)
-        ...     target_vectors=protein_embeddings_test,   # Shape: (M, d)
-        ...     source_ids=["train_task1", "train_task2", ...],
-        ...     target_ids=["test_task1", "test_task2", ...]
+        ...     source_vectors=protein_embeddings_train,
+        ...     target_vectors=protein_embeddings_test,
+        ...     source_ids=["CHEMBL001", "CHEMBL002"],
+        ...     target_ids=["CHEMBL100", "CHEMBL101"]
         ... )
-        >>> # matrix["test_task1"]["train_task1"] = distance value
     """
 
     SUPPORTED_METHODS = ["euclidean", "cosine", "manhattan"]
@@ -110,7 +109,7 @@ class MetadataDistance:
             target_ids: List of M target task identifiers
 
         Returns:
-            Dict[target_id][source_id] = distance value
+            Nested dict mapping ``target_id -> source_id -> distance``.
         """
         if len(source_vectors) != len(source_ids):
             raise ValueError(
@@ -156,7 +155,7 @@ class MetadataDistance:
             target_ids: List of M target task identifiers
 
         Returns:
-            Dict[target_id][source_id] = distance value
+            Nested dict mapping ``target_id -> source_id -> distance``.
         """
         source_array = np.vstack(source_vectors).astype(np.float32)
         target_array = np.vstack(target_vectors).astype(np.float32)
@@ -203,9 +202,9 @@ def compute_metadata_distance_matrix(
         method: Distance method ('euclidean', 'cosine', 'manhattan')
 
     Returns:
-        Dict[target_id][source_id] = distance
+        Nested dict mapping ``target_id -> source_id -> distance``.
 
-    Example:
+    Examples:
         >>> # Compute protein distance matrix
         >>> protein_distances = compute_metadata_distance_matrix(
         ...     train_protein_embeddings,  # (N, 1280) for ESM
@@ -234,7 +233,7 @@ def combine_distance_matrices(
     Returns:
         Combined distance matrix
 
-    Example:
+    Examples:
         >>> combined = combine_distance_matrices(
         ...     {"molecules": mol_distances, "protein": prot_distances},
         ...     weights={"molecules": 0.7, "protein": 0.3},

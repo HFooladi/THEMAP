@@ -62,7 +62,7 @@ class TaskDistanceCalculator:
         protein_distances: Computed protein distance matrix
         combined_distances: Combined distance matrix
 
-    Example:
+    Examples:
         >>> calculator = TaskDistanceCalculator(
         ...     tasks=tasks,
         ...     dataset_method="euclidean",
@@ -150,7 +150,7 @@ class TaskDistanceCalculator:
             **kwargs: Additional arguments for distance computation
 
         Returns:
-            Distance matrix Dict[target_id][source_id] = distance
+            Nested dict mapping ``target_id -> source_id -> distance``.
         """
         if self.tasks is None:
             raise ValueError("Tasks collection required for molecule distance computation")
@@ -204,7 +204,7 @@ class TaskDistanceCalculator:
             target_folds: Folds to use as targets
 
         Returns:
-            Distance matrix Dict[target_id][source_id] = distance
+            Nested dict mapping ``target_id -> source_id -> distance``.
         """
         if self.tasks is None:
             raise ValueError("Tasks collection required for protein distance computation")

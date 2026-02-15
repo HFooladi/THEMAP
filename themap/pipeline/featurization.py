@@ -215,7 +215,7 @@ class FeaturizationPipeline:
         molecule_featurizer: Name of molecular featurizer to use
         protein_featurizer: Name of protein featurizer to use
 
-    Example:
+    Examples:
         >>> pipeline = FeaturizationPipeline(
         ...     cache_dir="./feature_cache",
         ...     molecule_featurizer="ecfp"
