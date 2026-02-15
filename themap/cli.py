@@ -209,6 +209,7 @@ def list_featurizers() -> None:
         themap list-featurizers
     """
     from .features.molecule import (
+        COUNT_FINGERPRINT_FEATURIZERS,
         DESCRIPTOR_FEATURIZERS,
         FINGERPRINT_FEATURIZERS,
         NEURAL_FEATURIZERS,
@@ -218,6 +219,10 @@ def list_featurizers() -> None:
     click.echo("Molecule Featurizers:")
     click.echo("\n  Fingerprints (fast):")
     for f in FINGERPRINT_FEATURIZERS:
+        click.echo(f"    - {f}")
+
+    click.echo("\n  Count Fingerprints (fast):")
+    for f in COUNT_FINGERPRINT_FEATURIZERS:
         click.echo(f"    - {f}")
 
     click.echo("\n  Descriptors (medium):")

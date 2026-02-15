@@ -9,21 +9,58 @@ from rdkit import Chem
 
 from .logging import get_logger
 
-AVAILABLE_FEATURIZERS = [
-    "ecfp",  # Morgan fingerprint (2048 bits, uint8)
-    "fcfp",  # Morgan fingerprint (2048 bits, uint8)
-    "maccs",  # MACCS keys (167 bits, uint8)
-    "desc2D",  # 2D descriptors (223 dimensions, float64)
-    "mordred",  # Mordred descriptors (1613 dimensions, float64)
-    "ChemBERTa-77M-MLM",  # ChemBERTa-77M-MLM (384 dimensions, float64)
-    "ChemBERTa-77M-MTR",  # ChemBERTa-77M-MTR (384 dimensions, float64)
-    "MolT5",  # MolT5 (1024 dimensions, float64)
-    "Roberta-Zinc480M-102M",  # Roberta-Zinc480M-102M (768 dimensions, float64)
-    "gin_supervised_infomax",  # GIN supervised infomax (300 dimensions, float64)
-    "gin_supervised_contextpred",  # GIN supervised context prediction (300 dimensions, float64)
-    "gin_supervised_edgepred",  # GIN supervised edge prediction (300 dimensions, float64)
-    "gin_supervised_masking",  # GIN supervised masking (300 dimensions, float64)
+# --- Featurizer category constants (single source of truth) ---
+FINGERPRINT_FEATURIZERS = [
+    "ecfp",
+    "fcfp",
+    "maccs",
+    "avalon",
+    "topological",
+    "atompair",
+    "pattern",
+    "layered",
+    "secfp",
+    "erg",
+    "estate",
+    "rdkit",
 ]
+
+COUNT_FINGERPRINT_FEATURIZERS = [
+    "ecfp-count",
+    "fcfp-count",
+    "topological-count",
+    "atompair-count",
+    "rdkit-count",
+    "avalon-count",
+]
+
+DESCRIPTOR_FEATURIZERS = [
+    "desc2D",
+    "mordred",
+    "cats2D",
+    "pharm2D",
+    "scaffoldkeys",
+]
+
+HF_FEATURIZERS = [
+    "ChemBERTa-77M-MLM",
+    "ChemBERTa-77M-MTR",
+    "MolT5",
+    "Roberta-Zinc480M-102M",
+]
+
+DGL_FEATURIZERS = [
+    "gin_supervised_infomax",
+    "gin_supervised_contextpred",
+    "gin_supervised_edgepred",
+    "gin_supervised_masking",
+]
+
+NEURAL_FEATURIZERS = HF_FEATURIZERS + DGL_FEATURIZERS
+
+AVAILABLE_FEATURIZERS = (
+    FINGERPRINT_FEATURIZERS + COUNT_FINGERPRINT_FEATURIZERS + DESCRIPTOR_FEATURIZERS + NEURAL_FEATURIZERS
+)
 
 
 # Setup logging
@@ -103,26 +140,20 @@ def get_featurizer(
     if not isinstance(n_jobs, int):
         raise TypeError(f"Number of jobs must be an integer, got {type(n_jobs).__name__}")
 
-    if featurizer in ["ecfp", "fcfp", "mordred", "desc2D", "maccs"]:
-        transformer = MoleculeTransformer(featurizer, n_jobs=n_jobs)
+    # Some featurizers (pattern, layered) are not picklable and cannot use multiprocessing
+    _non_picklable = {"pattern", "layered"}
+    effective_n_jobs = 1 if featurizer in _non_picklable and n_jobs != 1 else n_jobs
+
+    if featurizer in FINGERPRINT_FEATURIZERS + COUNT_FINGERPRINT_FEATURIZERS + DESCRIPTOR_FEATURIZERS:
+        transformer = MoleculeTransformer(featurizer, n_jobs=effective_n_jobs)
 
     elif featurizer in ["pcqm4mv2_graphormer_base"]:
         transformer = GraphormerTransformer(kind=featurizer, dtype=float, n_jobs=n_jobs)
 
-    elif featurizer in [
-        "ChemBERTa-77M-MLM",
-        "ChemBERTa-77M-MTR",
-        "Roberta-Zinc480M-102M",
-        "MolT5",
-    ]:
+    elif featurizer in HF_FEATURIZERS:
         transformer = PretrainedHFTransformer(kind=featurizer, notation="smiles", dtype=float, n_jobs=n_jobs)
 
-    elif featurizer in [
-        "gin_supervised_infomax",
-        "gin_supervised_contextpred",
-        "gin_supervised_edgepred",
-        "gin_supervised_masking",
-    ]:
+    elif featurizer in DGL_FEATURIZERS:
         transformer = PretrainedDGLTransformer(kind=featurizer, dtype=float, n_jobs=n_jobs)
 
     else:

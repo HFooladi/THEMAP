@@ -10,30 +10,10 @@ from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
+from .utils.featurizer_utils import AVAILABLE_FEATURIZERS as MOLECULE_FEATURIZERS
 from .utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-# Available featurizers
-MOLECULE_FEATURIZERS = [
-    # Fingerprints (fast)
-    "ecfp",
-    "fcfp",
-    "maccs",
-    "avalon",
-    "topological",
-    "atompair",
-    # Descriptors (medium)
-    "desc2D",
-    "desc3D",
-    "mordred",
-    # Neural embeddings (slow, requires GPU)
-    "ChemBERTa-77M-MLM",
-    "ChemBERTa-77M-MTR",
-    "MolT5",
-    "gin_supervised_infomax",
-    "gin_supervised_contextpred",
-]
 
 PROTEIN_FEATURIZERS = [
     "esm2_t12_35M_UR50D",

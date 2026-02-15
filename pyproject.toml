@@ -80,6 +80,7 @@ ml = [
   "torchaudio>=2.0.0,<3.0.0",
   "molfeat>=0.10.0",
   "dgl<=2.0",
+  "dgllife",
   "torch-geometric",
 ]
 
@@ -117,6 +118,7 @@ all = [
   "torchaudio>=2.0.0,<3.0.0",
   "molfeat>=0.10.0",
   "dgl<=2.0",
+  "dgllife",
   "torch-geometric",
   # Protein
   "biopython",

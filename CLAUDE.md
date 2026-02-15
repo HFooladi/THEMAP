@@ -4,9 +4,11 @@ THEMAP: library for computing distances between chemical datasets for molecular 
 
 ## Setup
 
+**IMPORTANT: Always activate the venv before running any command, installation, or test in this repository.**
+
 ```bash
 source install.sh          # first time (uv-based, creates .venv)
-source .venv/bin/activate   # reactivate later
+source .venv/bin/activate   # reactivate later (required before every session)
 ```
 
 ## Commands
@@ -76,7 +78,7 @@ themap/
 ├── metalearning/            # [mypy ignored — entire subpackage]
 ├── features/cache.py        # [mypy ignored]
 └── utils/
-    ├── featurizer_utils.py  # get_featurizer(), AVAILABLE_FEATURIZERS
+    ├── featurizer_utils.py  # get_featurizer(), AVAILABLE_FEATURIZERS (single source of truth for all featurizer lists)
     ├── logging.py           # logging config
     └── config.py            # utility config helpers
 ```
@@ -87,7 +89,13 @@ themap/
 |---|---|---|
 | `DATASET_DISTANCE_METHODS` | `themap/distance/base.py` | `["otdd", "euclidean", "cosine"]` |
 | `METADATA_DISTANCE_METHODS` | `themap/distance/base.py` | `["euclidean", "cosine", "manhattan"]` |
-| `AVAILABLE_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["ecfp", "fcfp", "maccs", "desc2D", "mordred", "ChemBERTa-77M-MLM", "ChemBERTa-77M-MTR", "MolT5", "Roberta-Zinc480M-102M", "gin_supervised_infomax", "gin_supervised_contextpred", "gin_supervised_edgepred", "gin_supervised_masking"]` |
+| `FINGERPRINT_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["ecfp", "fcfp", "maccs", "avalon", "topological", "atompair", "pattern", "layered", "secfp", "erg", "estate", "rdkit"]` |
+| `COUNT_FINGERPRINT_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["ecfp-count", "fcfp-count", "topological-count", "atompair-count", "rdkit-count", "avalon-count"]` |
+| `DESCRIPTOR_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["desc2D", "mordred", "cats2D", "pharm2D", "scaffoldkeys"]` |
+| `HF_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["ChemBERTa-77M-MLM", "ChemBERTa-77M-MTR", "MolT5", "Roberta-Zinc480M-102M"]` |
+| `DGL_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["gin_supervised_infomax", "gin_supervised_contextpred", "gin_supervised_edgepred", "gin_supervised_masking"]` |
+| `NEURAL_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `HF_FEATURIZERS + DGL_FEATURIZERS` |
+| `AVAILABLE_FEATURIZERS` | `themap/utils/featurizer_utils.py` | All of the above combined (27 total) |
 | `COMBINATION_STRATEGIES` | `themap/config.py` | `["average", "weighted_average", "separate"]` |
 
 ## Testing
@@ -99,10 +107,12 @@ tests/
 ├── unit/
 │   ├── data/                                # MoleculeDataset, MoleculeDatasets, protein tests
 │   ├── distance/                            # test_base.py, test_protein_distance.py
-│   └── pipeline/                            # test_config.py, test_output.py
+│   ├── pipeline/                            # test_config.py, test_output.py
+│   └── test_featurizer_list_consistency.py  # featurizer list sync across modules
 └── integration/
     ├── test_pipeline_integration.py         # end-to-end pipeline
-    └── test_distance_computation.py         # distance matrix computation
+    ├── test_distance_computation.py         # distance matrix computation
+    └── test_featurizer_compatibility.py     # molfeat featurizer compatibility
 ```
 
 ### Markers
@@ -156,9 +166,10 @@ Heavy ML libraries (torch, molfeat, esm, etc.) are optional. Install groups are 
 ## Common Development Workflows
 
 ### Adding a new featurizer
-1. Add to `get_featurizer()` in `themap/utils/featurizer_utils.py`
-2. Add name to `AVAILABLE_FEATURIZERS` in same file
-3. Add tests in `tests/unit/data/`
+1. Add name to the appropriate category list in `themap/utils/featurizer_utils.py` (`FINGERPRINT_FEATURIZERS`, `COUNT_FINGERPRINT_FEATURIZERS`, `DESCRIPTOR_FEATURIZERS`, `HF_FEATURIZERS`, or `DGL_FEATURIZERS`) — `AVAILABLE_FEATURIZERS` is auto-composed from these
+2. If needed, update `get_featurizer()` routing in the same file (existing categories route automatically)
+3. All other files (`config.py`, `features/molecule.py`, `cli.py`) import from `featurizer_utils.py` — no changes needed
+4. Add tests in `tests/unit/data/`
 
 ### Adding a new distance method
 1. Implement in `DatasetDistance` or `MetadataDistance` in `themap/distance/base.py`

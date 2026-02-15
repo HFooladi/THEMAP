@@ -12,54 +12,23 @@ from typing import TYPE_CHECKING, Any, Dict, List, Union
 import numpy as np
 from numpy.typing import NDArray
 
+from ..utils.featurizer_utils import (
+    AVAILABLE_FEATURIZERS as MOLECULE_FEATURIZERS,
+)
+from ..utils.featurizer_utils import (
+    COUNT_FINGERPRINT_FEATURIZERS,
+    DESCRIPTOR_FEATURIZERS,
+    DGL_FEATURIZERS,
+    FINGERPRINT_FEATURIZERS,
+    HF_FEATURIZERS,
+    NEURAL_FEATURIZERS,
+)
 from ..utils.logging import get_logger
 
 if TYPE_CHECKING:
     from ..data.molecule_dataset import MoleculeDataset
 
 logger = get_logger(__name__)
-
-# Available molecule featurizers
-MOLECULE_FEATURIZERS = [
-    # Fingerprints (fast)
-    "ecfp",
-    "fcfp",
-    "maccs",
-    "avalon",
-    "topological",
-    "atompair",
-    # Descriptors (medium)
-    "desc2D",
-    "desc3D",
-    "mordred",
-    # Neural embeddings (slow, requires GPU)
-    "ChemBERTa-77M-MLM",
-    "ChemBERTa-77M-MTR",
-    "MolT5",
-    "Roberta-Zinc480M-102M",
-    "gin_supervised_infomax",
-    "gin_supervised_contextpred",
-    "gin_supervised_edgepred",
-    "gin_supervised_masking",
-]
-
-# Fingerprint featurizers (fast, binary vectors)
-FINGERPRINT_FEATURIZERS = ["ecfp", "fcfp", "maccs", "avalon", "topological", "atompair"]
-
-# Descriptor featurizers (medium speed, continuous values)
-DESCRIPTOR_FEATURIZERS = ["desc2D", "desc3D", "mordred"]
-
-# Neural embedding featurizers (slow, requires ML libraries)
-NEURAL_FEATURIZERS = [
-    "ChemBERTa-77M-MLM",
-    "ChemBERTa-77M-MTR",
-    "MolT5",
-    "Roberta-Zinc480M-102M",
-    "gin_supervised_infomax",
-    "gin_supervised_contextpred",
-    "gin_supervised_edgepred",
-    "gin_supervised_masking",
-]
 
 
 class MoleculeFeaturizer:
@@ -130,8 +99,8 @@ class MoleculeFeaturizer:
 
         name = self.featurizer_name
 
-        # Fingerprints and basic descriptors
-        if name in FINGERPRINT_FEATURIZERS + DESCRIPTOR_FEATURIZERS:
+        # Fingerprints, count fingerprints, and descriptors
+        if name in FINGERPRINT_FEATURIZERS + COUNT_FINGERPRINT_FEATURIZERS + DESCRIPTOR_FEATURIZERS:
             return MoleculeTransformer(name, n_jobs=self.n_jobs)
 
         # Graphormer
@@ -139,21 +108,11 @@ class MoleculeFeaturizer:
             return GraphormerTransformer(kind=name, dtype=float, n_jobs=self.n_jobs)
 
         # HuggingFace transformers (ChemBERTa, MolT5, etc.)
-        elif name in [
-            "ChemBERTa-77M-MLM",
-            "ChemBERTa-77M-MTR",
-            "Roberta-Zinc480M-102M",
-            "MolT5",
-        ]:
+        elif name in HF_FEATURIZERS:
             return PretrainedHFTransformer(kind=name, notation="smiles", dtype=float, n_jobs=self.n_jobs)
 
-        # DGL pretrained models (GIN)
-        elif name in [
-            "gin_supervised_infomax",
-            "gin_supervised_contextpred",
-            "gin_supervised_edgepred",
-            "gin_supervised_masking",
-        ]:
+        # DGL pretrained models (GIN, JTVAE, etc.)
+        elif name in DGL_FEATURIZERS:
             return PretrainedDGLTransformer(kind=name, dtype=float, n_jobs=self.n_jobs)
 
         else:
@@ -336,8 +295,8 @@ class MoleculeFeaturizer:
 
     @property
     def is_fingerprint(self) -> bool:
-        """Check if this is a fingerprint-based featurizer."""
-        return self.featurizer_name in FINGERPRINT_FEATURIZERS
+        """Check if this is a fingerprint-based featurizer (including count fingerprints)."""
+        return self.featurizer_name in FINGERPRINT_FEATURIZERS + COUNT_FINGERPRINT_FEATURIZERS
 
     @property
     def is_neural(self) -> bool:
