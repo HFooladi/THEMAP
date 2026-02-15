@@ -19,7 +19,7 @@ from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
 from ..utils.cache_utils import GlobalMoleculeCache
-from ..utils.logging import get_logger, setup_logging
+from ..utils.logging import get_logger
 from ..utils.protein_utils import (
     convert_fasta_to_dict,
     get_protein_accession,
@@ -29,8 +29,6 @@ from ..utils.protein_utils import (
 from .enums import DataFold
 from .exceptions import CacheError, DatasetValidationError, FeaturizationError
 
-# Setup logging
-setup_logging()
 logger = get_logger(__name__)
 
 # Constants

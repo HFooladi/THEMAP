@@ -5,7 +5,6 @@ This module provides functionality to compute various types of distances between
 molecule datasets using OTDD, Euclidean, or cosine distance methods.
 """
 
-import logging
 import pickle
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -17,6 +16,7 @@ from ..data.molecule_dataset import MoleculeDataset
 from ..data.tasks import Tasks
 from ..data.torch_dataset import MoleculeDataloader
 from ..utils.distance_utils import get_configure
+from ..utils.logging import get_logger
 from .base import (
     DEFAULT_MAX_SAMPLES,
     MOLECULE_DISTANCE_METHODS,
@@ -26,8 +26,7 @@ from .base import (
 )
 from .exceptions import DistanceComputationError
 
-# Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MoleculeDatasetDistance(AbstractTasksDistance):

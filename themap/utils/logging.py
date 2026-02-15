@@ -4,7 +4,9 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, Optional
 
-from .config import LoggingConfig, default_logging_config
+from .config import VERBOSE_FORMAT, LoggingConfig, default_logging_config
+
+_logging_configured = False
 
 
 class ColorizedFormatter(logging.Formatter):
@@ -53,8 +55,13 @@ def setup_logging(config: Optional[LoggingConfig] = None) -> None:
 
     Args:
         config: Optional LoggingConfig instance. If None, uses default configuration.
+            When called without a config, setup only runs once (idempotent).
+            When called with an explicit config, always applies it.
     """
+    global _logging_configured
     if config is None:
+        if _logging_configured:
+            return
         config = default_logging_config
 
     # Create logs directory if logging to file
@@ -71,12 +78,12 @@ def setup_logging(config: Optional[LoggingConfig] = None) -> None:
     console_handler.setFormatter(console_formatter)
     handlers.append(console_handler)
 
-    # File handler if log_file is specified (no colors for file output)
+    # File handler if log_file is specified (verbose format, no colors)
     if config.log_file:
         file_handler = RotatingFileHandler(
             config.log_file, maxBytes=config.max_bytes, backupCount=config.backup_count
         )
-        file_handler.setFormatter(logging.Formatter(config.format, config.date_format))
+        file_handler.setFormatter(logging.Formatter(VERBOSE_FORMAT, config.date_format))
         handlers.append(file_handler)  # type: ignore
 
     # Configure root logger
@@ -91,12 +98,32 @@ def setup_logging(config: Optional[LoggingConfig] = None) -> None:
     logging.getLogger("PIL").setLevel(logging.WARNING)
     logging.getLogger("rdkit").setLevel(logging.WARNING)
     logging.getLogger("torch").setLevel(logging.WARNING)
+    logging.getLogger("molfeat").setLevel(logging.WARNING)
+    logging.getLogger("datamol").setLevel(logging.WARNING)
+    logging.getLogger("dgl").setLevel(logging.WARNING)
+    logging.getLogger("dgllife").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("filelock").setLevel(logging.WARNING)
+
+    _logging_configured = True
 
     # Log the configuration
     logger = logging.getLogger(__name__)
-    logger.info(f"Logging configured with level {config.level}")
+    logger.debug(f"Logging configured with level {config.level}")
     if config.log_file:
-        logger.info(f"Logging to file: {config.log_file}")
+        logger.debug(f"Logging to file: {config.log_file}")
+
+
+def configure_logging(level: str = "INFO", log_file: Optional[str] = None, use_colors: bool = True) -> None:
+    """Configure THEMAP logging. Call this before using the library to control output.
+
+    Args:
+        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_file: Optional path to log file
+        use_colors: Whether to use colored console output
+    """
+    config = LoggingConfig(level=level, log_file=log_file, use_colors=use_colors)
+    setup_logging(config)
 
 
 def get_logger(name: str) -> logging.Logger:

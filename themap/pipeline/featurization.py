@@ -31,10 +31,8 @@ from numpy.typing import NDArray
 
 from ..data.molecule_dataset import MoleculeDataset
 from ..utils.featurizer_utils import get_featurizer
-from ..utils.logging import get_logger, setup_logging
+from ..utils.logging import get_logger
 
-# Setup logging
-setup_logging()
 logger = get_logger(__name__)
 
 

@@ -101,9 +101,30 @@ class TestFeaturizerListConsistency:
         assert exported_neural is NEURAL_FEATURIZERS
 
     def test_get_featurizer_routes_all(self) -> None:
-        """get_featurizer() should accept every name in AVAILABLE_FEATURIZERS."""
+        """get_featurizer() should accept every name in AVAILABLE_FEATURIZERS.
+
+        Skips DGL and HF featurizers when their optional dependencies are not installed.
+        """
         from themap.utils.featurizer_utils import get_featurizer
 
+        try:
+            import dgl  # noqa: F401
+
+            has_dgl = True
+        except ImportError:
+            has_dgl = False
+
+        try:
+            import transformers  # noqa: F401
+
+            has_transformers = True
+        except ImportError:
+            has_transformers = False
+
         for name in AVAILABLE_FEATURIZERS:
+            if name in DGL_FEATURIZERS and not has_dgl:
+                continue
+            if name in HF_FEATURIZERS and not has_transformers:
+                continue
             transformer = get_featurizer(name, n_jobs=1)
             assert transformer is not None

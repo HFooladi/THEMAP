@@ -13,7 +13,6 @@ analysis tools for understanding dataset relationships and task difficulty.
 
 import heapq
 import json
-import logging
 import multiprocessing
 import os
 import pickle
@@ -27,8 +26,9 @@ from joblib import Parallel, delayed
 from scipy.spatial import distance
 from tqdm import tqdm
 
-# Configure logging
-logger = logging.getLogger(__name__)
+from .logging import get_logger
+
+logger = get_logger(__name__)
 
 # Configuration constants
 DEFAULT_N_JOBS = min(8, multiprocessing.cpu_count())

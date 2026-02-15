@@ -9,13 +9,11 @@ from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
 from ..utils.cache_utils import GlobalMoleculeCache
-from ..utils.logging import get_logger, setup_logging
+from ..utils.logging import get_logger
 from .metadata import DataFold, MetadataDatasets, TextMetadataDataset
 from .molecule_dataset import MoleculeDataset
 from .protein_datasets import ProteinMetadataDataset, ProteinMetadataDatasets
 
-# Setup logging
-setup_logging()
 logger = get_logger(__name__)
 
 

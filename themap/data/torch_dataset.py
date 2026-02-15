@@ -4,12 +4,10 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from ..utils.logging import get_logger, setup_logging
+from ..utils.logging import get_logger
 from .molecule_dataset import MoleculeDataset
 from .protein_datasets import ProteinMetadataDataset
 
-# Setup logging
-setup_logging()
 logger = get_logger(__name__)
 
 

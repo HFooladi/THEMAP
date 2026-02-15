@@ -10,18 +10,9 @@ import logging
 import sys
 from pathlib import Path
 
+from ..utils.logging import configure_logging, get_logger
 from .config import PipelineConfig
 from .runner import PipelineRunner
-
-
-def setup_logging(level: str = "INFO") -> logging.Logger:
-    """Set up logging configuration."""
-    logging.basicConfig(
-        level=getattr(logging, level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("pipeline.log")],
-    )
-    return logging.getLogger("themap.pipeline")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -234,7 +225,8 @@ def main() -> None:
     args = parser.parse_args()
 
     # Set up logging
-    logger = setup_logging(args.log_level)
+    configure_logging(level=args.log_level, log_file="pipeline.log")
+    logger = get_logger("themap.pipeline")
 
     # Handle special commands
     if args.list_examples:

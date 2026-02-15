@@ -16,6 +16,7 @@ from ..data.tasks import Task, Tasks
 from ..distance import TaskDistance
 from ..distance.molecule_distance import MoleculeDatasetDistance
 from ..distance.protein_distance import ProteinDatasetDistance
+from ..utils.logging import get_logger
 from .config import PipelineConfig
 from .output import OutputManager
 
@@ -644,13 +645,4 @@ class PipelineRunner:
 
     def _setup_logger(self) -> logging.Logger:
         """Set up logging for pipeline execution."""
-        logger = logging.getLogger(f"pipeline_{self.config.name}")
-        logger.setLevel(logging.INFO)
-
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-            handler.setFormatter(formatter)
-            logger.addHandler(handler)
-
-        return logger
+        return get_logger(f"themap.pipeline.{self.config.name}")

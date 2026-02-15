@@ -5,16 +5,15 @@ This module provides the abstract base class for all distance computation classe
 and common utility functions used across different distance computation methods.
 """
 
-import logging
 import multiprocessing
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..data.metadata import DataFold
 from ..data.tasks import Tasks
 from ..distance.exceptions import DataValidationError
+from ..utils.logging import get_logger
 
-# Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Configuration constants
 DEFAULT_MAX_SAMPLES = 1000

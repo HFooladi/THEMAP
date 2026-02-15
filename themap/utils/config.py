@@ -8,13 +8,13 @@ class LoggingConfig:
     """Configuration for logging settings."""
 
     # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-    level: str = "ERROR"
+    level: str = "WARNING"
 
     # Log file path (None for console-only logging)
     log_file: Optional[str] = None
 
-    # Log format string
-    format: str = "%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
+    # Log format string (console)
+    format: str = "%(levelname)s | %(name)s | %(message)s"
 
     # Date format string
     date_format: str = "%Y-%m-%d %H:%M:%S"
@@ -40,6 +40,9 @@ class LoggingConfig:
             raise ValueError(f"Invalid log level: {self.level}. Must be one of {valid_levels}")
         self.level = self.level.upper()
 
+
+# Verbose format for file logging
+VERBOSE_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
 
 # Default configuration
 default_logging_config = LoggingConfig()

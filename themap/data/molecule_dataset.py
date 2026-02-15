@@ -13,10 +13,8 @@ import numpy as np
 from dpu_utils.utils import RichPath
 from numpy.typing import NDArray
 
-from ..utils.logging import get_logger, setup_logging
+from ..utils.logging import get_logger
 
-# Setup logging
-setup_logging()
 logger = get_logger(__name__)
 
 

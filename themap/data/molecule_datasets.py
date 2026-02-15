@@ -13,13 +13,11 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 from dpu_utils.utils import RichPath
 
-from ..utils.logging import get_logger, setup_logging
+from ..utils.logging import get_logger
 from .enums import DataFold
 from .exceptions import DatasetValidationError
 from .molecule_dataset import MoleculeDataset, get_task_name_from_path
 
-# Setup logging
-setup_logging()
 logger = get_logger(__name__)
 
 # Constants

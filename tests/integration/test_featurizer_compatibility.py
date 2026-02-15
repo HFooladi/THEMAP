@@ -73,7 +73,28 @@ def test_dgl_featurizer(featurizer_name: str) -> None:
 
 @pytest.mark.integration
 def test_all_featurizers_in_available_list() -> None:
-    """Verify every featurizer in AVAILABLE_FEATURIZERS can be routed by get_featurizer."""
+    """Verify every featurizer in AVAILABLE_FEATURIZERS can be routed by get_featurizer.
+
+    Skips DGL and HF featurizers when their optional dependencies are not installed.
+    """
+    try:
+        import dgl  # noqa: F401
+
+        has_dgl = True
+    except ImportError:
+        has_dgl = False
+
+    try:
+        import transformers  # noqa: F401
+
+        has_transformers = True
+    except ImportError:
+        has_transformers = False
+
     for name in AVAILABLE_FEATURIZERS:
+        if name in DGL_FEATURIZERS and not has_dgl:
+            continue
+        if name in HF_FEATURIZERS and not has_transformers:
+            continue
         transformer = get_featurizer(name, n_jobs=1)
         assert transformer is not None, f"get_featurizer returned None for '{name}'"

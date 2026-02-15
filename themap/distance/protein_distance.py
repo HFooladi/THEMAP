@@ -5,7 +5,6 @@ This module provides functionality to compute various types of distances between
 protein datasets using Euclidean or cosine distance methods.
 """
 
-import logging
 import pickle
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -17,6 +16,7 @@ from ..data.metadata import DataFold
 from ..data.protein_datasets import ProteinMetadataDataset
 from ..data.tasks import Tasks
 from ..utils.distance_utils import get_configure
+from ..utils.logging import get_logger
 from .base import (
     MOLECULE_DISTANCE_METHODS,
     PROTEIN_DISTANCE_METHODS,
@@ -24,8 +24,7 @@ from .base import (
     _validate_and_extract_task_id,
 )
 
-# Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ProteinDatasetDistance(AbstractTasksDistance):

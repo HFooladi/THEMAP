@@ -5,6 +5,8 @@ from ._version import __version__
 # Only import version by default for fast loading
 __all__ = [
     "__version__",
+    # Logging
+    "configure_logging",
     # New pipeline API
     "Pipeline",
     "PipelineConfig",
@@ -34,8 +36,14 @@ __all__ = [
 
 def __getattr__(name):
     """Lazy loading of heavy modules to keep imports fast."""
+    # Logging
+    if name == "configure_logging":
+        from .utils.logging import configure_logging
+
+        return configure_logging
+
     # New pipeline API
-    if name == "Pipeline":
+    elif name == "Pipeline":
         from .pipeline.orchestrator import Pipeline
 
         return Pipeline
