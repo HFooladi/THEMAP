@@ -4,10 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **OTDD Distance Returning All `inf`**: Replaced removed `torch.symeig` calls with `torch.linalg.eigh` in vendored OTDD code, fixing compatibility with PyTorch 2.0+
+- **OTDD Error Reporting**: Upgraded silent `warning` to `error` level logging, added exception type to messages, and added a post-computation summary of failed pairs
+- **NaN Feature Handling in OTDD**: Added validation that detects and replaces NaN values in feature arrays before OTDD computation, preventing silent numerical failures
+
+### Removed
+- `run_pipeline.py` and `run_pipeline.sh` — redundant wrapper scripts superseded by the `themap` CLI
+
 ## [v0.3.0] - 2025-08-19
 ### Added
 - **Pipeline Infrastructure**: Complete configuration-driven pipeline system for distance computation workflows
-  - `run_pipeline.py` - Main pipeline runner with CLI interface
   - `themap.pipeline` module with CLI, configuration management, and execution engine
   - Support for both directory-based dataset discovery and explicit dataset specification
   - YAML/JSON configuration files with validation and comprehensive examples
