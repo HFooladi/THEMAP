@@ -46,11 +46,13 @@ The `themap` command is installed as a console script. All commands support `--h
 # Quick distance computation (no config file needed)
 themap quick datasets/ -f ecfp -m euclidean -o output/
 themap quick datasets/ -f maccs -m cosine
+themap quick datasets/ -f ecfp -m otdd --device cuda  # GPU-accelerated OTDD
 
 # Full pipeline with YAML config
 themap init                              # generate config.yaml template
 themap run config.yaml                   # run pipeline
 themap run config.yaml -o results/ -j 4  # custom output dir and parallelism
+themap run config.yaml --device cuda     # force GPU (OTDD); 'auto' is default
 themap run config.yaml --molecule-only   # skip protein distances
 
 # Pre-compute and cache features (no distance computation)
