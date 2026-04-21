@@ -212,6 +212,7 @@ class Pipeline:
             target_ids=test_ids,
             method=cast(Literal["otdd", "euclidean", "cosine"], self.config.molecule.method),
             n_jobs=self.config.compute.n_jobs,
+            device=self.config.compute.device,
         )
 
     def _load_or_compute_molecule_features(
@@ -411,6 +412,7 @@ def quick_distance(
     molecule_featurizer: str = "ecfp",
     molecule_method: str = "euclidean",
     n_jobs: int = 8,
+    device: str = "auto",
 ) -> Dict[str, DistanceMatrix]:
     """Quick distance computation with minimal configuration.
 
@@ -420,6 +422,8 @@ def quick_distance(
         molecule_featurizer: Molecule featurizer name.
         molecule_method: Distance method.
         n_jobs: Number of parallel jobs.
+        device: Device for OTDD (``"auto" | "cpu" | "cuda"``). Ignored by
+            Euclidean/Cosine.
 
     Returns:
         Dictionary of distance matrices.
@@ -440,7 +444,7 @@ def quick_distance(
             method=molecule_method,
         ),
         output=OutputConfig(directory=Path(output_dir)),
-        compute=ComputeConfig(n_jobs=n_jobs),
+        compute=ComputeConfig(n_jobs=n_jobs, device=device),
     )
 
     pipeline = Pipeline(config)

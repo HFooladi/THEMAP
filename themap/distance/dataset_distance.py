@@ -47,6 +47,23 @@ def _matrix_to_dict(
     }
 
 
+def _resolve_device(device: str) -> str:
+    """Resolve ``"auto"`` to ``"cuda"`` when a GPU is available, else ``"cpu"``.
+
+    Explicit values (``"cpu"``, ``"cuda"``, ``"cuda:0"`` ...) are returned as-is
+    so callers can still pin a specific device. If torch is unavailable for any
+    reason, fall back to ``"cpu"``.
+    """
+    if device != "auto":
+        return device
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except ImportError:
+        return "cpu"
+
+
 def _compute_prototype(
     features: NDArray[np.float32],
     labels: NDArray[np.int32],
@@ -131,6 +148,7 @@ class DatasetDistance:
         source_ids: List[str],
         target_ids: List[str],
         n_jobs: int = 1,
+        device: str = "auto",
         **kwargs: Any,
     ) -> DistanceMatrix:
         """Compute N×M distance matrix between source and target datasets.
@@ -143,6 +161,9 @@ class DatasetDistance:
             source_ids: List of N source task identifiers
             target_ids: List of M target task identifiers
             n_jobs: Number of parallel jobs (for OTDD)
+            device: Device for OTDD computation. ``"auto"`` (default) uses CUDA
+                when available, else CPU. Accepts any torch device string.
+                Ignored by Euclidean/Cosine (scipy.cdist, CPU-only).
             **kwargs: Additional arguments for specific methods
 
         Returns:
@@ -162,6 +183,7 @@ class DatasetDistance:
                 source_ids,
                 target_ids,
                 n_jobs,
+                device=device,
                 **kwargs,
             )
         else:
@@ -215,14 +237,17 @@ class DatasetDistance:
         target_ids: List[str],
         n_jobs: int,
         maxsamples: int = 1000,
+        device: str = "auto",
         **kwargs: Any,
     ) -> DistanceMatrix:
         """Compute distance matrix using OTDD.
 
         OTDD is more expensive but considers both feature and label distributions.
         """
+        resolved_device = _resolve_device(device)
         logger.info(
-            f"Computing {len(target_ids)}×{len(source_ids)} OTDD distance matrix (maxsamples={maxsamples})"
+            f"Computing {len(target_ids)}×{len(source_ids)} OTDD distance matrix "
+            f"(maxsamples={maxsamples}, device={resolved_device})"
         )
 
         try:
@@ -278,7 +303,7 @@ class DatasetDistance:
         distances: DistanceMatrix = {}
         hopts = {
             "maxsamples": maxsamples,
-            "device": "cpu",
+            "device": resolved_device,
             "verbose": 1 if logger.isEnabledFor(logging.DEBUG) else 0,
             **kwargs,
         }
@@ -352,6 +377,7 @@ def compute_dataset_distance_matrix(
     target_ids: List[str],
     method: DatasetDistanceMethod = "euclidean",
     n_jobs: int = 1,
+    device: str = "auto",
     **kwargs: Any,
 ) -> DistanceMatrix:
     """Convenience function to compute dataset distance matrix.
@@ -368,6 +394,8 @@ def compute_dataset_distance_matrix(
         target_ids: List of M target task identifiers
         method: Distance method ('otdd', 'euclidean', 'cosine')
         n_jobs: Number of parallel jobs
+        device: Device for OTDD (``"auto" | "cpu" | "cuda"``). ``"auto"`` picks
+            CUDA when available. Ignored by Euclidean/Cosine.
         **kwargs: Additional method-specific arguments
 
     Returns:
@@ -390,5 +418,6 @@ def compute_dataset_distance_matrix(
         source_ids,
         target_ids,
         n_jobs=n_jobs,
+        device=device,
         **kwargs,
     )

@@ -49,6 +49,12 @@ def cli(ctx: click.Context, verbose: bool) -> None:
 @click.option("--molecule-only", is_flag=True, help="Only compute molecule distances")
 @click.option("--protein-only", is_flag=True, help="Only compute protein distances")
 @click.option("--n-jobs", "-j", type=int, help="Number of parallel jobs")
+@click.option(
+    "--device",
+    type=click.Choice(["auto", "cpu", "cuda"]),
+    default=None,
+    help="Device for OTDD ('auto' picks cuda if available). Overrides config.",
+)
 @click.pass_context
 def run(
     ctx: click.Context,
@@ -57,6 +63,7 @@ def run(
     molecule_only: bool,
     protein_only: bool,
     n_jobs: Optional[int],
+    device: Optional[str],
 ) -> None:
     """Run the distance computation pipeline.
 
@@ -66,6 +73,7 @@ def run(
         themap run config.yaml
         themap run config.yaml --output results/
         themap run config.yaml --molecule-only
+        themap run config.yaml --device cuda
     """
     from .pipeline import Pipeline
 
@@ -85,6 +93,9 @@ def run(
 
     if n_jobs:
         cfg.compute.n_jobs = n_jobs
+
+    if device:
+        cfg.compute.device = device
 
     # Validate
     issues = cfg.validate()
@@ -249,12 +260,19 @@ def list_featurizers() -> None:
 @click.option("--featurizer", "-f", default="ecfp", help="Molecule featurizer")
 @click.option("--method", "-m", default="euclidean", help="Distance method")
 @click.option("--n-jobs", "-j", default=8, help="Number of parallel jobs")
+@click.option(
+    "--device",
+    type=click.Choice(["auto", "cpu", "cuda"]),
+    default="auto",
+    help="Device for OTDD ('auto' picks cuda if available).",
+)
 def quick(
     data_dir: str,
     output: str,
     featurizer: str,
     method: str,
     n_jobs: int,
+    device: str,
 ) -> None:
     """Quick distance computation with minimal configuration.
 
@@ -263,6 +281,7 @@ def quick(
     Examples:
         themap quick datasets/TDC/
         themap quick datasets/TDC/ --featurizer maccs --method cosine
+        themap quick datasets/TDC/ -m otdd --device cuda
     """
     from .pipeline import quick_distance
 
@@ -270,6 +289,7 @@ def quick(
     click.echo(f"  Featurizer: {featurizer}")
     click.echo(f"  Method: {method}")
     click.echo(f"  Workers: {n_jobs}")
+    click.echo(f"  Device: {device}")
 
     try:
         results = quick_distance(
@@ -278,6 +298,7 @@ def quick(
             molecule_featurizer=featurizer,
             molecule_method=method,
             n_jobs=n_jobs,
+            device=device,
         )
 
         click.echo("\nResults:")
