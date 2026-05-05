@@ -269,15 +269,19 @@ python scripts/download_fsmol_data.py
 
 Useful flags: `--keep-zip` (don't delete the archive after extraction), `--force` (re-download), `--no-verify` (skip MD5 — only if you've already verified out-of-band), `--dest DIR` (custom location).
 
-After it completes you should see:
+After it completes (~31 GB extracted) you should see:
 
 ```
 datasets/fsmol_hardness/
-├── ext_chem/                  # OTDD distance matrices per featurizer
-├── ext_prot/                  # ESM-2 protein embeddings (t6_8M ... t36_3B)
-├── int_chem/{train,test}/     # Internal chemical hardness (RF baselines)
-└── FSMol_Eval_ProtoNet/summary/   # ProtoNet performance per support-set size
+├── ext_chem/                       # OTDD distance matrices per molecular featurizer
+├── ext_prot/                       # ESM-2 protein-distance matrices (t6_8M ... t36_3B)
+├── int_chem/{train,test}/          # Internal chemical hardness (RF baselines)
+├── embeddings/                     # Per-task molecular embeddings used to compute the OTDDs
+├── FSMol_Eval_ProtoNet/summary/    # ProtoNet performance per support-set size (16/32/64/128)
+└── FSMol_Eval_randomForest/summary/  # Random-forest baseline performance summaries
 ```
+
+The reproduction notebooks read from `ext_chem/`, `ext_prot/`, `int_chem/`, and `FSMol_Eval_ProtoNet/`; the other two directories are provided so users can rebuild the OTDD matrices from raw embeddings if desired.
 
 <details>
 <summary>Manual download (no Python)</summary>

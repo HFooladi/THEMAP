@@ -166,6 +166,13 @@ fsmol_datasets/
 
 # ignore assets folder
 assets/figures/
+# ignore generated paper figures (notebooks save here at runtime)
+assets/*.pdf
+assets/*.svg
+
+# ignore the FS-Mol Zenodo dataset (download via `make download-fsmol`)
+datasets/fsmol_hardness/
+datasets/fsmol_hardness.zip
 
 # ignore dev notebook
 notebooks/dev.ipynb
