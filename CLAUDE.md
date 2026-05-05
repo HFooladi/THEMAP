@@ -7,7 +7,7 @@ THEMAP: library for computing distances between chemical datasets for molecular 
 **IMPORTANT: Always activate the venv before running any command, installation, or test in this repository.**
 
 ```bash
-source install.sh          # first time (uv-based, creates .venv)
+source install.sh          # first time (uv-based, creates .venv, installs pre-commit hooks)
 source .venv/bin/activate   # reactivate later (required before every session)
 ```
 
@@ -185,7 +185,7 @@ tests/
 - **Import sorting**: automatic via ruff
 - **Type hints**: required for public APIs, enforced by mypy
 - **Docstrings**: Google-style for public functions
-- **Pre-commit hooks**: ruff, mypy, trailing whitespace, end-of-file fixer
+- **Pre-commit hooks**: ruff, mypy, nbstripout (auto-strips notebook outputs), trailing whitespace, end-of-file fixer
 
 ## Gotchas and Conventions
 
@@ -234,3 +234,8 @@ Heavy ML libraries (torch, molfeat, esm, etc.) are optional. Install groups are 
 1. Add click command in `themap/cli.py`
 2. Register with the `@cli.command()` decorator
 3. Add tests in `tests/unit/pipeline/`
+
+### Working with notebooks (paper reproduction)
+- Reproduction notebooks live in `notebooks/` and consume `datasets/fsmol_hardness/` (downloaded via `make download-fsmol`).
+- The `nbstripout` pre-commit hook auto-strips outputs on commit — never commit a notebook with embedded outputs. Run `nbstripout path/to/nb.ipynb` to clean manually.
+- Notebook paths assume `cwd == notebooks/`; launch Jupyter from there.

@@ -85,6 +85,14 @@ echo ""
 echo "✅ Installation complete!"
 echo ""
 
+# Install pre-commit hooks (ruff, mypy, nbstripout, ...)
+if [ -f ".pre-commit-config.yaml" ]; then
+    echo "🪝 Installing pre-commit hooks..."
+    pre-commit install
+    echo "✅ Pre-commit hooks installed"
+    echo ""
+fi
+
 # Minimal verification
 echo "🔍 Verifying installation..."
 python -c "import themap; from themap.data import MoleculeDataset; print(f'✅ THEMAP v{themap.__version__} imported successfully')"

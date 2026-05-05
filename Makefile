@@ -1,6 +1,6 @@
 # Makefile for THEMAP project
 
-.PHONY: help install install-dev install-all test test-unit test-integration test-distance test-fast test-coverage lint lint-check format format-check type-check ci clean docs docs-serve docs-build docs-clean docs-deploy
+.PHONY: help install install-dev install-all test test-unit test-integration test-distance test-fast test-coverage lint lint-check format format-check type-check ci clean docs docs-serve docs-build docs-clean docs-deploy download-fsmol
 
 # Default target
 help:
@@ -33,6 +33,9 @@ help:
 	@echo "  docs-build     - Build static documentation"
 	@echo "  docs-clean     - Clean documentation artifacts"
 	@echo "  docs-deploy    - Deploy documentation to GitHub Pages"
+	@echo ""
+	@echo "Data:"
+	@echo "  download-fsmol - Download FS-Mol hardness dataset from Zenodo (~16 GB)"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean          - Clean up build and cache artifacts"
@@ -99,6 +102,10 @@ docs-clean:
 
 docs-deploy:
 	mkdocs gh-deploy
+
+# Data download targets
+download-fsmol:
+	python scripts/download_fsmol_data.py
 
 # Cleanup
 clean:
