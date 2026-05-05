@@ -153,6 +153,7 @@ dev = [
   "ipycache",
   "watermark",
   "psutil",
+  "umap-learn",  # used by notebooks/figure_for_presentation.ipynb
 ]
 
 docs = [

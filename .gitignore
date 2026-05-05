@@ -169,6 +169,7 @@ assets/figures/
 # ignore generated paper figures (notebooks save here at runtime)
 assets/*.pdf
 assets/*.svg
+assets/themap_hero_figure.png
 
 # ignore the FS-Mol Zenodo dataset (download via `make download-fsmol`)
 datasets/fsmol_hardness/
