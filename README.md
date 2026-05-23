@@ -16,6 +16,7 @@ A Python library for calculating distances between chemical datasets to enable i
 ## Table of Contents
 
 - [Overview](#overview)
+- [Try it on Colab](#try-it-on-colab)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [CLI Reference](#cli-reference)
@@ -34,6 +35,18 @@ THEMAP is a Python library designed to calculate distances between chemical data
 - **Domain Adaptation**: Measure dataset similarity to guide model adaptation strategies
 - **Task Hardness Assessment**: Quantify how difficult a prediction task will be based on dataset characteristics
 - **Dataset Curation**: Select optimal training datasets from large chemical databases like ChEMBL
+
+
+## Try it on Colab
+
+Want to see what THEMAP does before installing anything? Run these notebooks directly in your browser on a free Colab CPU runtime — no local setup needed.
+
+| Notebook | What it covers | Open |
+| --- | --- | --- |
+| **5-minute quick tour** | Install THEMAP, download 5 sample ChEMBL datasets, compute a 2×3 distance matrix with `quick_distance`, visualise it as a heatmap. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/colab/01_quick_tour.ipynb) |
+| **API deep dive** | Walk through the building blocks: `DatasetLoader`, `MoleculeFeaturizer`, `DatasetDistance`, YAML pipelines, featurizer/metric comparison, and a PCA task landscape over 13 datasets. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/colab/02_api_deep_dive.ipynb) |
+
+Both notebooks live in [`notebooks/colab/`](notebooks/colab/) and run end-to-end on CPU.
 
 
 ## Installation
