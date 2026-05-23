@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from dpu_utils.utils import RichPath
@@ -12,7 +14,13 @@ from ..utils.cache_utils import GlobalMoleculeCache
 from ..utils.logging import get_logger
 from .metadata import DataFold, MetadataDatasets, TextMetadataDataset
 from .molecule_dataset import MoleculeDataset
-from .protein_datasets import ProteinMetadataDataset, ProteinMetadataDatasets
+
+if TYPE_CHECKING:
+    # Protein imports require biopython/torch — pulled in lazily only when
+    # a method that actually touches protein data is called. Keeping the
+    # symbols here under TYPE_CHECKING preserves type hints for static
+    # analysis without triggering the import at module load.
+    from .protein_datasets import ProteinMetadataDataset
 
 logger = get_logger(__name__)
 
@@ -68,8 +76,11 @@ class Task:
 
         if self.molecule_dataset is not None and not isinstance(self.molecule_dataset, MoleculeDataset):
             raise TypeError("molecule_dataset must be a MoleculeDataset or None")
-        if self.protein_dataset is not None and not isinstance(self.protein_dataset, ProteinMetadataDataset):
-            raise TypeError("protein_dataset must be a ProteinMetadataDataset or None")
+        if self.protein_dataset is not None:
+            from .protein_datasets import ProteinMetadataDataset
+
+            if not isinstance(self.protein_dataset, ProteinMetadataDataset):
+                raise TypeError("protein_dataset must be a ProteinMetadataDataset or None")
         if self.hardness is not None and not isinstance(self.hardness, (int, float)):
             raise TypeError("hardness must be a number or None")
 
@@ -381,6 +392,8 @@ class Tasks:
 
         if load_proteins:
             try:
+                from .protein_datasets import ProteinMetadataDatasets
+
                 protein_datasets = ProteinMetadataDatasets.from_directory(
                     directory=directory, task_list_file=task_list_file, cache_dir=cache_dir, **kwargs
                 )

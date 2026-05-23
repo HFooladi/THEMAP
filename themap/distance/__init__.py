@@ -48,9 +48,13 @@ from .metadata_distance import (
 )
 
 # Legacy classes for backward compatibility with examples
-from .molecule_distance import MoleculeDatasetDistance
-from .protein_distance import ProteinDatasetDistance
 from .task_distance import TaskDistance, TaskDistanceCalculator
+
+# MoleculeDatasetDistance and ProteinDatasetDistance are lazy-loaded: they
+# transitively require torch (via distance_utils.get_configure and
+# data.torch_dataset) and, for the protein variant, biopython
+# (via ProteinMetadataDataset). We avoid pulling those in for
+# molecule-only workflows that use the new DatasetDistance API instead.
 
 # Constants for backward compatibility
 DATASET_DISTANCE_METHODS = ["otdd", "euclidean", "cosine"]
@@ -74,7 +78,7 @@ __all__ = [
     # Legacy classes
     "TaskDistance",
     "MoleculeDatasetDistance",
-    "ProteinDatasetDistance",
+    "ProteinDatasetDistance",  # lazy
     # Exceptions
     "DistanceComputationError",
     "DataValidationError",
@@ -84,3 +88,20 @@ __all__ = [
     "MOLECULE_DISTANCE_METHODS",
     "PROTEIN_DISTANCE_METHODS",
 ]
+
+
+_LAZY_IMPORTS = {
+    "MoleculeDatasetDistance": ".molecule_distance",
+    "ProteinDatasetDistance": ".protein_distance",
+}
+
+
+def __getattr__(name):
+    if name in _LAZY_IMPORTS:
+        from importlib import import_module
+
+        module = import_module(_LAZY_IMPORTS[name], package=__name__)
+        attr = getattr(module, name)
+        globals()[name] = attr
+        return attr
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

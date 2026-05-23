@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 from ..utils.cache_utils import GlobalMoleculeCache
 from ..utils.logging import get_logger
-from .protein_datasets import DataFold
+from .enums import DataFold
 
 logger = get_logger(__name__)
 
