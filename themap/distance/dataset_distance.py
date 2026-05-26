@@ -252,9 +252,18 @@ class DatasetDistance:
 
         try:
             from ..models.otdd.src.distance import DatasetDistance as OTDDDistance
-        except ImportError:
-            logger.error("OTDD not available. Install with: pip install pot geomloss")
-            raise ImportError("OTDD requires additional dependencies. Install with: pip install pot geomloss")
+        except ImportError as e:
+            logger.error(
+                "OTDD import failed (%s: %s). Install missing deps via "
+                "`pip install 'themap[otdd]'` (which provides pot, geomloss, "
+                "pykeops, munkres, opentsne, torch).",
+                type(e).__name__,
+                e,
+            )
+            raise ImportError(
+                f"OTDD requires additional dependencies. Underlying error: {e}. "
+                "Install with: pip install 'themap[otdd]'"
+            ) from e
 
         # Create data loaders for OTDD
         from ..data.molecule_dataset import MoleculeDataset
