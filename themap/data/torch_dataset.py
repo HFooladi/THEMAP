@@ -1,4 +1,6 @@
-from typing import Any, Callable, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import numpy as np
 import torch
@@ -6,7 +8,9 @@ from torch.utils.data import Dataset
 
 from ..utils.logging import get_logger
 from .molecule_dataset import MoleculeDataset
-from .protein_datasets import ProteinMetadataDataset
+
+if TYPE_CHECKING:
+    from .protein_datasets import ProteinMetadataDataset
 
 logger = get_logger(__name__)
 
@@ -293,6 +297,8 @@ class TorchProteinMetadataDataset(Dataset):
             TypeError: If data is not a ProteinMetadataDataset instance
             ValueError: If the dataset is invalid
         """
+        from .protein_datasets import ProteinMetadataDataset
+
         if not isinstance(data, ProteinMetadataDataset):
             raise TypeError(f"Expected ProteinMetadataDataset, got {type(data)}")
 
