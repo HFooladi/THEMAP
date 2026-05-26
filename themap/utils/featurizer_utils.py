@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import numpy as np
-from molfeat.trans import MoleculeTransformer
-from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
-from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
-from rdkit import Chem
 
 from .logging import get_logger
+
+if TYPE_CHECKING:
+    from molfeat.trans import MoleculeTransformer
+    from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
+    from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
+    from rdkit import Chem
 
 # --- Featurizer category constants (single source of truth) ---
 FINGERPRINT_FEATURIZERS = [
@@ -98,6 +102,8 @@ def make_mol(
     Returns:
         RDKit molecule or None if the molecule is invalid.
     """
+    from rdkit import Chem
+
     params = Chem.SmilesParserParams()
     params.removeHs = not keep_h  # type: ignore
     mol = Chem.MolFromSmiles(smiles, params)
@@ -139,6 +145,10 @@ def get_featurizer(
         raise TypeError(f"Featurizer must be a string, got {type(featurizer).__name__}")
     if not isinstance(n_jobs, int):
         raise TypeError(f"Number of jobs must be an integer, got {type(n_jobs).__name__}")
+
+    from molfeat.trans import MoleculeTransformer
+    from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
+    from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
 
     # Some featurizers (pattern, layered) are not picklable and cannot use multiprocessing
     _non_picklable = {"pattern", "layered"}
