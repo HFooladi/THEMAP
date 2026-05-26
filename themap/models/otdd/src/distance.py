@@ -35,7 +35,10 @@ from sklearn.cluster import DBSCAN, KMeans
 from torch.distributions.multivariate_normal import MultivariateNormal
 
 ## Local Imports
-from ..plotting import gaussian_density_plot, heatmap, imshow_group_boundaries
+# Plotting helpers are imported lazily inside the plot_* methods below — the
+# plotting module pulls in adjustText (a plot-only dep that is *not* in the
+# `otdd` extra), and we do not want distance computation to fail when only
+# the OTDD extras are installed.
 from .moments import compute_label_stats
 from .utils import (
     augmented_dataset,
@@ -939,6 +942,8 @@ class DatasetDistance:
         fontsize=10,
         **kwargs,
     ):
+        from ..plotting import heatmap
+
         LD = self._get_label_distances().sqrt()
         LMD = self._label_mean_distances.sqrt()
 
@@ -1007,6 +1012,8 @@ class DatasetDistance:
         show=True,
         shift=(1, 1),
     ):
+        from ..plotting import gaussian_density_plot
+
         ## Assert that both datasets are 2 dim
         Means, Covs = self._get_label_stats()
         if self.X1 is None or self.X2 is None:
@@ -1126,6 +1133,8 @@ class DatasetDistance:
         show=True,
         save_path=None,
     ):
+        from ..plotting import imshow_group_boundaries
+
         Y1 -= Y1.min()
         Y2 -= Y2.min()
         if not ax:
