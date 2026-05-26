@@ -39,6 +39,8 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 # plotting module pulls in adjustText (a plot-only dep that is *not* in the
 # `otdd` extra), and we do not want distance computation to fail when only
 # the OTDD extras are installed.
+from ._compat import distances as _gl_distances
+from ._compat import squared_distances as _gl_squared_distances
 from .moments import compute_label_stats
 from .utils import (
     augmented_dataset,
@@ -70,8 +72,8 @@ def k_means(X, k):
 
 
 cost_routines = {
-    1: (lambda x, y: geomloss.utils.distances(x, y)),
-    2: (lambda x, y: geomloss.utils.squared_distances(x, y) / 2),
+    1: (lambda x, y: _gl_distances(x, y)),
+    2: (lambda x, y: _gl_squared_distances(x, y) / 2),
 }
 
 
@@ -1330,9 +1332,9 @@ class FeatureCost:
                     B2, N2, -1
                 )
         if self.p == 1:
-            c = geomloss.utils.distances(X1, X2)
+            c = _gl_distances(X1, X2)
         elif self.p == 2:
-            c = geomloss.utils.squared_distances(X1, X2) / 2
+            c = _gl_squared_distances(X1, X2) / 2
         else:
             raise ValueError()
         return c.to(_orig_device)

@@ -14,6 +14,32 @@ import scipy.linalg
 import torch
 from torch.autograd import Function
 
+
+def _ridge_eigh(A: torch.Tensor, eps_factor: float = 1e-6) -> tuple[torch.Tensor, torch.Tensor]:
+    """``torch.linalg.eigh`` with a Tikhonov ridge that survives ill-conditioned input.
+
+    OTDD's inner-OT Gaussian approximation calls eigh on per-class empirical
+    covariance matrices. When the feature dimension is comparable to or larger
+    than the per-class sample count (e.g. 200-d desc2D descriptors with ~80
+    samples per class on ChEMBL assays), these covariances are nearly singular
+    and bare ``eigh`` raises ``_LinAlgError: algorithm failed to converge``.
+    A small Tikhonov ridge ``A <- A + eps * I`` keeps eigh stable without
+    materially distorting the spectrum. We try a tiny ridge first and back
+    off to a larger one only if eigh still fails.
+    """
+    d = A.shape[-1]
+    eye = torch.eye(d, dtype=A.dtype, device=A.device)
+    diag_mean = A.diagonal(dim1=-2, dim2=-1).abs().mean().clamp_min(1.0)
+    eps = eps_factor * diag_mean
+    try:
+        return torch.linalg.eigh(A + eps * eye)
+    except RuntimeError:
+        # torch._C._LinAlgError is a RuntimeError subclass raised by eigh on
+        # non-convergence; we catch the parent to keep mypy happy on builds
+        # without the private symbol exposed.
+        return torch.linalg.eigh(A + (eps * 1000.0) * eye)
+
+
 try:
     import cupy as cp
 except Exception:
@@ -28,9 +54,7 @@ def symsqrt_v1(A, func="symeig"):
     ## Recall that for Sym Real matrices, SVD, EVD coincide, |λ_i| = σ_i, so
     ## for PSD matrices, these are equal and coincide, so we can use either.
     if func == "symeig":
-        s, v = torch.linalg.eigh(
-            A
-        )  # This is faster in GPU than CPU, fails gradcheck. See https://github.com/pytorch/pytorch/issues/30578
+        s, v = _ridge_eigh(A)
     elif func == "svd":
         _, s, v = A.svd()  # But this passes torch.autograd.gradcheck()
     else:
@@ -55,9 +79,7 @@ def symsqrt_v1(A, func="symeig"):
 def symsqrt_v2(A, func="symeig"):
     """Compute the square root of a symmetric positive definite matrix."""
     if func == "symeig":
-        s, v = torch.linalg.eigh(
-            A
-        )  # This is faster in GPU than CPU, fails gradcheck. See https://github.com/pytorch/pytorch/issues/30578
+        s, v = _ridge_eigh(A)
     elif func == "svd":
         _, s, v = A.svd()  # But this passes torch.autograd.gradcheck()
     else:

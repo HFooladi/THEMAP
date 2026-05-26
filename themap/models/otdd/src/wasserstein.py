@@ -363,14 +363,17 @@ def pwdist_exact(
         pairs = list(itertools.product(range(n1), range(n2)))
 
     if cost_function == "euclidean":
+        from ._compat import distances as _gl_distances
+        from ._compat import squared_distances as _gl_squared_distances
+
         if p == 1:
 
             def cost_function(x, y):
-                return geomloss.utils.distances(x, y)
+                return _gl_distances(x, y)
         elif p == 2:
 
             def cost_function(x, y):
-                return geomloss.utils.squared_distances(x, y)
+                return _gl_squared_distances(x, y)
         else:
             raise ValueError()
 
