@@ -18,6 +18,8 @@ __all__ = [
     "GlobalMoleculeCache",
     "PersistentFeatureCache",
     "MemoryEfficientFeatureStorage",
+    # Deferred (matplotlib / seaborn) -- notebook plotting style
+    "set_plot_style",
     # Deferred (molfeat / rdkit)
     "get_featurizer",
     "make_mol",
@@ -51,6 +53,7 @@ __all__ = [
     "read_esm_embedding",
 ]
 
+_PLOTTING_NAMES = {"set_plot_style"}
 _FEATURIZER_NAMES = {"get_featurizer", "make_mol"}
 _DISTANCE_NAMES = {
     "calculate_task_hardness_weight",
@@ -85,7 +88,9 @@ _PROTEIN_NAMES = {
 
 
 def __getattr__(name):
-    if name in _FEATURIZER_NAMES:
+    if name in _PLOTTING_NAMES:
+        from . import plotting as _mod
+    elif name in _FEATURIZER_NAMES:
         from . import featurizer_utils as _mod
     elif name in _DISTANCE_NAMES:
         from . import distance_utils as _mod
