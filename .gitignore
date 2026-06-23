@@ -215,6 +215,7 @@ output_results/
 output_cache/
 test_output/
 cli_output/
+metalearn_out/
 
 # ignore all the cache folders
 task_distance_cache/

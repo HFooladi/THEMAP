@@ -317,6 +317,144 @@ def quick(
 
 @cli.command()
 @click.argument("data_dir", type=click.Path(exists=True))
+@click.option(
+    "--distance-file",
+    required=True,
+    type=click.Path(exists=True),
+    help="Saved distance file (JSON/CSV/NPZ) mapping target -> source -> distance.",
+)
+@click.option("--target-id", required=True, help="Target task id to evaluate.")
+@click.option("--k", default=5, help="Number of nearest source datasets to meta-train on.")
+@click.option(
+    "--algorithm", type=click.Choice(["proto", "maml"]), default="proto", help="Meta-learning algorithm."
+)
+@click.option("--featurizer", "-f", default="ecfp", help="Molecule featurizer.")
+@click.option(
+    "--support-sizes", default="16,32,64,128", help="Comma-separated target support-set sizes to sweep."
+)
+@click.option("--seeds", default=5, help="Repeated seeds per support size.")
+@click.option("--n-support", default=10, help="Support examples per meta-training episode.")
+@click.option("--n-query", default=15, help="Query examples per meta-training episode.")
+@click.option("--inner-lr", default=0.01, help="MAML inner-loop learning rate.")
+@click.option("--inner-steps", default=5, help="MAML inner-loop adaptation steps.")
+@click.option("--outer-lr", default=0.001, help="Meta (outer-loop) learning rate.")
+@click.option("--num-epochs", default=50, help="Meta-training epochs.")
+@click.option("--episodes-per-epoch", default=100, help="Meta-training steps per epoch.")
+@click.option("--meta-batch-size", default=8, help="Episodes per outer optimizer step.")
+@click.option("--source-fold", default="train", help="Fold the source datasets live in.")
+@click.option("--target-fold", default="test", help="Fold the target dataset lives in.")
+@click.option("--n-jobs", "-j", default=8, help="Parallel jobs for featurization.")
+@click.option(
+    "--device",
+    type=click.Choice(["auto", "cpu", "cuda"]),
+    default="auto",
+    help="Compute device ('auto' picks cuda if available).",
+)
+@click.option("--output", "-o", default="metalearn_out", help="Output directory.")
+@click.pass_context
+def metalearn(
+    ctx: click.Context,
+    data_dir: str,
+    distance_file: str,
+    target_id: str,
+    k: int,
+    algorithm: str,
+    featurizer: str,
+    support_sizes: str,
+    seeds: int,
+    n_support: int,
+    n_query: int,
+    inner_lr: float,
+    inner_steps: int,
+    outer_lr: float,
+    num_epochs: int,
+    episodes_per_epoch: int,
+    meta_batch_size: int,
+    source_fold: str,
+    target_fold: str,
+    n_jobs: int,
+    device: str,
+    output: str,
+) -> None:
+    """Distance-guided meta-learning for a target dataset.
+
+    Picks the K nearest source datasets to TARGET_ID from a saved distance file,
+    meta-trains a Prototypical Network or MAML on them, then measures the low-data
+    AUROC gain on the target versus a from-scratch baseline.
+
+    DATA_DIR is the path to a directory with train/test/valid folders.
+
+    Examples:
+        themap metalearn datasets/ --distance-file output/molecule_distances.csv \\
+            --target-id CHEMBL1963831 --k 3 --algorithm proto
+        themap metalearn datasets/ --distance-file dist.json --target-id T1 \\
+            --algorithm maml --support-sizes 16,32,64
+    """
+    from .metalearning.config import (
+        ExperimentConfig,
+        MAMLConfig,
+        TrainConfig,
+    )
+    from .metalearning.evaluation import LowDataEvaluator
+    from .metalearning.runner import MetaLearnExperiment
+
+    try:
+        sizes = [int(s) for s in support_sizes.split(",") if s.strip()]
+    except ValueError:
+        click.echo(
+            f"Error: invalid --support-sizes '{support_sizes}' (expected comma-separated ints).", err=True
+        )
+        raise SystemExit(1)
+
+    config = ExperimentConfig(
+        data_dir=data_dir,
+        distance_file=distance_file,
+        target_id=target_id,
+        k=k,
+        algorithm=algorithm,  # type: ignore[arg-type]
+        featurizer=featurizer,
+        support_sizes=sizes,
+        seeds=seeds,
+        n_jobs=n_jobs,
+        output_dir=output,
+        source_fold=source_fold,
+        target_fold=target_fold,
+        maml=MAMLConfig(inner_lr=inner_lr, inner_steps=inner_steps),
+        train=TrainConfig(
+            n_support=n_support,
+            n_query=n_query,
+            num_epochs=num_epochs,
+            episodes_per_epoch=episodes_per_epoch,
+            meta_batch_size=meta_batch_size,
+            outer_lr=outer_lr,
+            device=device,
+        ),
+    )
+
+    click.echo(f"Meta-learning ({algorithm}) for target '{target_id}' using k={k} nearest sources...")
+    try:
+        results = MetaLearnExperiment(config).run()
+        summary = LowDataEvaluator.summarize(results)
+
+        click.echo("\nAUROC by support size (mean):")
+        pivot = summary.pivot_table(index="support_size", columns="method", values="auroc_mean")
+        for n in sorted(pivot.index):
+            meta = pivot.loc[n].get("meta", float("nan"))
+            base = pivot.loc[n].get("baseline", float("nan"))
+            click.echo(f"  N={n:>4}:  meta={meta:.3f}  baseline={base:.3f}  gain={meta - base:+.3f}")
+
+        click.echo(f"\nOutput saved to: {output}")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if ctx.obj.get("verbose"):
+            import traceback
+
+            traceback.print_exc()
+        raise SystemExit(1)
+
+
+@cli.command()
+@click.argument("data_dir", type=click.Path(exists=True))
 def info(data_dir: str) -> None:
     """Show information about a dataset directory.
 
