@@ -142,7 +142,7 @@ test = [
 
 dev = [
   "ruff==0.12.4",
-  "mypy==1.17.0",
+  "mypy==2.1.0",
   "pre-commit",
   "nbstripout",
   "jupyterlab",
