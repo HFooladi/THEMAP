@@ -2,38 +2,61 @@ name: Build and Publish
 
 on:
   release:
-    types: [created]
+    # "published" (not "created") so draft releases do not trigger a publish.
+    types: [published]
   workflow_dispatch:
 
+# Default to read-only; the publish job opts into the OIDC token it needs.
+permissions:
+  contents: read
+
 jobs:
-  deploy:
+  # Build the distribution once. The package is pure-Python (a single
+  # py3-none-any wheel + sdist), so there is no need for a Python matrix here —
+  # building/publishing per version would produce identical artifacts and the
+  # duplicate uploads would fail.
+  build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          # hatch-vcs derives the version from git tags/history.
+          fetch-depth: 0
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      - name: Build sdist and wheel
+        run: pipx run build
 
-    - name: Install dependencies
-      run: |
-        uv pip install --system build twine
+      - name: Check distribution metadata
+        run: pipx run twine check --strict dist/*
 
-    - name: Build and package
-      run: |
-        python -m build
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
-    - name: Publish to PyPI
-      if: github.event_name == 'release' && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Only publish for an actual GitHub release (not workflow_dispatch dry runs).
+    if: github.event_name == 'release'
+    environment:
+      name: pypi
+      url: https://pypi.org/project/themap/
+    permissions:
+      # Required for PyPI Trusted Publishing (OIDC); no stored API token needed.
+      id-token: write
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

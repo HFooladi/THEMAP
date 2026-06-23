@@ -1,0 +1,46 @@
+name: Pre-commit autoupdate
+
+# Dependabot has no pre-commit ecosystem, so we bump hook revisions on a
+# schedule and open a PR. Keeps .pre-commit-config.yaml hooks current.
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  autoupdate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # commit the updated config
+      pull-requests: write  # open the PR
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run pre-commit autoupdate
+        run: |
+          pipx run pre-commit autoupdate
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(pre-commit): autoupdate hook revisions"
+          title: "chore(pre-commit): autoupdate hook revisions"
+          body: |
+            Automated weekly `pre-commit autoupdate`.
+
+            Note: ruff's hook `rev` must stay in sync with the pinned
+            `ruff==0.12.4` in `pyproject.toml` / CI. If this PR bumps ruff,
+            update those pins together (or revert the ruff change).
+          branch: chore/pre-commit-autoupdate
+          labels: |
+            dependencies
+            pre-commit
+          delete-branch: true
