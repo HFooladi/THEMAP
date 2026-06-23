@@ -154,6 +154,7 @@ dev = [
   "watermark",
   "psutil",
   "umap-learn",  # used by notebooks/figure_for_presentation.ipynb
+  "numba>=0.59",  # first release with cp312 wheels; avoids resolver backtracking to numba 0.53.1 (llvmlite 0.36.0 has no 3.12 wheels)
 ]
 
 docs = [
