@@ -133,6 +133,25 @@ class FeatureBank:
         return len(self.tasks)
 
 
+def max_feasible_n_support(tasks: List[TaskFeatures], n_query: int, n_way: int = 2) -> int:
+    """Largest total balanced support shot the most-capable task can supply.
+
+    A balanced binary episode needs ``n_support // n_way`` support and
+    ``n_query // n_way`` query examples *per class*. For each task the support
+    quota per class is bounded by ``min(#pos, #neg) - (n_query // n_way)``; the
+    returned value is ``n_way`` times the best such quota across all tasks, i.e.
+    the largest ``n_support`` for which at least one task can form an episode.
+
+    Returns 0 when no task can supply even a 1-shot-per-class episode.
+    """
+    qry_per_class = n_query // n_way
+    best_per_class = 0
+    for t in tasks:
+        per_class = min(len(t.pos_idx), len(t.neg_idx)) - qry_per_class
+        best_per_class = max(best_per_class, per_class)
+    return max(0, best_per_class) * n_way
+
+
 class EpisodeSampler:
     """Samples balanced n-way support/query episodes from a set of tasks.
 

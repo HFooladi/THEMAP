@@ -333,6 +333,18 @@ def quick(
     "--support-sizes", default="16,32,64,128", help="Comma-separated target support-set sizes to sweep."
 )
 @click.option("--seeds", default=5, help="Repeated seeds per support size.")
+@click.option(
+    "--train-shot-mode",
+    type=click.Choice(["match", "fixed"]),
+    default="match",
+    help="'match' trains a fresh model per support size (shot tracks N); "
+    "'fixed' is the FS-Mol single-model protocol (one model, eval all sizes; set --n-support 64).",
+)
+@click.option(
+    "--query-fraction",
+    default=0.5,
+    help="Fraction of the target held out as a fixed query set shared across support sizes.",
+)
 @click.option("--n-support", default=10, help="Support examples per meta-training episode.")
 @click.option("--n-query", default=15, help="Query examples per meta-training episode.")
 @click.option("--inner-lr", default=0.01, help="MAML inner-loop learning rate.")
@@ -362,6 +374,8 @@ def metalearn(
     featurizer: str,
     support_sizes: str,
     seeds: int,
+    train_shot_mode: str,
+    query_fraction: float,
     n_support: int,
     n_query: int,
     inner_lr: float,
@@ -414,6 +428,8 @@ def metalearn(
         algorithm=algorithm,  # type: ignore[arg-type]
         featurizer=featurizer,
         support_sizes=sizes,
+        train_shot_mode=train_shot_mode,  # type: ignore[arg-type]
+        query_fraction=query_fraction,
         seeds=seeds,
         n_jobs=n_jobs,
         output_dir=output,
@@ -436,12 +452,13 @@ def metalearn(
         results = MetaLearnExperiment(config).run()
         summary = LowDataEvaluator.summarize(results)
 
-        click.echo("\nAUROC by support size (mean):")
-        pivot = summary.pivot_table(index="support_size", columns="method", values="auroc_mean")
-        for n in sorted(pivot.index):
-            meta = pivot.loc[n].get("meta", float("nan"))
-            base = pivot.loc[n].get("baseline", float("nan"))
-            click.echo(f"  N={n:>4}:  meta={meta:.3f}  baseline={base:.3f}  gain={meta - base:+.3f}")
+        for title, col in (("AUROC", "auroc_mean"), ("ΔAUPRC", "delta_auprc_mean")):
+            click.echo(f"\n{title} by support size (mean):")
+            pivot = summary.pivot_table(index="support_size", columns="method", values=col)
+            for n in sorted(pivot.index):
+                meta = pivot.loc[n].get("meta", float("nan"))
+                base = pivot.loc[n].get("baseline", float("nan"))
+                click.echo(f"  N={n:>4}:  meta={meta:+.3f}  baseline={base:+.3f}  gain={meta - base:+.3f}")
 
         click.echo(f"\nOutput saved to: {output}")
     except Exception as e:

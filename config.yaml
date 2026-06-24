@@ -1,26 +1,22 @@
+
+# THEMAP Pipeline Configuration
 data:
-  directory: datasets
-  task_list: null
-distances:
-  molecule:
-    enabled: true
-    featurizer: ecfp
-    method: euclidean
-  protein:
-    enabled: false
-    featurizer: esm2_t33_650M_UR50D
-    method: cosine
-    layer: null
-combination:
-  strategy: weighted_average
-  weights:
-    molecule: 0.5
-    protein: 0.5
+  directory: "datasets"
+  task_list: null  # Auto-discover all files
+
+molecule:
+  enabled: true
+  featurizer: "ecfp"    # Options: ecfp, maccs, desc2D, ChemBERTa-77M-MLM, etc.
+  method: "euclidean"   # Options: euclidean, cosine, otdd
+
+protein:
+  enabled: false        # Set to true if you have protein data
+
 output:
-  directory: output
-  format: csv
-  save_features: true
+  directory: "output"
+  format: "csv"
+  save_features: true   # Cache features for faster reruns
+
 compute:
   n_jobs: 8
-  batch_size: 1000
-  device: auto
+  device: "auto"        # auto, cpu, or cuda

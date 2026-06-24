@@ -104,6 +104,13 @@ class ExperimentConfig:
         algorithm: ``"proto"`` or ``"maml"``.
         featurizer: Molecular featurizer name (e.g. ``"ecfp"``).
         support_sizes: Low-data support set sizes to sweep on the target.
+        train_shot_mode: ``"match"`` meta-trains a fresh model per support size with a
+            training shot that tracks the eval ``N`` (capped to source feasibility) —
+            THEMAP's low-data default. ``"fixed"`` is the FS-Mol single-model protocol:
+            train one model once at ``TrainConfig.n_support`` (set ≈64 for FS-Mol parity)
+            and evaluate it across all support sizes.
+        query_fraction: Fraction of the target held out as a fixed query set, shared
+            across all support sizes so AUROC is comparable.
         seeds: Number of repeated seeds per support size.
         n_jobs: Parallel jobs for featurization.
         output_dir: Directory to write results to.
@@ -122,6 +129,8 @@ class ExperimentConfig:
     algorithm: Algorithm = "proto"
     featurizer: str = "ecfp"
     support_sizes: List[int] = field(default_factory=lambda: [16, 32, 64, 128])
+    train_shot_mode: Literal["match", "fixed"] = "match"
+    query_fraction: float = 0.5
     seeds: int = 5
     n_jobs: int = 8
     output_dir: Optional[str] = None

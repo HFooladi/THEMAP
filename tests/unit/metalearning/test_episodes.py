@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from themap.metalearning.episodes import EpisodeSampler, TaskFeatures
+from themap.metalearning.episodes import EpisodeSampler, TaskFeatures, max_feasible_n_support
 
 pytest.importorskip("torch")
 
@@ -28,6 +28,24 @@ class TestTaskFeatures:
         tf = TaskFeatures.from_arrays("t", X, y)
         assert len(tf) == 2
         assert np.isfinite(tf.X).all()
+
+
+@pytest.mark.unit
+class TestMaxFeasibleNSupport:
+    def test_uses_most_capable_task(self):
+        tasks = [_make_task(n_pos=5, n_neg=5), _make_task(n_pos=40, n_neg=40)]
+        # Best task: min(40,40) - (n_query//2) = 40 - 5 = 35 per class -> 70 total.
+        assert max_feasible_n_support(tasks, n_query=10) == 70
+
+    def test_limited_by_minority_class(self):
+        tasks = [_make_task(n_pos=8, n_neg=40)]
+        # min(8,40) - 5 = 3 per class -> 6 total.
+        assert max_feasible_n_support(tasks, n_query=10) == 6
+
+    def test_zero_when_no_task_can_supply(self):
+        tasks = [_make_task(n_pos=3, n_neg=3)]
+        # min(3,3) - 5 = -2 -> clamped to 0.
+        assert max_feasible_n_support(tasks, n_query=10) == 0
 
 
 @pytest.mark.unit
