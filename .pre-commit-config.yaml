@@ -2,7 +2,7 @@ repos:
   # Ruff - linting and formatting
   # Version must match pyproject.toml dev dependency (ruff==0.12.4)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.4
+    rev: v0.15.20
     hooks:
       - id: ruff
         args: [--fix]
@@ -22,13 +22,13 @@ repos:
 
   # Strip outputs from Jupyter notebooks before commit
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.7.1
+    rev: 0.9.1
     hooks:
       - id: nbstripout
 
   # File quality checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
