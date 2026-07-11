@@ -102,6 +102,13 @@ class ExperimentConfig:
         target_id: Target task id to evaluate.
         k: Number of nearest source datasets to meta-train on.
         algorithm: ``"proto"`` or ``"maml"``.
+        selection_strategy: How the ``k`` source datasets are chosen. ``"distance"``
+            (default) picks the k-nearest sources from ``distance_file``; ``"random"``
+            samples k sources at random from the same candidate pool (seeded by
+            ``selection_seed``). The two are the arms of THEMAP's headline hypothesis —
+            intelligent (distance) selection should beat random selection.
+        selection_seed: Seed for the ``"random"`` selection strategy (ignored when
+            ``selection_strategy == "distance"``).
         featurizer: Molecular featurizer name (e.g. ``"ecfp"``).
         support_sizes: Low-data support set sizes to sweep on the target.
         train_shot_mode: ``"match"`` meta-trains a fresh model per support size with a
@@ -127,6 +134,8 @@ class ExperimentConfig:
     target_id: str
     k: int = 5
     algorithm: Algorithm = "proto"
+    selection_strategy: Literal["distance", "random"] = "distance"
+    selection_seed: int = 0
     featurizer: str = "ecfp"
     support_sizes: List[int] = field(default_factory=lambda: [16, 32, 64, 128])
     train_shot_mode: Literal["match", "fixed"] = "match"

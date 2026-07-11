@@ -20,6 +20,7 @@ It is intentionally torch-free so the CLI can use it without importing torch.
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 from typing import List, Tuple, Union
 
@@ -163,3 +164,70 @@ def select_k_nearest_sources(
         raise ValueError(f"No valid source datasets found for target '{target_id}'.")
 
     return candidates[:k]
+
+
+def select_k_random_sources(
+    distance_path: PathLike,
+    target_id: str,
+    k: int,
+    seed: int,
+    exclude_self: bool = True,
+) -> List[Tuple[str, float]]:
+    """Return ``k`` source datasets chosen at random (the baseline for the hypothesis).
+
+    This is the random counterpart to :func:`select_k_nearest_sources`. It draws from
+    the **same candidate pool** — the sources with a valid (finite) distance to
+    ``target_id`` in the same distance file — so the only difference between the two
+    arms is *how* the k sources are picked, not which sources are eligible. That is
+    what makes a distance-vs-random comparison fair.
+
+    Args:
+        distance_path: Path to a saved distance file (JSON/CSV/NPZ).
+        target_id: Target task id whose sources are being selected.
+        k: Number of sources to sample.
+        seed: Seed for the draw, so each random arm is reproducible.
+        exclude_self: If True, drop a source whose id equals ``target_id``.
+
+    Returns:
+        List of ``(source_id, distance)`` pairs sorted by ascending distance. The
+        distances are the real ones from the file (kept for logging/reference); the
+        *selection* itself ignores them. If fewer than ``k`` valid sources exist, all
+        of them are returned (with a warning).
+
+    Raises:
+        ValueError: If ``target_id`` is not present in the distance file, or if
+            ``k`` is not positive.
+    """
+    if k <= 0:
+        raise ValueError(f"k must be positive, got {k}")
+
+    matrix, target_ids, source_ids = load_distance_matrix(distance_path, target_hint=target_id)
+    if target_id not in target_ids:
+        raise ValueError(
+            f"Target id '{target_id}' not found among targets in {distance_path}. "
+            f"Available targets: {target_ids}"
+        )
+
+    row = matrix[target_ids.index(target_id)]
+    candidates: List[Tuple[str, float]] = []
+    for source_id, dist in zip(source_ids, row):
+        if exclude_self and source_id == target_id:
+            continue
+        if not np.isfinite(dist):
+            continue
+        candidates.append((source_id, float(dist)))
+
+    if not candidates:
+        raise ValueError(f"No valid source datasets found for target '{target_id}'.")
+    if len(candidates) < k:
+        logger.warning(
+            "Only %d valid source(s) available for target '%s'; requested k=%d.",
+            len(candidates),
+            target_id,
+            k,
+        )
+
+    n = min(k, len(candidates))
+    chosen = random.Random(seed).sample(candidates, n)
+    chosen.sort(key=lambda pair: pair[1])
+    return chosen

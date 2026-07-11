@@ -19,7 +19,7 @@ from ..utils.logging import get_logger
 from .config import ExperimentConfig
 from .episodes import EpisodeSampler, FeatureBank, max_feasible_n_support
 from .evaluation import METRICS, LowDataEvaluator
-from .selection import select_k_nearest_sources
+from .selection import select_k_nearest_sources, select_k_random_sources
 from .trainer import MetaTrainer
 
 logger = get_logger(__name__)
@@ -60,10 +60,19 @@ class MetaLearnExperiment:
         """Execute the experiment and return the long-form results DataFrame."""
         cfg = self.config
 
-        # 1. Select k-nearest sources from the distance file.
-        selected = select_k_nearest_sources(cfg.distance_file, cfg.target_id, cfg.k)
+        # 1. Select the k source datasets (distance-nearest or random).
+        if cfg.selection_strategy == "random":
+            selected = select_k_random_sources(cfg.distance_file, cfg.target_id, cfg.k, cfg.selection_seed)
+        else:
+            selected = select_k_nearest_sources(cfg.distance_file, cfg.target_id, cfg.k)
         source_ids = [s for s, _ in selected]
-        logger.info("Selected %d source(s) for target '%s': %s", len(source_ids), cfg.target_id, selected)
+        logger.info(
+            "Selected %d source(s) for target '%s' via %s: %s",
+            len(source_ids),
+            cfg.target_id,
+            cfg.selection_strategy,
+            selected,
+        )
 
         # 2. Load datasets, 3. featurize sources + target once (shared dedup).
         sources, target_ds = self._load_datasets(source_ids)
@@ -148,6 +157,16 @@ class MetaLearnExperiment:
         train_sampler = EpisodeSampler(
             train_tasks, n_support=n_support, n_query=cfg.train.n_query, seed=cfg.train.seed
         )
+        # Validation is optional: only build the val sampler if the held-out source(s)
+        # can actually supply an n_support-shot episode. A small val task that cannot
+        # would otherwise raise and abort the whole run, so we skip validation instead.
+        val_feasible = bool(val_tasks) and max_feasible_n_support(val_tasks, cfg.train.n_query) >= n_support
+        if val_tasks and not val_feasible:
+            logger.warning(
+                "Held-out validation source(s) cannot supply a %d-shot episode; "
+                "skipping validation for this run.",
+                n_support,
+            )
         val_sampler = (
             EpisodeSampler(
                 val_tasks,
@@ -155,7 +174,7 @@ class MetaLearnExperiment:
                 n_query=cfg.train.n_query,
                 seed=cfg.train.seed + 1,
             )
-            if val_tasks
+            if val_feasible
             else None
         )
         learner = self._build_learner(feature_dim)

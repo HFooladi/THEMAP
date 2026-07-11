@@ -22,7 +22,7 @@ from .config import (
     ProtoConfig,
     TrainConfig,
 )
-from .selection import load_distance_matrix, select_k_nearest_sources
+from .selection import load_distance_matrix, select_k_nearest_sources, select_k_random_sources
 
 __all__ = [
     "EncoderConfig",
@@ -32,6 +32,7 @@ __all__ = [
     "TrainConfig",
     "load_distance_matrix",
     "select_k_nearest_sources",
+    "select_k_random_sources",
     # Lazily loaded (torch-dependent):
     "MLPEncoder",
     "ProtoNet",
@@ -41,6 +42,8 @@ __all__ = [
     "MetaTrainer",
     "LowDataEvaluator",
     "MetaLearnExperiment",
+    "CompareConfig",
+    "SelectionComparison",
 ]
 
 _LAZY = {
@@ -52,6 +55,8 @@ _LAZY = {
     "MetaTrainer": ("trainer", "MetaTrainer"),
     "LowDataEvaluator": ("evaluation", "LowDataEvaluator"),
     "MetaLearnExperiment": ("runner", "MetaLearnExperiment"),
+    "CompareConfig": ("compare", "CompareConfig"),
+    "SelectionComparison": ("compare", "SelectionComparison"),
 }
 
 

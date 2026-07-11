@@ -14,7 +14,7 @@ Usage:
 """
 
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import click
 
@@ -468,6 +468,231 @@ def metalearn(
 
             traceback.print_exc()
         raise SystemExit(1)
+
+
+@cli.command("metalearn-compare")
+@click.argument("data_dir", type=click.Path(exists=True))
+@click.option(
+    "--distance-file",
+    type=click.Path(),
+    default=None,
+    help="Saved distance file (JSON/CSV/NPZ). If omitted, distances are auto-computed "
+    "with --distance-method.",
+)
+@click.option(
+    "--distance-method",
+    default="otdd",
+    help="Distance to auto-compute when --distance-file is omitted ('otdd' is the paper's "
+    "headline distance and needs the [otdd] extra; 'euclidean'/'cosine' are lightweight).",
+)
+@click.option("--target-id", default=None, help="Target task id to evaluate (required unless --demo).")
+@click.option(
+    "--demo",
+    is_flag=True,
+    help="Run a self-contained close-vs-distant scenario on the bundled datasets so the "
+    "distance>random effect is reliably visible with one command (no --target-id needed).",
+)
+@click.option("--k", default=3, help="Number of source datasets each arm selects.")
+@click.option(
+    "--random-seeds", default=5, help="Number of random-selection draws to average over (with 95% CI)."
+)
+@click.option(
+    "--algorithm", type=click.Choice(["proto", "maml"]), default="proto", help="Meta-learning algorithm."
+)
+@click.option("--featurizer", "-f", default="ecfp", help="Molecule featurizer.")
+@click.option(
+    "--support-sizes", default="16,32,64,128", help="Comma-separated target support-set sizes to sweep."
+)
+@click.option("--seeds", default=3, help="Evaluation seeds per support size (within each arm).")
+@click.option(
+    "--train-shot-mode",
+    type=click.Choice(["match", "fixed"]),
+    default="match",
+    help="'match' trains a fresh model per support size; 'fixed' is the FS-Mol single-model protocol.",
+)
+@click.option(
+    "--query-fraction",
+    default=0.5,
+    help="Fraction of the target held out as a fixed query set shared across support sizes.",
+)
+@click.option("--n-support", default=10, help="Support examples per meta-training episode.")
+@click.option("--n-query", default=15, help="Query examples per meta-training episode.")
+@click.option("--inner-lr", default=0.01, help="MAML inner-loop learning rate.")
+@click.option("--inner-steps", default=5, help="MAML inner-loop adaptation steps.")
+@click.option("--outer-lr", default=0.001, help="Meta (outer-loop) learning rate.")
+@click.option("--num-epochs", default=50, help="Meta-training epochs.")
+@click.option("--episodes-per-epoch", default=100, help="Meta-training steps per epoch.")
+@click.option("--meta-batch-size", default=8, help="Episodes per outer optimizer step.")
+@click.option("--source-fold", default="train", help="Fold the source datasets live in.")
+@click.option("--target-fold", default="test", help="Fold the target dataset lives in.")
+@click.option("--n-jobs", "-j", default=8, help="Parallel jobs for featurization/distances.")
+@click.option(
+    "--device",
+    type=click.Choice(["auto", "cpu", "cuda"]),
+    default="auto",
+    help="Compute device ('auto' picks cuda if available).",
+)
+@click.option("--output", "-o", default="metalearn_compare_out", help="Output directory.")
+@click.pass_context
+def metalearn_compare(
+    ctx: click.Context,
+    data_dir: str,
+    distance_file: Optional[str],
+    distance_method: str,
+    target_id: Optional[str],
+    demo: bool,
+    k: int,
+    random_seeds: int,
+    algorithm: str,
+    featurizer: str,
+    support_sizes: str,
+    seeds: int,
+    train_shot_mode: str,
+    query_fraction: float,
+    n_support: int,
+    n_query: int,
+    inner_lr: float,
+    inner_steps: int,
+    outer_lr: float,
+    num_epochs: int,
+    episodes_per_epoch: int,
+    meta_batch_size: int,
+    source_fold: str,
+    target_fold: str,
+    n_jobs: int,
+    device: str,
+    output: str,
+) -> None:
+    """Test THEMAP's headline hypothesis: distance-selected vs random-selected sources.
+
+    For a target dataset, this selects the K nearest source datasets by distance and,
+    separately, K random source datasets, meta-trains the same model on each, and
+    reports whether the distance-selected sources give a better low-data target model.
+    The random arm is averaged over several draws (--random-seeds) for a fair baseline.
+
+    DATA_DIR is the path to a directory with train/test/valid folders.
+
+    Examples:
+        # One command, self-contained demonstration (no distance file needed):
+        themap metalearn-compare datasets/ --demo
+
+        # Real experiment on your own target (auto-computes OTDD distances):
+        themap metalearn-compare datasets/ --target-id CHEMBL1963831 --k 3
+
+        # Reuse a precomputed distance file and the MAML learner:
+        themap metalearn-compare datasets/ --distance-file output/molecule_distances.csv \\
+            --target-id CHEMBL1963831 --algorithm maml
+    """
+    from .metalearning.compare import CompareConfig, SelectionComparison
+    from .metalearning.config import MAMLConfig, TrainConfig
+
+    if not demo and not target_id:
+        click.echo("Error: --target-id is required unless --demo is set.", err=True)
+        raise SystemExit(1)
+
+    try:
+        sizes = [int(s) for s in support_sizes.split(",") if s.strip()]
+    except ValueError:
+        click.echo(
+            f"Error: invalid --support-sizes '{support_sizes}' (expected comma-separated ints).", err=True
+        )
+        raise SystemExit(1)
+
+    config = CompareConfig(
+        data_dir=data_dir,
+        target_id=target_id,
+        distance_file=distance_file,
+        distance_method=distance_method,
+        demo=demo,
+        k=k,
+        random_seeds=random_seeds,
+        algorithm=algorithm,  # type: ignore[arg-type]
+        featurizer=featurizer,
+        support_sizes=sizes,
+        train_shot_mode=train_shot_mode,  # type: ignore[arg-type]
+        query_fraction=query_fraction,
+        seeds=seeds,
+        n_jobs=n_jobs,
+        output_dir=output,
+        source_fold=source_fold,
+        target_fold=target_fold,
+        maml=MAMLConfig(inner_lr=inner_lr, inner_steps=inner_steps),
+        train=TrainConfig(
+            n_support=n_support,
+            n_query=n_query,
+            num_epochs=num_epochs,
+            episodes_per_epoch=episodes_per_epoch,
+            meta_batch_size=meta_batch_size,
+            outer_lr=outer_lr,
+            device=device,
+        ),
+    )
+
+    label = "demo (close vs distant sources)" if demo else f"target '{target_id}'"
+    click.echo(
+        f"Comparing distance-selected vs {random_seeds} random draws of k={k} sources "
+        f"for {label} ({algorithm})..."
+    )
+    try:
+        comparison = SelectionComparison(config)
+        results = comparison.run()
+        summary = comparison.summarize(results)
+
+        for title, prefix in (("AUROC", "auroc"), ("ΔAUPRC", "delta_auprc")):
+            click.echo(f"\n{title} — distance vs random (meta-learned, on target) by support size:")
+            for _, r in summary.iterrows():
+                n = int(r["support_size"])
+                dist = r[f"distance_{prefix}"]
+                rmean = r[f"random_{prefix}_mean"]
+                rci = r[f"random_{prefix}_ci95"]
+                gap = r[f"gap_{prefix}"]
+                click.echo(f"  N={n:>4}:  distance={dist:+.3f}  random={rmean:+.3f}±{rci:.3f}  Δ={gap:+.3f}")
+
+        mean_gap = SelectionComparison.verdict(summary)
+        outcome = "SUPPORTED" if mean_gap > 0 else "not supported"
+        click.echo(
+            f"\nMean AUROC advantage of distance-based over random selection: "
+            f"{mean_gap:+.3f}  →  hypothesis {outcome}."
+        )
+
+        _plot_selection_comparison(summary, Path(output) / "comparison.png", label)
+        click.echo(f"\nOutput saved to: {output}")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if ctx.obj.get("verbose"):
+            import traceback
+
+            traceback.print_exc()
+        raise SystemExit(1)
+
+
+def _plot_selection_comparison(summary: Any, path: Path, label: str) -> None:
+    """Plot distance vs random AUROC across support sizes (best-effort; never fatal)."""
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception:  # noqa: BLE001 - plotting is optional
+        return
+
+    n = summary["support_size"].to_numpy()
+    dist = summary["distance_auroc"].to_numpy()
+    rmean = summary["random_auroc_mean"].to_numpy()
+    rci = summary["random_auroc_ci95"].to_numpy()
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(n, dist, marker="o", color="#3288bd", label="distance-selected sources")
+    ax.plot(n, rmean, marker="s", color="#fc8d62", label="random-selected sources (mean)")
+    ax.fill_between(n, rmean - rci, rmean + rci, color="#fc8d62", alpha=0.2, label="random 95% CI")
+    ax.set_xlabel("Target support set size (N)")
+    ax.set_ylabel("Meta-learned AUROC on held-out target")
+    ax.set_title(f"Distance-based vs random source selection\n{label}")
+    ax.legend()
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
 
 
 @cli.command()
