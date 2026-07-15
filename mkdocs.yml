@@ -19,9 +19,11 @@ nav:
   - User Guide:
       - Distance Computation: user-guide/distance-computation.md
       - Command Line Interface: user-guide/cli.md
+      - Reproducing FS-Mol: user-guide/reproducing-fsmol.md
 
   - Tutorials:
       - Overview: tutorials/index.md
+      - Run on Colab: tutorials/colab-notebooks.md
       - Basic Distance Computation: tutorials/basic-distance-computation.md
       - Working with Tasks: tutorials/working-with-tasks.md
       - Performance Optimization: tutorials/performance-optimization.md
@@ -57,6 +59,7 @@ theme:
   features:
     - navigation.tabs
     - navigation.tabs.sticky
+    - navigation.sections
     - navigation.path
     - navigation.top
     - navigation.footer
@@ -64,6 +67,7 @@ theme:
     - toc.follow
     - content.code.copy
     - content.code.annotate
+    - content.tabs.link
     - search.suggest
     - search.highlight
 
@@ -71,7 +75,7 @@ theme:
   logo: assets/images/logo-white.svg
 
 extra_css:
-  - assets/css/custom-splito.css
+  - assets/css/themap.css
 
 extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
@@ -122,12 +126,19 @@ plugins:
             - sys.path.append("themap")
           options:
             show_root_heading: yes
+            show_root_full_path: false
             heading_level: 3
             show_source: false
             group_by_category: true
             members_order: source
             separate_signature: true
             show_signature_annotations: true
+            signature_crossrefs: true
+            merge_init_into_class: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            docstring_section_style: table
+            filters: ["!^_"]
             line_length: 80
             docstring_style: google
 
@@ -149,6 +160,6 @@ extra:
       link: https://github.com/HFooladi/THEMAP
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/themap/
-  analytics:
-    provider: google
-    property: G-XXXXXXXXXX
+  # analytics:
+  #   provider: google
+  #   property: G-XXXXXXXXXX  # replace with a real Measurement ID to enable

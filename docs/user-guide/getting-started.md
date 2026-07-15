@@ -8,31 +8,36 @@ This guide covers installation and three ways to compute distances between molec
 
 - Python 3.10 or higher
 
-### Quick Install
+### Install from PyPI (recommended)
+
+```bash
+pip install themap            # core
+pip install "themap[all]"     # everything (ML, protein, OTDD)
+```
+
+Install only the extras you need:
+
+```bash
+pip install "themap[ml]"       # molecular analysis
+pip install "themap[protein]"  # protein analysis (ESM2)
+pip install "themap[otdd]"     # OTDD distance computation
+```
+
+### Install from source (development)
 
 ```bash
 git clone https://github.com/HFooladi/THEMAP.git
 cd THEMAP
-source install.sh   # creates .venv with uv
+source install.sh   # creates .venv with uv, installs dev + test extras
 ```
 
-To reactivate later:
+To reactivate the environment later:
 
 ```bash
 source .venv/bin/activate
 ```
 
-### Optional Dependencies
-
-THEMAP has optional dependency groups for different functionality:
-
-```bash
-pip install -e ".[ml]"       # molecular analysis
-pip install -e ".[protein]"  # protein analysis (ESM2)
-pip install -e ".[otdd]"     # OTDD distance computation
-pip install -e ".[all]"      # everything
-pip install -e ".[dev,test]" # development
-```
+The editable equivalent of the extras above is `pip install -e ".[all]"` (or `".[ml]"`, `".[dev,test]"`, etc.).
 
 ### Verify Installation
 
