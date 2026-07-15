@@ -14,11 +14,20 @@
 }
 
 [data-md-color-scheme="slate"] {
+  /* Lighter purple in dark mode so header text and links keep AA contrast. */
+  --md-primary-fg-color: #b39ddb;
+  --md-primary-fg-color--light: #d1c4e9;
+  --md-primary-fg-color--dark: #9575cd;
+  --md-accent-fg-color: #b388ff;
   --md-code-bg-color: #1e1e2e;
   --md-default-bg-color: #0d1117;
 }
 
 /* ===== Typography ===== */
+.md-typeset {
+  line-height: 1.7;
+}
+
 .md-typeset h1 {
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -27,9 +36,9 @@
 
 .md-typeset h2 {
   font-weight: 600;
-  margin-top: 2rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--md-primary-fg-color--light);
+  margin-top: 2.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
 }
 
 .md-typeset h3 {
@@ -67,11 +76,11 @@
 /* ===== Navigation ===== */
 .md-nav__title {
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
 .md-nav__link {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .md-nav__item {
@@ -85,7 +94,7 @@
 
 /* Right-side table of contents */
 .md-nav--secondary .md-nav__link {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
 /* Tab navigation styling */
@@ -105,7 +114,7 @@
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .md-typeset table:not([class]) th {
@@ -114,6 +123,12 @@
   font-weight: 600;
   padding: 0.75rem 1rem;
   text-align: left;
+}
+
+/* In dark mode the primary is a light purple; use a darker header tone so the
+   white header text keeps contrast. */
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background: var(--md-primary-fg-color--dark);
 }
 
 .md-typeset table:not([class]) td {
@@ -165,17 +180,17 @@
 
 /* ===== Footer ===== */
 .md-footer {
-  background: linear-gradient(135deg, var(--themap-gradient-start), var(--themap-gradient-end));
+  background-color: var(--md-primary-fg-color--dark);
 }
 
 .md-footer-meta {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 /* ===== Header ===== */
 .md-header {
-  background: linear-gradient(90deg, var(--themap-gradient-start), var(--themap-gradient-end));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background-color: var(--md-primary-fg-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 /* ===== Search ===== */
@@ -196,8 +211,8 @@
 }
 
 .md-typeset a.md-button--primary {
-  background: linear-gradient(135deg, var(--themap-gradient-start), var(--themap-gradient-end));
-  border: none;
+  background: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
 }
 
 /* ===== API Documentation ===== */
@@ -222,7 +237,7 @@
 
 /* ===== Content Width ===== */
 .md-content__inner {
-  max-width: 900px;
+  max-width: 54rem;
 }
 
 /* ===== Version Selector ===== */

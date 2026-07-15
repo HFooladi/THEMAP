@@ -1,0 +1,90 @@
+name: Deploy Documentation
+
+# Publishes versioned docs to the gh-pages branch with mike.
+#   - a GitHub release  -> deploy that version and move the `latest` alias
+#   - a push to main     -> deploy the floating `dev` version (unreleased docs)
+#   - manual dispatch    -> deploy an arbitrary version/alias (safe for testing)
+#
+# GitHub Pages for this repo serves "from a branch" (gh-pages); mike commits and
+# pushes the built site there, and Pages rebuilds automatically. This is NOT the
+# actions/deploy-pages OIDC flow, so the only permission needed is contents:write.
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "themap/**"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version identifier to deploy (e.g. 0.5.0 or test)"
+        required: true
+        default: "test"
+      alias:
+        description: "Alias to point at this version (leave blank for none)"
+        required: false
+        default: ""
+
+# Serialize deploys: they all mutate the single gh-pages branch, and concurrent
+# pushes would race and reject. Do not cancel in-flight deploys (a half-finished
+# mike push could leave gh-pages inconsistent) — queue them instead.
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      # mike pushes the built site to the gh-pages branch.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # mike needs full history and the gh-pages branch; a shallow clone
+          # breaks versioned deploys.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[docs]"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy released version
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mike deploy --push --update-aliases "$VERSION" latest
+          mike set-default --push latest
+
+      - name: Deploy dev docs from main
+        if: github.event_name == 'push'
+        run: mike deploy --push dev
+
+      - name: Deploy manual dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ -n "${{ inputs.alias }}" ]; then
+            mike deploy --push --update-aliases "${{ inputs.version }}" "${{ inputs.alias }}"
+          else
+            mike deploy --push "${{ inputs.version }}"
+          fi

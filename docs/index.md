@@ -1,5 +1,14 @@
 # THEMAP: Task Hardness Estimation for Molecular Activity Prediction
 
+[![DOI](https://img.shields.io/badge/DOI-10.1021%2Facs.jcim.4c00160-blue)](https://doi.org/10.1021/acs.jcim.4c00160)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/themap.svg)](https://pypi.org/project/themap/)
+
+<p align="center">
+  <img src="assets/images/banner.png" alt="THEMAP banner" style="max-width:100%;">
+</p>
+
 **THEMAP** is a Python library for computing distances between chemical datasets and estimating task hardness for bioactivity prediction. It helps researchers identify similar tasks for transfer learning and quantify prediction difficulty.
 
 <div class="grid cards" markdown>
@@ -41,17 +50,22 @@
 ## Installation
 
 ```bash
-# Clone and install (uv-based)
+# From PyPI (recommended)
+pip install themap
+
+# With all optional dependencies (ML, protein, OTDD)
+pip install "themap[all]"
+```
+
+To install from source for development:
+
+```bash
 git clone https://github.com/HFooladi/THEMAP.git
 cd THEMAP
-source install.sh
-
-# Or install with pip
-pip install -e .
-
-# With all optional dependencies
-pip install -e ".[all]"
+source install.sh   # uv-based; creates .venv and installs dev extras
 ```
+
+See [Getting Started](user-guide/getting-started.md) for the optional dependency groups.
 
 ## Quick Examples
 
