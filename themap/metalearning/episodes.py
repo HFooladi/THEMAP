@@ -9,7 +9,7 @@ re-featurization that plagued the previous implementation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -116,6 +116,88 @@ class FeatureBank:
             tasks[task_id] = TaskFeatures.from_arrays(task_id, features, ds.labels)
         return cls(tasks)
 
+    @classmethod
+    def from_loader_cached(
+        cls,
+        loader: Any,
+        fold: str,
+        task_ids: Sequence[str],
+        featurizer: str = "ecfp",
+        n_jobs: int = 1,
+        cache: Optional[Any] = None,
+        batch_size: int = 512,
+    ) -> "FeatureBank":
+        """Featurize a fold's tasks, reusing anything already on disk.
+
+        Featurizing thousands of assays takes minutes; doing it once per algorithm or per
+        re-run wastes most of a benchmark's wall-clock. Cached tasks are read straight
+        back; misses are featurized in batches so cross-task SMILES deduplication still
+        applies within a batch, then written back.
+
+        Raw features are cached and :meth:`TaskFeatures.from_arrays` does the non-finite
+        row filtering on load, so cached and uncached paths give identical results.
+
+        Args:
+            loader: A :class:`~themap.data.loader.DatasetLoader`.
+            fold: Fold to read from.
+            task_ids: Tasks to featurize.
+            featurizer: Molecular featurizer name.
+            n_jobs: Parallel jobs for featurization. For fingerprints, 1 is typically
+                fastest — the process-pool startup cost outweighs the parallelism.
+            cache: Optional :class:`~themap.features.cache.FeatureCache`.
+            batch_size: Number of tasks featurized per batch.
+
+        Returns:
+            A :class:`FeatureBank` holding every task that produced features.
+        """
+        from ..features.molecule import MoleculeFeaturizer
+
+        tasks: Dict[str, TaskFeatures] = {}
+        pending: List[str] = []
+
+        for task_id in task_ids:
+            if cache is not None:
+                features, labels = cache.load_molecule_features(task_id, featurizer)
+                if features is not None and labels is not None:
+                    tasks[task_id] = TaskFeatures.from_arrays(task_id, features, labels)
+                    continue
+            pending.append(task_id)
+
+        if pending:
+            logger.info(
+                "Featurizing %d/%d task(s) with '%s' (%d already cached).",
+                len(pending),
+                len(list(task_ids)),
+                featurizer,
+                len(tasks),
+            )
+        for start in range(0, len(pending), batch_size):
+            batch = pending[start : start + batch_size]
+            datasets = loader.load_datasets(fold, task_ids=batch)
+            MoleculeFeaturizer(featurizer_name=featurizer, n_jobs=n_jobs).featurize_datasets(
+                datasets, deduplicate=True
+            )
+            for task_id, dataset in datasets.items():
+                features = dataset.features
+                if features is None:
+                    logger.warning("Task %s produced no features; skipping.", task_id)
+                    continue
+                labels = np.asarray(dataset.labels)
+                if cache is not None:
+                    cache.save_molecule_features(
+                        task_id,
+                        featurizer,
+                        np.asarray(features, dtype=np.float32),
+                        labels.astype(np.int32),
+                        metadata={"featurizer": featurizer, "n_molecules": int(len(labels))},
+                    )
+                tasks[task_id] = TaskFeatures.from_arrays(task_id, features, labels)
+            logger.info(
+                "Featurized %d/%d pending task(s).", min(start + batch_size, len(pending)), len(pending)
+            )
+
+        return cls(tasks)
+
     @property
     def feature_dim(self) -> int:
         """Dimensionality of the feature vectors."""
@@ -133,8 +215,13 @@ class FeatureBank:
         return len(self.tasks)
 
 
-def max_feasible_n_support(tasks: List[TaskFeatures], n_query: int, n_way: int = 2) -> int:
-    """Largest total balanced support shot the most-capable task can supply.
+def max_feasible_n_support(
+    tasks: List[TaskFeatures],
+    n_query: int,
+    n_way: int = 2,
+    quantile: Optional[float] = None,
+) -> int:
+    """Largest total balanced support shot a task in the pool can supply.
 
     A balanced binary episode needs ``n_support // n_way`` support and
     ``n_query // n_way`` query examples *per class*. For each task the support
@@ -142,14 +229,49 @@ def max_feasible_n_support(tasks: List[TaskFeatures], n_query: int, n_way: int =
     returned value is ``n_way`` times the best such quota across all tasks, i.e.
     the largest ``n_support`` for which at least one task can form an episode.
 
-    Returns 0 when no task can supply even a 1-shot-per-class episode.
+    Beware what "at least one task" means on a large, skewed corpus: over thousands of
+    assays this reports the capacity of the single biggest one, so using it as a cap can
+    leave the requested shot untouched while :class:`EpisodeSampler` silently drops most
+    of the pool. Pass ``quantile=0.5`` for the median task's capacity, which is the honest
+    number to log alongside :func:`usable_task_count`.
+
+    Args:
+        tasks: Candidate tasks.
+        n_query: Total query size the episode must also supply.
+        n_way: Number of classes (only 2 is supported elsewhere).
+        quantile: If given, report this quantile of per-task capacity instead of the max.
+
+    Returns:
+        Total support size, or 0 when no task can supply even a 1-shot-per-class episode.
     """
     qry_per_class = n_query // n_way
-    best_per_class = 0
-    for t in tasks:
-        per_class = min(len(t.pos_idx), len(t.neg_idx)) - qry_per_class
-        best_per_class = max(best_per_class, per_class)
-    return max(0, best_per_class) * n_way
+    per_class = [max(0, min(len(t.pos_idx), len(t.neg_idx)) - qry_per_class) for t in tasks]
+    if not per_class:
+        return 0
+    if quantile is None:
+        return max(per_class) * n_way
+    return int(np.quantile(per_class, quantile)) * n_way
+
+
+def usable_task_count(
+    tasks: List[TaskFeatures],
+    n_support: int,
+    n_query: int,
+    n_way: int = 2,
+    adaptive: bool = False,
+    min_support: int = 4,
+    min_query: int = 4,
+) -> int:
+    """How many tasks would survive :class:`EpisodeSampler`'s validity filter.
+
+    Mirrors the filter exactly, so it can be logged before training starts instead of
+    discovering the shortfall from a warning buried in the sampler.
+    """
+    if adaptive:
+        need = max(1, min_support // n_way) + max(1, min_query // n_way)
+    else:
+        need = n_support // n_way + n_query // n_way
+    return sum(1 for t in tasks if min(len(t.pos_idx), len(t.neg_idx)) >= need)
 
 
 class EpisodeSampler:
@@ -158,6 +280,13 @@ class EpisodeSampler:
     Only binary (2-way) episodes are supported, matching molecular activity
     classification. Tasks with too few examples of either class are filtered out
     at construction time.
+
+    By default the requested shot is a *requirement*: a task must be able to supply
+    the full ``n_support``/``n_query`` quota or it is dropped. On corpora of many small
+    assays that discards most of the pool — on FS-Mol's 4938 training tasks (median 44
+    datapoints), a 64-shot request keeps only about 17%. Setting ``adaptive=True`` treats
+    the requested sizes as *maxima* instead, the way FS-Mol's own ``StratifiedTaskSampler``
+    does, so small tasks contribute smaller episodes rather than being excluded.
     """
 
     def __init__(
@@ -168,6 +297,9 @@ class EpisodeSampler:
         n_way: int = 2,
         balanced: bool = True,
         seed: Optional[int] = None,
+        adaptive: bool = False,
+        min_support: int = 4,
+        min_query: int = 4,
     ):
         if n_way != 2:
             raise ValueError("Only 2-way (binary) episodes are supported.")
@@ -176,12 +308,20 @@ class EpisodeSampler:
         self.n_support = n_support
         self.n_query = n_query
         self.balanced = balanced
+        self.adaptive = adaptive
         self.rng = np.random.default_rng(seed)
 
         # Per-class quota (balanced split of support/query across the two classes).
         self.sup_per_class = n_support // n_way
         self.qry_per_class = n_query // n_way
-        need = self.sup_per_class + self.qry_per_class
+        self.min_sup_per_class = max(1, min_support // n_way)
+        self.min_qry_per_class = max(1, min_query // n_way)
+
+        need = (
+            self.min_sup_per_class + self.min_qry_per_class
+            if adaptive
+            else self.sup_per_class + self.qry_per_class
+        )
 
         self.tasks = [t for t in tasks if min(len(t.pos_idx), len(t.neg_idx)) >= need]
         skipped = len(tasks) - len(self.tasks)
@@ -197,6 +337,25 @@ class EpisodeSampler:
                 f"No task has enough examples for {n_support}-shot/{n_query}-query "
                 f"binary episodes (need >= {need} per class)."
             )
+
+    def _quota_for(self, task: TaskFeatures) -> tuple:
+        """Per-class ``(support, query)`` quota for one task.
+
+        Fixed at the requested sizes unless ``adaptive`` is set, in which case both are
+        clipped to what the task can supply. The query side is protected first — it
+        carries the meta-gradient — and support shrinks second, never below
+        ``min_support``.
+        """
+        if not self.adaptive:
+            return self.sup_per_class, self.qry_per_class
+
+        avail = min(len(task.pos_idx), len(task.neg_idx))
+        sup_pc = min(self.sup_per_class, max(self.min_sup_per_class, avail - self.qry_per_class))
+        qry_pc = min(self.qry_per_class, avail - sup_pc)
+        if qry_pc < self.min_qry_per_class:
+            qry_pc = self.min_qry_per_class
+            sup_pc = avail - qry_pc
+        return sup_pc, qry_pc
 
     def __len__(self) -> int:
         return len(self.tasks)
@@ -216,16 +375,18 @@ class EpisodeSampler:
         if task is None:
             task = self.tasks[self.rng.integers(len(self.tasks))]
 
+        sup_per_class, qry_per_class = self._quota_for(task)
+
         sup_idx: List[int] = []
         qry_idx: List[int] = []
         sup_lbl: List[int] = []
         qry_lbl: List[int] = []
         for cls, pool in ((0, task.neg_idx), (1, task.pos_idx)):
-            chosen = self._draw(pool, self.sup_per_class + self.qry_per_class)
-            sup_idx.extend(chosen[: self.sup_per_class])
-            qry_idx.extend(chosen[self.sup_per_class :])
-            sup_lbl.extend([cls] * self.sup_per_class)
-            qry_lbl.extend([cls] * self.qry_per_class)
+            chosen = self._draw(pool, sup_per_class + qry_per_class)
+            sup_idx.extend(chosen[:sup_per_class])
+            qry_idx.extend(chosen[sup_per_class:])
+            sup_lbl.extend([cls] * sup_per_class)
+            qry_lbl.extend([cls] * qry_per_class)
 
         torch = self.torch
         x_s = torch.from_numpy(task.X[np.asarray(sup_idx)]).float()

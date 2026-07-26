@@ -18,7 +18,7 @@ from ..data.loader import DatasetLoader
 from ..utils.logging import get_logger
 from .config import ExperimentConfig
 from .episodes import EpisodeSampler, FeatureBank, max_feasible_n_support
-from .evaluation import METRICS, LowDataEvaluator
+from .evaluation import RESULT_COLUMNS, LowDataEvaluator
 from .selection import select_k_nearest_sources, select_k_random_sources
 from .trainer import MetaTrainer
 
@@ -112,9 +112,7 @@ class MetaLearnExperiment:
                 frames.append(self._evaluate(learner, target_task, feature_dim, [n]))
 
         results = (
-            pd.concat(frames, ignore_index=True)
-            if frames
-            else pd.DataFrame(columns=["algorithm", "support_size", "seed", "method", *METRICS])
+            pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=list(RESULT_COLUMNS))
         )
         summary = LowDataEvaluator.summarize(results)
 

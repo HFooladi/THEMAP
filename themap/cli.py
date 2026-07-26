@@ -911,6 +911,212 @@ def featurize(
         raise SystemExit(1)
 
 
+@cli.command("fsmol-subset")
+@click.argument("data_dir", type=click.Path(exists=True))
+@click.option(
+    "--reference-dir",
+    default="benchmarking_datasets/fsmol_reference",
+    help="Directory holding (or to receive) FS-Mol's baseline summary CSVs.",
+)
+@click.option(
+    "--proteins-csv",
+    default=None,
+    help="FS-Mol test protein metadata CSV. Defaults to DATA_DIR/fsmol_test_proteins.csv.",
+)
+@click.option("--n-tasks", default=20, help="Number of test tasks to select.")
+@click.option("--min-large", default=6, help="Minimum picks large enough for the biggest support sizes.")
+@click.option("--offline", is_flag=True, help="Never fetch reference CSVs from the network.")
+@click.option(
+    "-o",
+    "--output",
+    default="benchmarking_datasets/fsmol_subset_20.json",
+    help="Where to write the subset file.",
+)
+@click.pass_context
+def fsmol_subset(ctx, data_dir, reference_dir, proteins_csv, n_tasks, min_large, offline, output):
+    """Pick a representative subset of the FS-Mol test tasks.
+
+    Stratifies by EC super-class, task size and FS-Mol ProtoNet difficulty, deterministically,
+    and reports how closely the subset's reference means track the full 157-task benchmark.
+
+    \b
+    Examples:
+        themap fsmol-subset benchmarking_datasets/fsmol_datasets
+        themap fsmol-subset benchmarking_datasets/fsmol_datasets --n-tasks 30 --offline
+    """
+    from .metalearning.fsmol_reference import load_reference_table, reference_checksums
+    from .metalearning.subset import (
+        SubsetSpec,
+        save_subset,
+        select_benchmark_subset,
+        subset_representativeness,
+    )
+
+    try:
+        proteins = proteins_csv or str(Path(data_dir) / "fsmol_test_proteins.csv")
+        reference = load_reference_table(reference_dir, offline=offline)
+        spec = SubsetSpec(n_tasks=n_tasks, min_large=min_large)
+        selected = select_benchmark_subset(data_dir, reference, proteins, spec)
+        save_subset(
+            selected,
+            output,
+            spec,
+            {"reference_sha256": reference_checksums(reference_dir), "data_dir": str(data_dir)},
+        )
+
+        click.echo(f"\nSelected {len(selected)} task(s) -> {output}")
+        click.echo(f"  EC composition: {selected['ec_class'].value_counts().to_dict()}")
+        click.echo(
+            f"  tasks larger than {spec.large_task_threshold}: {int((selected['n'] > spec.large_task_threshold).sum())}"
+        )
+        rep = subset_representativeness(reference, selected["task_id"].tolist())
+        click.echo(f"  max |subset mean - full mean| across methods/sizes: {rep['abs_delta'].max():.3f}")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if ctx.obj.get("verbose"):
+            import traceback
+
+            traceback.print_exc()
+        raise SystemExit(1)
+
+
+@cli.command("fsmol-benchmark")
+@click.argument("data_dir", type=click.Path(exists=True))
+@click.option(
+    "--algorithm",
+    "algorithms",
+    multiple=True,
+    type=click.Choice(["proto", "maml"]),
+    help="Meta-learner to benchmark; repeat for several. Default: proto and maml.",
+)
+@click.option(
+    "--subset-file",
+    default=None,
+    type=click.Path(),
+    help="Subset JSON from `themap fsmol-subset`. Omit to evaluate every test task.",
+)
+@click.option("--task-id", "task_ids", multiple=True, help="Explicit target task id; repeat to add more.")
+@click.option("--support-sizes", default="16,32,64,128", help="Comma-separated evaluation support sizes.")
+@click.option("--seeds", default=10, help="Repeats per (task, support size). FS-Mol uses 10.")
+@click.option("--train-shot", default=64, help="Support size for meta-training episodes.")
+@click.option("--n-query", default=32, help="Query size for meta-training episodes.")
+@click.option(
+    "--no-adaptive",
+    is_flag=True,
+    help="Require the full meta-training shot instead of clipping it per task. "
+    "On FS-Mol this drops ~83%% of the training assays at a 64-shot request.",
+)
+@click.option(
+    "--query-mode",
+    type=click.Choice(["fsmol", "holdout"]),
+    default="fsmol",
+    help="'fsmol': support of size N, query = the rest. 'holdout': THEMAP's shared query set.",
+)
+@click.option("--n-source-tasks", default=0, help="Cap on meta-training source tasks (0 = all).")
+@click.option("--featurizer", "-f", default="ecfp", help="Molecular featurizer.")
+@click.option("--num-epochs", default=50, help="Meta-training epochs.")
+@click.option("--episodes-per-epoch", default=100, help="Meta-training steps per epoch.")
+@click.option("--meta-batch-size", default=16, help="Episodes per outer optimizer step.")
+@click.option("--outer-lr", default=1e-4, help="Outer-loop learning rate.")
+@click.option("--cache-dir", default="feature_cache/fsmol", help="Feature cache directory.")
+@click.option(
+    "--reference-dir",
+    default="benchmarking_datasets/fsmol_reference",
+    help="Directory holding FS-Mol's baseline summary CSVs.",
+)
+@click.option("--offline", is_flag=True, help="Never fetch reference CSVs from the network.")
+@click.option("-j", "--n-jobs", default=1, help="Featurization parallelism (1 is fastest for fingerprints).")
+@click.option("--device", type=click.Choice(["auto", "cpu", "cuda"]), default="auto")
+@click.option("-o", "--output", default="fsmol_benchmark_out", help="Output directory.")
+@click.pass_context
+def fsmol_benchmark(
+    ctx,
+    data_dir,
+    algorithms,
+    subset_file,
+    task_ids,
+    support_sizes,
+    seeds,
+    train_shot,
+    n_query,
+    no_adaptive,
+    query_mode,
+    n_source_tasks,
+    featurizer,
+    num_epochs,
+    episodes_per_epoch,
+    meta_batch_size,
+    outer_lr,
+    cache_dir,
+    reference_dir,
+    offline,
+    n_jobs,
+    device,
+    output,
+):
+    """Check THEMAP's meta-learners against FS-Mol's published results.
+
+    Featurizes once, meta-trains once per algorithm on the full FS-Mol training fold, then
+    evaluates every target task under FS-Mol's own protocol and writes a side-by-side
+    comparison with the published per-task baselines.
+
+    \b
+    Examples:
+        themap fsmol-benchmark benchmarking_datasets/fsmol_datasets \\
+            --subset-file benchmarking_datasets/fsmol_subset_20.json
+        themap fsmol-benchmark benchmarking_datasets/fsmol_datasets --algorithm proto --seeds 3
+    """
+    from .metalearning.benchmark import BenchmarkConfig, FSMolBenchmark
+    from .metalearning.config import TrainConfig
+
+    try:
+        sizes = [int(x) for x in str(support_sizes).split(",") if x.strip()]
+        config = BenchmarkConfig(
+            data_dir=data_dir,
+            algorithms=list(algorithms) or ["proto", "maml"],
+            featurizer=featurizer,
+            support_sizes=sizes,
+            seeds=seeds,
+            target_ids=list(task_ids) or None,
+            subset_file=subset_file,
+            adaptive_episodes=not no_adaptive,
+            train_shot=train_shot,
+            query_mode=query_mode,
+            n_source_tasks=n_source_tasks,
+            n_jobs=n_jobs,
+            cache_dir=cache_dir,
+            reference_dir=reference_dir,
+            offline=offline,
+            output_dir=output,
+            train=TrainConfig(
+                n_support=train_shot,
+                n_query=n_query,
+                num_epochs=num_epochs,
+                episodes_per_epoch=episodes_per_epoch,
+                meta_batch_size=meta_batch_size,
+                outer_lr=outer_lr,
+                device=device,
+            ),
+        )
+        benchmark = FSMolBenchmark(config)
+        results = benchmark.run()
+        if results.empty:
+            click.echo("No results were produced.", err=True)
+            raise SystemExit(1)
+
+        click.echo("\n" + (Path(output) / "report.md").read_text())
+        click.echo(f"Artifacts written to: {output}")
+    except SystemExit:
+        raise
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if ctx.obj.get("verbose"):
+            import traceback
+
+            traceback.print_exc()
+        raise SystemExit(1)
+
+
 def main() -> None:
     """Entry point for CLI."""
     cli()

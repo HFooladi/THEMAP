@@ -22,7 +22,9 @@ from .config import (
     ProtoConfig,
     TrainConfig,
 )
+from .fsmol_reference import aggregate_reference, load_reference_table
 from .selection import load_distance_matrix, select_k_nearest_sources, select_k_random_sources
+from .subset import SubsetSpec, load_subset, select_benchmark_subset, subset_representativeness
 
 __all__ = [
     "EncoderConfig",
@@ -30,9 +32,15 @@ __all__ = [
     "MAMLConfig",
     "ProtoConfig",
     "TrainConfig",
+    "SubsetSpec",
     "load_distance_matrix",
     "select_k_nearest_sources",
     "select_k_random_sources",
+    "load_reference_table",
+    "aggregate_reference",
+    "select_benchmark_subset",
+    "subset_representativeness",
+    "load_subset",
     # Lazily loaded (torch-dependent):
     "MLPEncoder",
     "ProtoNet",
@@ -44,9 +52,13 @@ __all__ = [
     "MetaLearnExperiment",
     "CompareConfig",
     "SelectionComparison",
+    "BenchmarkConfig",
+    "FSMolBenchmark",
 ]
 
 _LAZY = {
+    "BenchmarkConfig": ("benchmark", "BenchmarkConfig"),
+    "FSMolBenchmark": ("benchmark", "FSMolBenchmark"),
     "MLPEncoder": ("models.encoder", "MLPEncoder"),
     "ProtoNet": ("models.protonet", "ProtoNet"),
     "MAMLLearner": ("models.maml", "MAMLLearner"),

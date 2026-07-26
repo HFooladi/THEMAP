@@ -44,6 +44,9 @@ class TestLowDataEvaluator:
             "auroc",
             "avg_precision",
             "delta_auprc",
+            "n_support_actual",
+            "n_query_actual",
+            "frac_pos_query",
         }
         assert set(results["method"]) == {"meta", "baseline"}
         # 2 sizes x 2 seeds x 2 methods.
@@ -146,3 +149,113 @@ class TestLowDataEvaluator:
         )
         results = evaluator.evaluate()
         assert results.empty
+
+
+def _skewed_target(n_pos=70, n_neg=30, dim=32, seed=0):
+    """A deliberately imbalanced task, to tell proportional from forced-balanced draws."""
+    rng = np.random.default_rng(seed)
+    X = np.vstack(
+        [
+            rng.normal(2.0, 0.5, (n_pos, dim)).astype(np.float32),
+            rng.normal(-2.0, 0.5, (n_neg, dim)).astype(np.float32),
+        ]
+    )
+    y = np.array([1] * n_pos + [0] * n_neg)
+    return TaskFeatures.from_arrays("skewed", X, y)
+
+
+def _evaluator(target, support_sizes, seeds=1, query_mode="fsmol", dim=32):
+    return LowDataEvaluator(
+        learner=ProtoNet(input_dim=dim),
+        target=target,
+        input_dim=dim,
+        encoder_config=EncoderConfig(),
+        algorithm="proto",
+        support_sizes=support_sizes,
+        seeds=seeds,
+        device="cpu",
+        query_mode=query_mode,
+    )
+
+
+@pytest.mark.unit
+class TestFSMolQueryMode:
+    def test_query_is_the_entire_remainder(self):
+        target = _target()  # 160 molecules
+        ev = _evaluator(target, [16])
+        sup_idx, qry_idx = ev._split_for_n(seed=0, n=16, pools=None)
+        assert len(sup_idx) == 16
+        assert len(qry_idx) == 160 - 16
+        assert set(sup_idx.tolist()) | set(qry_idx.tolist()) == set(range(160))
+
+    def test_support_and_query_are_disjoint(self):
+        ev = _evaluator(_target(), [32])
+        sup_idx, qry_idx = ev._split_for_n(seed=3, n=32, pools=None)
+        assert not (set(sup_idx.tolist()) & set(qry_idx.tolist()))
+
+    def test_support_is_proportionally_stratified_not_forced_balanced(self):
+        # 70/30 task: FS-Mol draws ~70% actives into the support set, unlike _support_for_n
+        # which always takes n // 2 per class.
+        target = _skewed_target(n_pos=70, n_neg=30)
+        ev = _evaluator(target, [20])
+        sup_idx, _ = ev._split_for_n(seed=0, n=20, pools=None)
+        n_pos = int(target.y[sup_idx].sum())
+        assert abs(n_pos - 14) <= 1
+        assert n_pos != 10
+
+    def test_larger_support_sizes_stay_feasible(self):
+        # 160 molecules: N=128 is impossible under the 50% holdout but fine for FS-Mol.
+        target = _target()
+        assert _evaluator(target, [128], query_mode="holdout")._split_for_n(0, 128, None) is None
+        holdout = _evaluator(target, [128], query_mode="holdout").evaluate()
+        assert holdout.empty
+        fsmol = _evaluator(target, [128]).evaluate()
+        assert set(fsmol["support_size"]) == {128}
+
+    def test_infeasible_size_is_skipped_not_raised(self):
+        results = _evaluator(_target(), [16, 1000]).evaluate()
+        assert set(results["support_size"]) == {16}
+
+    def test_seeds_reproduce_and_differ(self):
+        ev = _evaluator(_target(), [16])
+        a1, _ = ev._split_for_n(seed=0, n=16, pools=None)
+        a2, _ = ev._split_for_n(seed=0, n=16, pools=None)
+        b, _ = ev._split_for_n(seed=1, n=16, pools=None)
+        assert np.array_equal(a1, a2)
+        assert not np.array_equal(a1, b)
+
+    def test_delta_auprc_uses_the_actual_query_prevalence(self):
+        results = _evaluator(_skewed_target(), [16]).evaluate()
+        row = results.iloc[0]
+        np.testing.assert_allclose(
+            row["delta_auprc"], row["avg_precision"] - row["frac_pos_query"], atol=1e-6
+        )
+
+    def test_recorded_sizes_match_the_draw(self):
+        results = _evaluator(_target(), [16, 32], seeds=2).evaluate()
+        assert (results["n_support_actual"] == results["support_size"]).all()
+        assert (results["n_query_actual"] == 160 - results["support_size"]).all()
+
+    def test_rejects_unknown_mode(self):
+        with pytest.raises(ValueError, match="query_mode"):
+            _evaluator(_target(), [16], query_mode="nonsense")
+
+
+@pytest.mark.unit
+def test_holdout_remains_the_default():
+    ev = LowDataEvaluator(
+        learner=ProtoNet(input_dim=32),
+        target=_target(),
+        input_dim=32,
+        encoder_config=EncoderConfig(),
+        algorithm="proto",
+        support_sizes=[16],
+        seeds=1,
+        device="cpu",
+    )
+    assert ev.query_mode == "holdout"
+    pools = ev._build_seed_pools(seed=0)
+    sup_idx, qry_idx = ev._split_for_n(seed=0, n=16, pools=pools)
+    # Shared query set, forced-balanced support - the pre-existing behaviour.
+    assert np.array_equal(qry_idx, pools["qry_idx"])
+    assert int(_target().y[sup_idx].sum()) == 8

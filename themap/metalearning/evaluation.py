@@ -10,7 +10,7 @@ Repeating over seeds yields mean ± 95% confidence intervals.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,19 @@ logger = get_logger(__name__)
 
 # Metrics reported per (support_size, seed, method); used to build the result schema.
 METRICS = ("auroc", "avg_precision", "delta_auprc")
+
+# Full column order of the long-form results frame. The trailing three record what was
+# actually drawn, which matters once support/query sizes vary by task and support size.
+RESULT_COLUMNS = (
+    "algorithm",
+    "support_size",
+    "seed",
+    "method",
+    *METRICS,
+    "n_support_actual",
+    "n_query_actual",
+    "frac_pos_query",
+)
 
 
 def _ci95(values: np.ndarray) -> float:
@@ -105,6 +118,7 @@ class LowDataEvaluator:
         seeds: int = 5,
         device: str = "auto",
         query_fraction: float = 0.5,
+        query_mode: Literal["holdout", "fsmol"] = "holdout",
     ):
         self.torch = require_torch()
         self.learner = learner
@@ -116,6 +130,9 @@ class LowDataEvaluator:
         self.seeds = seeds
         self.device = resolve_device(device)
         self.query_fraction = query_fraction
+        if query_mode not in ("holdout", "fsmol"):
+            raise ValueError(f"query_mode must be 'holdout' or 'fsmol', got {query_mode!r}")
+        self.query_mode = query_mode
 
     def _build_seed_pools(self, seed: int) -> Optional[dict]:
         """Carve a fixed query set, leaving ordered per-class support pools.
@@ -172,6 +189,55 @@ class LowDataEvaluator:
             return None
         return np.concatenate([pools["pos_pool"][:per_class], pools["neg_pool"][:per_class]])
 
+    def _fsmol_split(self, seed: int, n: int) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """FS-Mol's split: a stratified support set of size ``n``, query = everything else.
+
+        This is what ``StratifiedTaskSampler(..., allow_smaller_test=True)`` does in the
+        original benchmark. Two consequences distinguish it from :meth:`_support_for_n`:
+        the support set follows the task's natural class ratio rather than being forced to
+        50/50, and the query set is the whole remainder, so large support sizes stay
+        feasible on tasks that a fractional holdout could not accommodate.
+
+        Support sets are redrawn independently per ``(seed, n)``, as FS-Mol does.
+
+        Returns ``None`` when the task cannot supply the split — which is exactly when
+        FS-Mol leaves the corresponding cell of its published tables blank.
+        """
+        from sklearn.model_selection import train_test_split
+
+        y = self.target.y
+        if n < 2 or len(y) <= n or len(np.unique(y)) < 2:
+            return None
+        try:
+            sup_idx, qry_idx = train_test_split(
+                np.arange(len(y)),
+                train_size=n,
+                stratify=y,
+                random_state=seed * 1_000_003 + n,
+            )
+        except ValueError:
+            return None
+        if len(np.unique(y[qry_idx])) < 2 or len(np.unique(y[sup_idx])) < 2:
+            return None
+        return sup_idx, qry_idx
+
+    def _split_for_n(
+        self, seed: int, n: int, pools: Optional[dict]
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Support/query indices for one ``(seed, n)``, or ``None`` if infeasible.
+
+        Dispatches on ``query_mode``: ``"holdout"`` keeps THEMAP's shared query set with
+        nested support prefixes, ``"fsmol"`` reproduces the original benchmark's scheme.
+        """
+        if self.query_mode == "fsmol":
+            return self._fsmol_split(seed, n)
+        if pools is None:
+            return None
+        sup_idx = self._support_for_n(pools, n)
+        if sup_idx is None:
+            return None
+        return sup_idx, pools["qry_idx"]
+
     def evaluate(self) -> pd.DataFrame:
         """Run the full support-size × seed sweep and return long-form results.
 
@@ -184,21 +250,21 @@ class LowDataEvaluator:
         rows: List[dict] = []
 
         for seed in range(self.seeds):
-            pools = self._build_seed_pools(seed)
-            if pools is None:
+            pools = self._build_seed_pools(seed) if self.query_mode == "holdout" else None
+            if self.query_mode == "holdout" and pools is None:
                 logger.warning("Skipping seed=%d (target too small for a stratified split).", seed)
                 continue
-            qry_idx = pools["qry_idx"]
             for n in self.support_sizes:
-                sup_idx = self._support_for_n(pools, n)
-                if sup_idx is None:
+                split = self._split_for_n(seed, n, pools)
+                if split is None:
                     logger.warning(
-                        "Skipping support_size=%d seed=%d (only %d support example(s) available).",
+                        "Skipping support_size=%d seed=%d for task '%s' (insufficient data).",
                         n,
                         seed,
-                        pools["max_support"],
+                        self.target.task_id,
                     )
                     continue
+                sup_idx, qry_idx = split
                 x_sup = torch.from_numpy(self.target.X[sup_idx]).float().to(self.device)
                 y_sup = torch.from_numpy(self.target.y[sup_idx]).long().to(self.device)
                 x_qry = torch.from_numpy(self.target.X[qry_idx]).float().to(self.device)
@@ -220,10 +286,13 @@ class LowDataEvaluator:
                             "seed": seed,
                             "method": method,
                             **metrics,
+                            "n_support_actual": int(len(sup_idx)),
+                            "n_query_actual": int(len(qry_idx)),
+                            "frac_pos_query": float(self.target.y[qry_idx].mean()),
                         }
                     )
 
-        return pd.DataFrame(rows, columns=["algorithm", "support_size", "seed", "method", *METRICS])
+        return pd.DataFrame(rows, columns=list(RESULT_COLUMNS))
 
     @staticmethod
     def summarize(results: pd.DataFrame) -> pd.DataFrame:

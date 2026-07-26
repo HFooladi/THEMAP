@@ -3,9 +3,14 @@
 import numpy as np
 import pytest
 
-from themap.metalearning.episodes import EpisodeSampler, TaskFeatures, max_feasible_n_support
+from themap.metalearning.episodes import (
+    EpisodeSampler,
+    TaskFeatures,
+    max_feasible_n_support,
+    usable_task_count,
+)
 
-pytest.importorskip("torch")
+torch = pytest.importorskip("torch")
 
 
 def _make_task(task_id="t", n_pos=40, n_neg=40, dim=16, seed=0):
@@ -96,3 +101,93 @@ class TestEpisodeSampler:
     def test_sample_batch_length(self):
         sampler = EpisodeSampler([_make_task()], n_support=6, n_query=6, seed=0)
         assert len(sampler.sample_batch(4)) == 4
+
+
+@pytest.mark.unit
+class TestAdaptiveEpisodes:
+    """Adaptive mode treats the requested shot as a maximum, the way FS-Mol's sampler does."""
+
+    @staticmethod
+    def _task(task_id, n_per_class, dim=8):
+        rng = np.random.default_rng(abs(hash(task_id)) % 2**32)
+        X = rng.normal(size=(2 * n_per_class, dim)).astype(np.float32)
+        y = np.array([1] * n_per_class + [0] * n_per_class)
+        return TaskFeatures.from_arrays(task_id, X, y)
+
+    def test_keeps_small_tasks_the_strict_filter_drops(self):
+        tasks = [self._task("small", 12)]
+        with pytest.raises(ValueError):
+            EpisodeSampler(tasks, n_support=64, n_query=32)  # 32 + 16 per class required
+        sampler = EpisodeSampler(tasks, n_support=64, n_query=32, adaptive=True)
+        assert len(sampler) == 1
+
+    def test_episode_shrinks_to_task_capacity(self):
+        sampler = EpisodeSampler([self._task("small", 12)], n_support=64, n_query=32, adaptive=True, seed=0)
+        ep = sampler.sample_episode()
+        # 12 per class total: query keeps its 16-per-class request clipped, support takes the rest.
+        assert ep.x_s.shape[0] + ep.x_q.shape[0] == 24
+        assert ep.x_s.shape[0] >= 2 and ep.x_q.shape[0] >= 2
+        assert ep.x_s.shape[0] <= 64 and ep.x_q.shape[0] <= 32
+
+    def test_episodes_stay_balanced_and_disjoint(self):
+        sampler = EpisodeSampler([self._task("small", 12)], n_support=64, n_query=32, adaptive=True, seed=1)
+        ep = sampler.sample_episode()
+        assert int((ep.y_s == 0).sum()) == int((ep.y_s == 1).sum())
+        assert int((ep.y_q == 0).sum()) == int((ep.y_q == 1).sum())
+
+    def test_large_task_still_gets_the_full_request(self):
+        sampler = EpisodeSampler([self._task("big", 200)], n_support=64, n_query=32, adaptive=True, seed=0)
+        ep = sampler.sample_episode()
+        assert ep.x_s.shape[0] == 64
+        assert ep.x_q.shape[0] == 32
+
+    def test_still_filters_below_the_floor(self):
+        # 2 per class cannot satisfy min_support=8 (4/class) + min_query=8 (4/class).
+        with pytest.raises(ValueError):
+            EpisodeSampler(
+                [self._task("tiny", 2)],
+                n_support=64,
+                n_query=32,
+                adaptive=True,
+                min_support=8,
+                min_query=8,
+            )
+
+    def test_deterministic_given_a_seed(self):
+        tasks = [self._task("a", 12), self._task("b", 30)]
+        first = EpisodeSampler(tasks, n_support=64, n_query=32, adaptive=True, seed=7).sample_episode()
+        second = EpisodeSampler(tasks, n_support=64, n_query=32, adaptive=True, seed=7).sample_episode()
+        assert first.task_id == second.task_id
+        assert torch.equal(first.x_s, second.x_s)
+
+    def test_default_is_unchanged(self):
+        tasks = [self._task("a", 12), self._task("big", 200)]
+        strict = EpisodeSampler(tasks, n_support=64, n_query=32)
+        assert len(strict) == 1  # only the big task survives, exactly as before
+        ep = strict.sample_episode()
+        assert ep.x_s.shape[0] == 64 and ep.x_q.shape[0] == 32
+
+
+@pytest.mark.unit
+class TestUsableTaskCount:
+    @staticmethod
+    def _task(task_id, n_per_class, dim=8):
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(2 * n_per_class, dim)).astype(np.float32)
+        y = np.array([1] * n_per_class + [0] * n_per_class)
+        return TaskFeatures.from_arrays(task_id, X, y)
+
+    def test_matches_the_sampler_in_both_modes(self):
+        tasks = [self._task("a", 5), self._task("b", 25), self._task("c", 100)]
+        for adaptive in (False, True):
+            expected = len(EpisodeSampler(tasks, n_support=32, n_query=16, adaptive=adaptive))
+            assert usable_task_count(tasks, 32, 16, adaptive=adaptive) == expected
+
+    def test_adaptive_retains_more(self):
+        tasks = [self._task("a", 5), self._task("b", 25), self._task("c", 100)]
+        assert usable_task_count(tasks, 64, 32, adaptive=True) > usable_task_count(tasks, 64, 32)
+
+    def test_quantile_reports_the_median_task_not_the_biggest(self):
+        tasks = [self._task("a", 10), self._task("b", 20), self._task("c", 500)]
+        assert max_feasible_n_support(tasks, n_query=4) == 2 * (500 - 2)
+        assert max_feasible_n_support(tasks, n_query=4, quantile=0.5) == 2 * (20 - 2)

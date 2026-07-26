@@ -20,6 +20,7 @@ nav:
       - Distance Computation: user-guide/distance-computation.md
       - Command Line Interface: user-guide/cli.md
       - Reproducing FS-Mol: user-guide/reproducing-fsmol.md
+      - FS-Mol Parity Benchmark: user-guide/fsmol-benchmark.md
 
   - Tutorials:
       - Overview: tutorials/index.md

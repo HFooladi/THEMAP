@@ -26,6 +26,10 @@ themap --help
 | `themap convert` | Convert CSV files to JSONL.GZ format |
 | `themap info` | Show information about a dataset directory |
 | `themap list-featurizers` | List available molecule and protein featurizers |
+| `themap metalearn` | Distance-guided meta-learning for a target dataset |
+| `themap metalearn-compare` | Distance-selected vs randomly-selected source datasets |
+| `themap fsmol-subset` | Pick a representative subset of the FS-Mol test tasks |
+| `themap fsmol-benchmark` | Check the meta-learners against FS-Mol's published results |
 
 ## Quick Distance Computation
 

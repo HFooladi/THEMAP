@@ -180,6 +180,8 @@ notebooks/dev.ipynb
 
 # ignore cache
 cache/
+feature_cache/
+task_distance_cache/
 
 # ignonore package-lock.json
 package-lock.json

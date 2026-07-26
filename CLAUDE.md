@@ -62,6 +62,15 @@ themap featurize datasets/ -f ecfp --fold train            # specific fold
 themap featurize datasets/test/CHEMBL123.jsonl.gz -f ecfp  # single file
 themap featurize datasets/ -f ecfp --force                 # ignore cache
 
+# Meta-learning
+themap metalearn datasets/ --distance-file d.csv --target-id CHEMBL123  # distance-guided
+themap metalearn-compare datasets/ --demo                               # distance vs random
+
+# FS-Mol parity benchmark (see docs/user-guide/fsmol-benchmark.md)
+themap fsmol-subset benchmarking_datasets/fsmol_datasets   # pick 20 representative test tasks
+themap fsmol-benchmark benchmarking_datasets/fsmol_datasets \
+    --subset-file benchmarking_datasets/fsmol_subset_20.json --device cuda
+
 # Data utilities
 themap convert data.csv CHEMBL123456                      # CSV to JSONL.GZ
 themap convert data.csv CHEMBL123456 --smiles-column SMILES --activity-column pIC50
@@ -122,6 +131,17 @@ themap/
 │   └── cli.py               # [mypy ignored]
 ├── models/otdd/             # Optimal Transport Dataset Distance implementation
 ├── metalearning/            # [mypy ignored — entire subpackage]
+│   ├── config.py            # EncoderConfig, ProtoConfig, MAMLConfig, TrainConfig, ExperimentConfig
+│   ├── episodes.py          # TaskFeatures, FeatureBank, EpisodeSampler (supports adaptive episodes)
+│   ├── models/              # ProtoNet, MAMLLearner, MLPEncoder
+│   ├── trainer.py           # MetaTrainer (episodic outer loop)
+│   ├── evaluation.py        # LowDataEvaluator; query_mode "holdout" (default) or "fsmol"
+│   ├── runner.py            # MetaLearnExperiment (one target, distance-selected sources)
+│   ├── compare.py           # SelectionComparison (distance vs random selection)
+│   ├── benchmark.py         # FSMolBenchmark (train once, evaluate many FS-Mol test tasks)
+│   ├── fsmol_reference.py   # FS-Mol's published per-task baselines [torch-free]
+│   ├── subset.py            # Deterministic FS-Mol test-task subset selection [torch-free]
+│   └── report.py            # Comparison tables, correlations, acceptance criteria
 ├── hardness/                # TaskHardness (lazy-loaded)
 ├── features/
 │   ├── molecule.py          # MoleculeFeaturizer (imports featurizer constants from utils)
@@ -235,7 +255,24 @@ Heavy ML libraries (torch, molfeat, esm, etc.) are optional. Install groups are 
 2. Register with the `@cli.command()` decorator
 3. Add tests in `tests/unit/pipeline/`
 
+### Changing meta-learning code
+Re-run the FS-Mol parity benchmark — it is the guard against silent regressions in ProtoNet,
+MAML, the episode sampler or the evaluator. See `docs/user-guide/fsmol-benchmark.md`.
+
+```bash
+themap fsmol-benchmark benchmarking_datasets/fsmol_datasets \
+    --subset-file benchmarking_datasets/fsmol_subset_20.json --device cuda --offline
+```
+
+Two protocol traps to know about:
+- `max_feasible_n_support()` reports the *largest* task's capacity, so using it as a cap over
+  a big corpus silently does nothing while `EpisodeSampler` drops most of the pool. Use
+  `usable_task_count()` (and `max_feasible_n_support(..., quantile=0.5)`) to describe a pool.
+- `LowDataEvaluator`'s default `query_mode="holdout"` makes support size 128 infeasible for
+  ~74% of FS-Mol test tasks. Use `query_mode="fsmol"` for anything compared against FS-Mol.
+
 ### Working with notebooks (paper reproduction)
 - Reproduction notebooks live in `notebooks/` and consume `datasets/fsmol_hardness/` (downloaded via `make download-fsmol`).
+- The FS-Mol *benchmark* data (train/valid/test task files) is separate from that archive and lives in `benchmarking_datasets/fsmol_datasets/`; it is untracked and not downloaded by `make download-fsmol`.
 - The `nbstripout` pre-commit hook auto-strips outputs on commit — never commit a notebook with embedded outputs. Run `nbstripout path/to/nb.ipynb` to clean manually.
 - Notebook paths assume `cwd == notebooks/`; launch Jupyter from there.
