@@ -260,6 +260,13 @@ class SelectionComparison:
         for sub in ("train", "test"):
             (demo_data / sub).mkdir(parents=True, exist_ok=True)
 
+        base_path = Path(cfg.data_dir) / cfg.source_fold / f"{self._DEMO_BASE_ASSAY}.jsonl.gz"
+        if not base_path.exists():
+            raise FileNotFoundError(
+                f"Demo base assay '{self._DEMO_BASE_ASSAY}' not found at {base_path}. The --demo "
+                f"scenario is built from the bundled datasets; run it against the repository's "
+                f"`datasets/` directory, or use a real --target-id instead of --demo."
+            )
         base = DatasetLoader(cfg.data_dir).load_dataset(cfg.source_fold, self._DEMO_BASE_ASSAY)
         smiles = np.array(base.smiles_list)
         labels = np.array(base.labels)
