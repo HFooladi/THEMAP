@@ -65,11 +65,24 @@ def set_plot_style(
     # seaborn theme first — it resets font.family to sans-serif, so the
     # rcParams override below must come after it.
     sns.set_theme(style=style, palette=palette, font_scale=font_scale)
+
+    # `set_theme` pins axis labels, ticks and the legend to *absolute* point
+    # sizes derived from seaborn's own base of 12, so they stop inheriting
+    # `font.size`. Setting `font.size` alone therefore leaves every piece of
+    # text a reader actually looks at unchanged — `font_size=20` would yield
+    # 12pt axis labels. Scale the dependent keys explicitly so the argument
+    # means what it says.
     plt.rcParams.update(
         {
             "font.family": "serif",
             "font.serif": serif_stack,
             "font.size": font_size,
+            "axes.labelsize": font_size,
+            "axes.titlesize": font_size * 1.1,
+            "xtick.labelsize": font_size * 0.9,
+            "ytick.labelsize": font_size * 0.9,
+            "legend.fontsize": font_size * 0.9,
+            "figure.titlesize": font_size * 1.3,
             "mathtext.fontset": "cm",
             "axes.titleweight": "bold",
             "axes.spines.top": False,
