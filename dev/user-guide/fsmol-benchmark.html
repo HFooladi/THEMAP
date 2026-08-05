@@ -661,6 +661,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#getting-to-know-the-data-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting to know the data first
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#running-it" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1161,6 +1172,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#getting-to-know-the-data-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting to know the data first
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#running-it" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1324,6 +1346,28 @@ pass <code>--offline</code> to work without network access.</p>
 <p>That 16 GB Zenodo download contains the hardness companion data for the THEMAP paper
 (OTDD matrices, ESM-2 embeddings). It is unrelated to this benchmark.</p>
 </div>
+<h2 id="getting-to-know-the-data-first">Getting to know the data first<a class="headerlink" href="#getting-to-know-the-data-first" title="Permanent link">&para;</a></h2>
+<p>Once the download is in place,
+<a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/fsmol_benchmark_explorer.ipynb"><code>notebooks/fsmol_benchmark_explorer.ipynb</code></a>
+is a visual tour of what is actually in the benchmark — task sizes, protein families,
+chemical diversity, and how hard FS-Mol's own baselines find each task. It needs no GPU and
+no extra download, and caches its scans under <code>notebooks/cache/</code> so only the first run is
+slow (about four minutes).</p>
+<p>It is worth reading before interpreting any benchmark output, because several structural
+features of FS-Mol are not obvious from the paper and change how the numbers should be read:</p>
+<ul>
+<li><strong>Nearly half the test fold is one compound panel.</strong> A single 157-molecule set is screened
+  against 73 different kinases in <code>test</code> and 284 more in <code>train</code>. Those tasks are not
+  independent evidence, and they are the reason the test-fold size distribution spikes at
+  exactly 157.</li>
+<li><strong>The split is by assay, not by molecule.</strong> 43% of test molecules also appear in a training
+  assay, and 78 of the 157 test tasks have a training task with a byte-identical molecule set.</li>
+<li><strong>Train and test assays differ in kind.</strong> Training tasks have a median of 46 molecules and a
+  mean internal Tanimoto near 0.45 — single lead series. Test tasks have 157 molecules at
+  around 0.12 — broad screening decks.</li>
+<li><strong>Per-task difficulty ranges from 0.008 to 0.449 ΔAUPRC</strong>, so a single benchmark mean hides
+  most of what is going on.</li>
+</ul>
 <h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
 <p>Pick a representative subset of the test tasks, then benchmark against it:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Deterministically choose 20 of the 157 test tasks</span>
