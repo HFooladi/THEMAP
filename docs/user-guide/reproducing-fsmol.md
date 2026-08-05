@@ -76,3 +76,10 @@ jupyter lab        # or: jupyter notebook
 Notebook paths are resolved relative to the `notebooks/` directory, so launch
 Jupyter from there. Outputs are auto-stripped on commit by the pre-commit hook
 (`nbstripout`).
+
+!!! tip "Looking for the benchmark data itself?"
+    These three notebooks consume the precomputed hardness archive above. If you want to
+    explore the FS-Mol *task files* — assay sizes, protein families, chemical diversity —
+    see [`notebooks/fsmol_benchmark_explorer.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/fsmol_benchmark_explorer.ipynb),
+    which reads the separate FigShare download described in
+    [FS-Mol Parity Benchmark](fsmol-benchmark.md).

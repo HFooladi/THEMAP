@@ -28,6 +28,30 @@ pass `--offline` to work without network access.
     That 16 GB Zenodo download contains the hardness companion data for the THEMAP paper
     (OTDD matrices, ESM-2 embeddings). It is unrelated to this benchmark.
 
+## Getting to know the data first
+
+Once the download is in place,
+[`notebooks/fsmol_benchmark_explorer.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/fsmol_benchmark_explorer.ipynb)
+is a visual tour of what is actually in the benchmark — task sizes, protein families,
+chemical diversity, and how hard FS-Mol's own baselines find each task. It needs no GPU and
+no extra download, and caches its scans under `notebooks/cache/` so only the first run is
+slow (about four minutes).
+
+It is worth reading before interpreting any benchmark output, because several structural
+features of FS-Mol are not obvious from the paper and change how the numbers should be read:
+
+- **Nearly half the test fold is one compound panel.** A single 157-molecule set is screened
+  against 73 different kinases in `test` and 284 more in `train`. Those tasks are not
+  independent evidence, and they are the reason the test-fold size distribution spikes at
+  exactly 157.
+- **The split is by assay, not by molecule.** 43% of test molecules also appear in a training
+  assay, and 78 of the 157 test tasks have a training task with a byte-identical molecule set.
+- **Train and test assays differ in kind.** Training tasks have a median of 46 molecules and a
+  mean internal Tanimoto near 0.45 — single lead series. Test tasks have 157 molecules at
+  around 0.12 — broad screening decks.
+- **Per-task difficulty ranges from 0.008 to 0.449 ΔAUPRC**, so a single benchmark mean hides
+  most of what is going on.
+
 ## Running it
 
 Pick a representative subset of the test tasks, then benchmark against it:

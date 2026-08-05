@@ -324,6 +324,12 @@ jupyter lab        # or: jupyter notebook
 
 Notebook paths are resolved relative to the `notebooks/` directory, so launch Jupyter from there. Outputs are auto-stripped on commit by the pre-commit hook (`nbstripout`).
 
+### Exploring the benchmark data itself
+
+The three notebooks above consume the precomputed hardness archive. To explore the FS-Mol *task files* — how many tasks there are, how big the assays are, which proteins they target, how chemically varied they are, and how hard FS-Mol's own baselines find them — run [`notebooks/fsmol_benchmark_explorer.ipynb`](notebooks/fsmol_benchmark_explorer.ipynb).
+
+It reads the [FigShare FS-Mol download](https://figshare.com/ndownloader/files/31345321) used by `themap fsmol-benchmark`, *not* the Zenodo archive above, and needs no GPU. See [FS-Mol Parity Benchmark](docs/user-guide/fsmol-benchmark.md) for the details.
+
 ## Documentation
 
 Full documentation is available at [hfooladi.github.io/THEMAP](https://hfooladi.github.io/THEMAP/) or can be built locally:
