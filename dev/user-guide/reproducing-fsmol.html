@@ -1242,12 +1242,12 @@ the OTDD matrices from raw embeddings if desired.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>datasets/fsmol_hardness
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">cd</span><span class="w"> </span>datasets
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>wget<span class="w"> </span>-c<span class="w"> </span>https://zenodo.org/records/10605093/files/fsmol_hardness.zip
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;10644660a53d8d106b6883cb53eb1f3b  fsmol_hardness.zip&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>md5sum<span class="w"> </span>-c<span class="w"> </span>-
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"10644660a53d8d106b6883cb53eb1f3b  fsmol_hardness.zip"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>md5sum<span class="w"> </span>-c<span class="w"> </span>-
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>unzip<span class="w"> </span>fsmol_hardness.zip<span class="w"> </span>-d<span class="w"> </span>fsmol_hardness/
 </span></code></pre></div>
 </details>
 <h2 id="3-run-the-reproduction-notebooks">3. Run the reproduction notebooks<a class="headerlink" href="#3-run-the-reproduction-notebooks" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>notebooks
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>notebooks/paper
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>jupyter<span class="w"> </span>lab<span class="w">        </span><span class="c1"># or: jupyter notebook</span>
 </span></code></pre></div>
 <table>
@@ -1259,27 +1259,30 @@ the OTDD matrices from raw embeddings if desired.</p>
 </thead>
 <tbody>
 <tr>
-<td><a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/external_chemical_hardness.ipynb"><code>external_chemical_hardness.ipynb</code></a></td>
+<td><a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/01_external_chemical_hardness.ipynb"><code>01_external_chemical_hardness.ipynb</code></a></td>
 <td>External chemical-space hardness: correlation between k-nearest source-task OTDD distance and ProtoNet performance, across molecular featurizers (GIN, UniMol, ChemBERTa/Roberta-Zinc, desc2D).</td>
 </tr>
 <tr>
-<td><a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/external_protein_hardness.ipynb"><code>external_protein_hardness.ipynb</code></a></td>
+<td><a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/02_external_protein_hardness.ipynb"><code>02_external_protein_hardness.ipynb</code></a></td>
 <td>External protein-space hardness: correlation between target/source protein-embedding distance and performance, across ESM-2 model sizes (t6_8M → t36_3B).</td>
 </tr>
 <tr>
-<td><a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/task_hardness.ipynb"><code>task_hardness.ipynb</code></a></td>
+<td><a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/03_task_hardness.ipynb"><code>03_task_hardness.ipynb</code></a></td>
 <td>Combined task-hardness score (external chemical + external protein + internal chemical) and its correlation with ProtoNet performance at support-set sizes 16/32/64/128.</td>
 </tr>
 </tbody>
 </table>
-<p>Notebook paths are resolved relative to the <code>notebooks/</code> directory, so launch
-Jupyter from there. Outputs are auto-stripped on commit by the pre-commit hook
-(<code>nbstripout</code>).</p>
+<p>Run them in numeric order. Each notebook locates the repository root on its own,
+so it does not matter which directory you launch Jupyter from. Outputs are
+auto-stripped on commit by the pre-commit hook (<code>nbstripout</code>). See
+<a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/README.md"><code>notebooks/paper/README.md</code></a>
+for the full reproduction contract — data provenance, pinned version, run order,
+and expected outputs.</p>
 <div class="admonition tip">
 <p class="admonition-title">Looking for the benchmark data itself?</p>
 <p>These three notebooks consume the precomputed hardness archive above. If you want to
 explore the FS-Mol <em>task files</em> — assay sizes, protein families, chemical diversity —
-see <a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/fsmol_benchmark_explorer.ipynb"><code>notebooks/fsmol_benchmark_explorer.ipynb</code></a>,
+see <a href="https://github.com/HFooladi/THEMAP/blob/main/notebooks/research/fsmol_benchmark_explorer.ipynb"><code>notebooks/research/fsmol_benchmark_explorer.ipynb</code></a>,
 which reads the separate FigShare download described in
 <a href="fsmol-benchmark.html">FS-Mol Parity Benchmark</a>.</p>
 </div>
