@@ -2,11 +2,23 @@
 
 These three notebooks reproduce the figures of:
 
-> **Quantifying the hardness of bioactivity prediction tasks for transfer learning**
+> Hosein Fooladi, Steffen Hirte, Johannes Kirchmair.
+> **Quantifying the hardness of bioactivity prediction tasks for transfer learning.**
 > *Journal of Chemical Information and Modeling* **64**(10), 4031–4046 (2024).
-> DOI: <!-- TODO: add DOI --> `10.1021/...`
+> [doi:10.1021/acs.jcim.4c00160](https://doi.org/10.1021/acs.jcim.4c00160)
 
-<!-- TODO: replace with the full author list as printed in the paper -->
+```bibtex
+@article{fooladi2024quantifying,
+  title={Quantifying the hardness of bioactivity prediction tasks for transfer learning},
+  author={Fooladi, Hosein and Hirte, Steffen and Kirchmair, Johannes},
+  journal={Journal of Chemical Information and Modeling},
+  volume={64},
+  number={10},
+  pages={4031-4046},
+  year={2024},
+  publisher={ACS Publications}
+}
+```
 
 This folder is **frozen**. It changes only when a fix is required to keep reproduction
 working — a library rename, a dependency break. New experiments never land here; they go in
