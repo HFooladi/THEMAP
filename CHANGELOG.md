@@ -35,6 +35,7 @@ Nothing yet.
 - **Notebook repo-root bootstrap**: notebooks derived the repository root as the parent of the working directory (`os.path.dirname(os.path.abspath(""))`), which only worked when Jupyter was launched from `notebooks/` and failed *silently* at any other depth. They now search upward for `pyproject.toml`, so the working directory no longer matters.
 - **Transposed distance matrix in `example.ipynb`**: the heatmap rendered the matrix with its axes swapped. Notebook plotting is now unified through the shared style helper.
 - **Meta-learning demo failed obscurely when the base assay was missing**; it now fails with a clear message.
+- **Unreadable Colab heatmaps**: annotations overlapped and tick labels overprinted. Three causes — cells too narrow for their numbers, 13-character CHEMBL ids rotated into rows taller than the row, and a fixed `.2f` that overflowed on six-figure OTDD distances while collapsing small cosine distances to an identical `0.00`. Heatmaps now size to their content, drop the constant `CHEMBL` prefix from tick labels, and choose a format that fits.
 
 ## [v0.5.0] - 2026-07-15
 
