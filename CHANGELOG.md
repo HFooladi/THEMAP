@@ -6,7 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- The bibtex blocks in `README.md` and `notebooks/paper/README.md` now carry the paper's DOI, matching the structured `doi` field in `CITATION.cff`.
 
 ## [v0.6.0] - 2026-08-20
 

@@ -390,7 +390,8 @@ If you use THEMAP in your research, please cite our paper:
   number={10},
   pages={4031-4046},
   year={2024},
-  publisher={ACS Publications}
+  publisher={ACS Publications},
+  doi={10.1021/acs.jcim.4c00160}
 }
 ```
 
