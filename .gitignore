@@ -176,7 +176,7 @@ datasets/fsmol_hardness/
 datasets/fsmol_hardness.zip
 
 # ignore dev notebook
-notebooks/dev.ipynb
+notebooks/**/dev.ipynb
 
 # ignore cache
 cache/

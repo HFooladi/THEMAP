@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use THEMAP in your research, please cite the paper below."
+title: "THEMAP: Task Hardness Estimation for Molecular Activity Prediction"
+abstract: "Package for computing distances between chemical datasets and estimating task hardness for molecular activity prediction."
+type: software
+authors:
+  - family-names: "Fooladi"
+    given-names: "Hosein"
+    email: "fooladi.hosein@gmail.com"
+repository-code: "https://github.com/HFooladi/THEMAP"
+url: "https://hfooladi.github.io/THEMAP/"
+license: MIT
+keywords:
+  - cheminformatics
+  - transfer learning
+  - task hardness
+  - molecular activity prediction
+  - optimal transport
+preferred-citation:
+  type: article
+  title: "Quantifying the hardness of bioactivity prediction tasks for transfer learning"
+  authors:
+    - family-names: "Fooladi"
+      given-names: "Hosein"
+    - family-names: "Hirte"
+      given-names: "Steffen"
+    - family-names: "Kirchmair"
+      given-names: "Johannes"
+  journal: "Journal of Chemical Information and Modeling"
+  volume: 64
+  issue: 10
+  start: 4031
+  end: 4046
+  year: 2024
+  doi: "10.1021/acs.jcim.4c00160"
+  publisher:
+    name: "ACS Publications"
