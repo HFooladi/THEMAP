@@ -31,10 +31,10 @@ pass `--offline` to work without network access.
 ## Getting to know the data first
 
 Once the download is in place,
-[`notebooks/fsmol_benchmark_explorer.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/fsmol_benchmark_explorer.ipynb)
+[`notebooks/research/fsmol_benchmark_explorer.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/research/fsmol_benchmark_explorer.ipynb)
 is a visual tour of what is actually in the benchmark — task sizes, protein families,
 chemical diversity, and how hard FS-Mol's own baselines find each task. It needs no GPU and
-no extra download, and caches its scans under `notebooks/cache/` so only the first run is
+no extra download, and caches its scans under `notebooks/research/cache/` so only the first run is
 slow (about four minutes).
 
 It is worth reading before interpreting any benchmark output, because several structural

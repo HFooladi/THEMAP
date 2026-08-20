@@ -271,8 +271,22 @@ Two protocol traps to know about:
 - `LowDataEvaluator`'s default `query_mode="holdout"` makes support size 128 infeasible for
   ~74% of FS-Mol test tasks. Use `query_mode="fsmol"` for anything compared against FS-Mol.
 
-### Working with notebooks (paper reproduction)
-- Reproduction notebooks live in `notebooks/` and consume `datasets/fsmol_hardness/` (downloaded via `make download-fsmol`).
+### Working with notebooks
+
+`notebooks/` is split by what each folder promises. See `notebooks/README.md`.
+
+| Folder | Contents | Rule |
+|---|---|---|
+| `notebooks/paper/` | The 3 notebooks reproducing the JCIM 2024 hardness paper | **Frozen.** Change only to keep reproduction working. Never add new experiments here. |
+| `notebooks/tutorials/` | `example.ipynb` + `colab/` onboarding notebooks | Keep working against the current release. |
+| `notebooks/research/` | Post-paper exploration and analysis | Free to change; no reproduction guarantee. |
+
+- `notebooks/paper/` consumes `datasets/fsmol_hardness/` (downloaded via `make download-fsmol`) and needs a LaTeX install — `03_task_hardness.ipynb` writes PDFs through matplotlib's `pgf` backend.
 - The FS-Mol *benchmark* data (train/valid/test task files) is separate from that archive and lives in `benchmarking_datasets/fsmol_datasets/`; it is untracked and not downloaded by `make download-fsmol`.
 - The `nbstripout` pre-commit hook auto-strips outputs on commit — never commit a notebook with embedded outputs. Run `nbstripout path/to/nb.ipynb` to clean manually.
-- Notebook paths assume `cwd == notebooks/`; launch Jupyter from there.
+- Notebooks find the repo root themselves and `chdir` there, so cwd does not matter. Any new notebook should use the same bootstrap:
+  ```python
+  repo_path = next(str(p) for p in [Path.cwd(), *Path.cwd().parents] if (p / "pyproject.toml").is_file())
+  os.chdir(repo_path)
+  ```
+  Do **not** reintroduce `os.path.dirname(os.path.abspath(""))` — it resolves to the parent of cwd and breaks silently at any nesting depth.

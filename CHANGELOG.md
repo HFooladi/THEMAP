@@ -6,7 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+- **Notebooks reorganised by promise**: `notebooks/` is now split into `paper/` (frozen
+  reproduction set for the JCIM 2024 hardness paper), `tutorials/` (local + Colab
+  onboarding), and `research/` (post-paper exploration). Each folder has a README stating
+  what it guarantees. Old paths still resolve at commit `6e07d19`.
+
+  | Old | New |
+  |---|---|
+  | `notebooks/external_chemical_hardness.ipynb` | `notebooks/paper/01_external_chemical_hardness.ipynb` |
+  | `notebooks/external_protein_hardness.ipynb` | `notebooks/paper/02_external_protein_hardness.ipynb` |
+  | `notebooks/task_hardness.ipynb` | `notebooks/paper/03_task_hardness.ipynb` |
+  | `notebooks/example.ipynb` | `notebooks/tutorials/example.ipynb` |
+  | `notebooks/colab/` | `notebooks/tutorials/colab/` |
+  | `notebooks/fsmol_benchmark_explorer.ipynb` | `notebooks/research/fsmol_benchmark_explorer.ipynb` |
+  | `notebooks/metalearning_reproduction.ipynb` | `notebooks/research/metalearning_reproduction.ipynb` |
+  | `notebooks/figure_for_presentation.ipynb` | `notebooks/research/figure_for_presentation.ipynb` |
+
+### Added
+- `CITATION.cff` so GitHub renders a "Cite this repository" entry
+
 ### Fixed
+- **Notebook repo-root bootstrap**: notebooks derived the repository root as the parent of
+  the working directory (`os.path.dirname(os.path.abspath(""))`), which only worked when
+  Jupyter was launched from `notebooks/` and failed *silently* at any other depth. They now
+  search upward for `pyproject.toml`, so the working directory no longer matters.
 - **OTDD Distance Returning All `inf`**: Replaced removed `torch.symeig` calls with `torch.linalg.eigh` in vendored OTDD code, fixing compatibility with PyTorch 2.0+
 - **OTDD Error Reporting**: Upgraded silent `warning` to `error` level logging, added exception type to messages, and added a post-computation summary of failed pairs
 - **NaN Feature Handling in OTDD**: Added validation that detects and replaces NaN values in feature arrays before OTDD computation, preventing silent numerical failures

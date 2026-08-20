@@ -43,11 +43,11 @@ Want to see what THEMAP does before installing anything? Run these notebooks dir
 
 | Notebook | What it covers | Runtime | Open |
 | --- | --- | --- | --- |
-| **5-minute quick tour** | Install THEMAP, download 5 sample ChEMBL datasets, compute a 2×3 distance matrix with `quick_distance`, visualise it as a heatmap. | CPU | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/colab/01_quick_tour.ipynb) |
-| **API deep dive** | Walk through the building blocks: `DatasetLoader`, `MoleculeFeaturizer`, `DatasetDistance`, YAML pipelines, featurizer/metric comparison, and a PCA task landscape over 13 datasets. | CPU | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/colab/02_api_deep_dive.ipynb) |
-| **OTDD deep dive** | Run OTDD on the same ChEMBL assays with three featurizers (ECFP, `desc2D`, ChemBERTa). Compare OTDD against Euclidean/Cosine, and see why OTDD's Gaussian inner approximation rewards continuous representations and struggles with binary fingerprints. | GPU (T4) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/colab/03_otdd_deep_dive.ipynb) |
+| **5-minute quick tour** | Install THEMAP, download 5 sample ChEMBL datasets, compute a 2×3 distance matrix with `quick_distance`, visualise it as a heatmap. | CPU | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/tutorials/colab/01_quick_tour.ipynb) |
+| **API deep dive** | Walk through the building blocks: `DatasetLoader`, `MoleculeFeaturizer`, `DatasetDistance`, YAML pipelines, featurizer/metric comparison, and a PCA task landscape over 13 datasets. | CPU | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/tutorials/colab/02_api_deep_dive.ipynb) |
+| **OTDD deep dive** | Run OTDD on the same ChEMBL assays with three featurizers (ECFP, `desc2D`, ChemBERTa). Compare OTDD against Euclidean/Cosine, and see why OTDD's Gaussian inner approximation rewards continuous representations and struggles with binary fingerprints. | GPU (T4) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HFooladi/THEMAP/blob/main/notebooks/tutorials/colab/03_otdd_deep_dive.ipynb) |
 
-All three notebooks live in [`notebooks/colab/`](notebooks/colab/). The first two run end-to-end on a free Colab CPU runtime; the OTDD one needs a GPU (free T4 works) because OTDD's Wasserstein computation is GPU-bound at any practical scale.
+All three notebooks live in [`notebooks/tutorials/colab/`](notebooks/tutorials/colab/). The first two run end-to-end on a free Colab CPU runtime; the OTDD one needs a GPU (free T4 works) because OTDD's Wasserstein computation is GPU-bound at any practical scale.
 
 
 ## Installation
@@ -312,21 +312,24 @@ unzip fsmol_hardness.zip -d fsmol_hardness/
 ### 3. Run the reproduction notebooks
 
 ```bash
-cd notebooks
+cd notebooks/paper
 jupyter lab        # or: jupyter notebook
 ```
 
 | Notebook | What it reproduces |
 | --- | --- |
-| [`external_chemical_hardness.ipynb`](notebooks/external_chemical_hardness.ipynb) | External chemical-space hardness: correlation between k-nearest source-task OTDD distance and ProtoNet performance, across molecular featurizers (GIN, UniMol, ChemBERTa/Roberta-Zinc, desc2D). |
-| [`external_protein_hardness.ipynb`](notebooks/external_protein_hardness.ipynb) | External protein-space hardness: correlation between target/source protein-embedding distance and performance, across ESM-2 model sizes (t6\_8M → t36\_3B). |
-| [`task_hardness.ipynb`](notebooks/task_hardness.ipynb) | Combined task-hardness score (external chemical + external protein + internal chemical) and its correlation with ProtoNet performance at support-set sizes 16/32/64/128. |
+| [`01_external_chemical_hardness.ipynb`](notebooks/paper/01_external_chemical_hardness.ipynb) | External chemical-space hardness: correlation between k-nearest source-task OTDD distance and ProtoNet performance, across molecular featurizers (GIN, UniMol, ChemBERTa/Roberta-Zinc, desc2D). |
+| [`02_external_protein_hardness.ipynb`](notebooks/paper/02_external_protein_hardness.ipynb) | External protein-space hardness: correlation between target/source protein-embedding distance and performance, across ESM-2 model sizes (t6\_8M → t36\_3B). |
+| [`03_task_hardness.ipynb`](notebooks/paper/03_task_hardness.ipynb) | Combined task-hardness score (external chemical + external protein + internal chemical) and its correlation with ProtoNet performance at support-set sizes 16/32/64/128. |
 
-Notebook paths are resolved relative to the `notebooks/` directory, so launch Jupyter from there. Outputs are auto-stripped on commit by the pre-commit hook (`nbstripout`).
+Run them in numeric order. Each notebook locates the repository root on its own, so it does not
+matter which directory you launch Jupyter from. Outputs are auto-stripped on commit by the
+pre-commit hook (`nbstripout`). See [`notebooks/paper/README.md`](notebooks/paper/README.md) for the
+full reproduction contract — data provenance, pinned version, run order, and expected outputs.
 
 ### Exploring the benchmark data itself
 
-The three notebooks above consume the precomputed hardness archive. To explore the FS-Mol *task files* — how many tasks there are, how big the assays are, which proteins they target, how chemically varied they are, and how hard FS-Mol's own baselines find them — run [`notebooks/fsmol_benchmark_explorer.ipynb`](notebooks/fsmol_benchmark_explorer.ipynb).
+The three notebooks above consume the precomputed hardness archive. To explore the FS-Mol *task files* — how many tasks there are, how big the assays are, which proteins they target, how chemically varied they are, and how hard FS-Mol's own baselines find them — run [`notebooks/research/fsmol_benchmark_explorer.ipynb`](notebooks/research/fsmol_benchmark_explorer.ipynb).
 
 It reads the [FigShare FS-Mol download](https://figshare.com/ndownloader/files/31345321) used by `themap fsmol-benchmark`, *not* the Zenodo archive above, and needs no GPU. See [FS-Mol Parity Benchmark](docs/user-guide/fsmol-benchmark.md) for the details.
 

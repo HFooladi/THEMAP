@@ -63,23 +63,26 @@ the OTDD matrices from raw embeddings if desired.
 ## 3. Run the reproduction notebooks
 
 ```bash
-cd notebooks
+cd notebooks/paper
 jupyter lab        # or: jupyter notebook
 ```
 
 | Notebook | What it reproduces |
 | --- | --- |
-| [`external_chemical_hardness.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/external_chemical_hardness.ipynb) | External chemical-space hardness: correlation between k-nearest source-task OTDD distance and ProtoNet performance, across molecular featurizers (GIN, UniMol, ChemBERTa/Roberta-Zinc, desc2D). |
-| [`external_protein_hardness.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/external_protein_hardness.ipynb) | External protein-space hardness: correlation between target/source protein-embedding distance and performance, across ESM-2 model sizes (t6_8M → t36_3B). |
-| [`task_hardness.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/task_hardness.ipynb) | Combined task-hardness score (external chemical + external protein + internal chemical) and its correlation with ProtoNet performance at support-set sizes 16/32/64/128. |
+| [`01_external_chemical_hardness.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/01_external_chemical_hardness.ipynb) | External chemical-space hardness: correlation between k-nearest source-task OTDD distance and ProtoNet performance, across molecular featurizers (GIN, UniMol, ChemBERTa/Roberta-Zinc, desc2D). |
+| [`02_external_protein_hardness.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/02_external_protein_hardness.ipynb) | External protein-space hardness: correlation between target/source protein-embedding distance and performance, across ESM-2 model sizes (t6_8M → t36_3B). |
+| [`03_task_hardness.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/03_task_hardness.ipynb) | Combined task-hardness score (external chemical + external protein + internal chemical) and its correlation with ProtoNet performance at support-set sizes 16/32/64/128. |
 
-Notebook paths are resolved relative to the `notebooks/` directory, so launch
-Jupyter from there. Outputs are auto-stripped on commit by the pre-commit hook
-(`nbstripout`).
+Run them in numeric order. Each notebook locates the repository root on its own,
+so it does not matter which directory you launch Jupyter from. Outputs are
+auto-stripped on commit by the pre-commit hook (`nbstripout`). See
+[`notebooks/paper/README.md`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/paper/README.md)
+for the full reproduction contract — data provenance, pinned version, run order,
+and expected outputs.
 
 !!! tip "Looking for the benchmark data itself?"
     These three notebooks consume the precomputed hardness archive above. If you want to
     explore the FS-Mol *task files* — assay sizes, protein families, chemical diversity —
-    see [`notebooks/fsmol_benchmark_explorer.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/fsmol_benchmark_explorer.ipynb),
+    see [`notebooks/research/fsmol_benchmark_explorer.ipynb`](https://github.com/HFooladi/THEMAP/blob/main/notebooks/research/fsmol_benchmark_explorer.ipynb),
     which reads the separate FigShare download described in
     [FS-Mol Parity Benchmark](fsmol-benchmark.md).
