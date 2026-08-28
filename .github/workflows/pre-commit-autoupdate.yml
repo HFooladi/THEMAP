@@ -29,7 +29,7 @@ jobs:
           pipx run pre-commit autoupdate
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "chore(pre-commit): autoupdate hook revisions"
           title: "chore(pre-commit): autoupdate hook revisions"
