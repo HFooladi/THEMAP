@@ -168,7 +168,7 @@ themap/
 | `HF_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["ChemBERTa-77M-MLM", "ChemBERTa-77M-MTR", "MolT5", "Roberta-Zinc480M-102M"]` |
 | `DGL_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `["gin_supervised_infomax", "gin_supervised_contextpred", "gin_supervised_edgepred", "gin_supervised_masking"]` |
 | `NEURAL_FEATURIZERS` | `themap/utils/featurizer_utils.py` | `HF_FEATURIZERS + DGL_FEATURIZERS` |
-| `AVAILABLE_FEATURIZERS` | `themap/utils/featurizer_utils.py` | All of the above combined (27 total) |
+| `AVAILABLE_FEATURIZERS` | `themap/utils/featurizer_utils.py` | All of the above combined (31 total) |
 | `COMBINATION_STRATEGIES` | `themap/config.py` | `["average", "weighted_average", "separate"]` |
 
 ## Testing
