@@ -7,7 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Changed
+- **`README.md` restructured around a first-time reader.** `pip install themap` and a runnable first example now sit above the fold; the deep sections (full CLI reference, Python API, paper reproduction, dev setup) are folded into `<details>` blocks. Collapsed reading length drops from ~1,700 to ~780 words with no content removed. The header now leads with the task-space figure (`assets/hero_task_space.png`) instead of the wordmark banner, and badges cover PyPI, supported Python versions, CI, docs, license and DOI.
+- Added a "Your first distance matrix" section that runs on the ChEMBL datasets already committed under `datasets/`, so a reader gets a real 3x10 distance matrix without downloading anything.
 - The bibtex blocks in `README.md` and `notebooks/paper/README.md` now carry the paper's DOI, matching the structured `doi` field in `CITATION.cff`.
+
+### Fixed
+- The README's distance-analysis snippet iterated `distances.columns` as if columns were targets, but the matrix has targets as rows and sources as columns — it reported every relationship backwards. It now iterates `distances.index` and uses `.loc[target]`.
+- Dropped the README's link to GitHub Discussions, which is not enabled on the repository and returned a 404.
+- Corrected the README's featurizer count: `themap list-featurizers` reports 31 molecule featurizers (plus 5 protein models), not 27.
+
 
 ## [v0.6.0] - 2026-08-20
 
