@@ -79,6 +79,9 @@ ml = [
   "torchvision>=0.15.0,<1.0.0",
   "torchaudio>=2.0.0,<3.0.0",
   "molfeat>=0.10.0",
+  # molfeat 1.0.0 moved mordredcommunity to an optional extra; THEMAP advertises
+  # `mordred` in DESCRIPTOR_FEATURIZERS, so depend on it directly.
+  "mordredcommunity>=2.0.7",
   "dgl<=2.0",
   "dgllife",
   "torch-geometric",
@@ -117,6 +120,9 @@ all = [
   "torchvision>=0.15.0,<1.0.0",
   "torchaudio>=2.0.0,<3.0.0",
   "molfeat>=0.10.0",
+  # molfeat 1.0.0 moved mordredcommunity to an optional extra; THEMAP advertises
+  # `mordred` in DESCRIPTOR_FEATURIZERS, so depend on it directly.
+  "mordredcommunity>=2.0.7",
   "dgl<=2.0",
   "dgllife",
   "torch-geometric",
