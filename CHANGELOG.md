@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - The bibtex blocks in `README.md` and `notebooks/paper/README.md` now carry the paper's DOI, matching the structured `doi` field in `CITATION.cff`.
 
 ### Fixed
+- **molfeat 1.0.0 compatibility on Python 3.11+.** molfeat 1.0.0 (released 2026-09-09) narrowed its scope to small-molecule featurization and removed `GraphormerTransformer` and `PretrainedDGLTransformer`. Both of THEMAP's transformer factories imported those classes eagerly, before branching on the requested featurizer, so *every* featurizer raised `ImportError` on any environment resolving molfeat>=1.0 — `ecfp` failed on a Graphormer import it never uses. They are now resolved lazily inside the branch that needs them. Python 3.10 is unaffected, since molfeat 0.11.0 is capped at `<3.11`.
 - The README's distance-analysis snippet iterated `distances.columns` as if columns were targets, but the matrix has targets as rows and sources as columns — it reported every relationship backwards. It now iterates `distances.index` and uses `.loc[target]`.
 - Dropped the README's link to GitHub Discussions, which is not enabled on the repository and returned a 404.
 - Corrected the README's featurizer count: `themap list-featurizers` reports 31 molecule featurizers (plus 5 protein models), not 27.

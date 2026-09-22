@@ -124,6 +124,36 @@ def make_mol(
     return mol
 
 
+def _pretrained_transformer(class_name: str, featurizer: str) -> type:
+    """Import a molfeat pretrained transformer class that may not exist in newer molfeat.
+
+    molfeat 1.0.0 narrowed its scope to small-molecule featurization and dropped the
+    ``graphormer`` and ``dgl_pretrained`` submodules. Resolve those classes lazily, inside
+    the branch that needs them, so that every other featurizer keeps working on molfeat>=1.0.
+
+    Args:
+        class_name: Name of the transformer class in ``molfeat.trans.pretrained``.
+        featurizer: The featurizer being requested, used for the error message.
+
+    Returns:
+        The transformer class.
+
+    Raises:
+        ImportError: If the installed molfeat does not provide the class.
+    """
+    import molfeat
+    import molfeat.trans.pretrained as pretrained
+
+    try:
+        return getattr(pretrained, class_name)
+    except AttributeError as e:
+        raise ImportError(
+            f"Featurizer '{featurizer}' requires molfeat.trans.pretrained.{class_name}, which "
+            f"molfeat {getattr(molfeat, '__version__', 'unknown')} does not provide "
+            "(removed in molfeat 1.0.0). Install molfeat<1.0 on Python 3.10 to use it."
+        ) from e
+
+
 def get_featurizer(
     featurizer: str, n_jobs: int = -1
 ) -> Union[MoleculeTransformer, GraphormerTransformer, PretrainedHFTransformer, PretrainedDGLTransformer]:
@@ -147,7 +177,6 @@ def get_featurizer(
         raise TypeError(f"Number of jobs must be an integer, got {type(n_jobs).__name__}")
 
     from molfeat.trans import MoleculeTransformer
-    from molfeat.trans.pretrained import GraphormerTransformer, PretrainedDGLTransformer
     from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
 
     # Some featurizers (pattern, layered) are not picklable and cannot use multiprocessing
@@ -158,13 +187,15 @@ def get_featurizer(
         transformer = MoleculeTransformer(featurizer, n_jobs=effective_n_jobs)
 
     elif featurizer in ["pcqm4mv2_graphormer_base"]:
-        transformer = GraphormerTransformer(kind=featurizer, dtype=float, n_jobs=n_jobs)
+        graphormer_cls = _pretrained_transformer("GraphormerTransformer", featurizer)
+        transformer = graphormer_cls(kind=featurizer, dtype=float, n_jobs=n_jobs)
 
     elif featurizer in HF_FEATURIZERS:
         transformer = PretrainedHFTransformer(kind=featurizer, notation="smiles", dtype=float, n_jobs=n_jobs)
 
     elif featurizer in DGL_FEATURIZERS:
-        transformer = PretrainedDGLTransformer(kind=featurizer, dtype=float, n_jobs=n_jobs)
+        dgl_cls = _pretrained_transformer("PretrainedDGLTransformer", featurizer)
+        transformer = dgl_cls(kind=featurizer, dtype=float, n_jobs=n_jobs)
 
     else:
         raise ValueError(f"Featurizer {featurizer} not found.")

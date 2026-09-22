@@ -22,6 +22,7 @@ from ..utils.featurizer_utils import (
     FINGERPRINT_FEATURIZERS,
     HF_FEATURIZERS,
     NEURAL_FEATURIZERS,
+    _pretrained_transformer,
 )
 from ..utils.logging import get_logger
 
@@ -87,10 +88,6 @@ class MoleculeFeaturizer:
         """Create the appropriate molfeat transformer."""
         try:
             from molfeat.trans import MoleculeTransformer
-            from molfeat.trans.pretrained import (
-                GraphormerTransformer,
-                PretrainedDGLTransformer,
-            )
             from molfeat.trans.pretrained.hf_transformers import PretrainedHFTransformer
         except ImportError as e:
             raise ImportError(
@@ -103,17 +100,19 @@ class MoleculeFeaturizer:
         if name in FINGERPRINT_FEATURIZERS + COUNT_FINGERPRINT_FEATURIZERS + DESCRIPTOR_FEATURIZERS:
             return MoleculeTransformer(name, n_jobs=self.n_jobs)
 
-        # Graphormer
+        # Graphormer (not available in molfeat>=1.0)
         elif name == "pcqm4mv2_graphormer_base":
-            return GraphormerTransformer(kind=name, dtype=float, n_jobs=self.n_jobs)
+            graphormer_cls = _pretrained_transformer("GraphormerTransformer", name)
+            return graphormer_cls(kind=name, dtype=float, n_jobs=self.n_jobs)
 
         # HuggingFace transformers (ChemBERTa, MolT5, etc.)
         elif name in HF_FEATURIZERS:
             return PretrainedHFTransformer(kind=name, notation="smiles", dtype=float, n_jobs=self.n_jobs)
 
-        # DGL pretrained models (GIN, JTVAE, etc.)
+        # DGL pretrained models (GIN, JTVAE, etc.; not available in molfeat>=1.0)
         elif name in DGL_FEATURIZERS:
-            return PretrainedDGLTransformer(kind=name, dtype=float, n_jobs=self.n_jobs)
+            dgl_cls = _pretrained_transformer("PretrainedDGLTransformer", name)
+            return dgl_cls(kind=name, dtype=float, n_jobs=self.n_jobs)
 
         else:
             # Try as generic MoleculeTransformer
