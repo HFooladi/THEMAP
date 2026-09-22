@@ -77,8 +77,11 @@ def test_all_featurizers_in_available_list() -> None:
 
     Skips DGL and HF featurizers when their optional dependencies are not installed.
     """
+    # A DGL featurizer needs both the dgl library and molfeat's transformer class.
+    # molfeat 1.0.0 removed PretrainedDGLTransformer, so dgl alone is no longer enough.
     try:
         import dgl  # noqa: F401
+        from molfeat.trans.pretrained import PretrainedDGLTransformer  # noqa: F401
 
         has_dgl = True
     except ImportError:

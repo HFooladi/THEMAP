@@ -107,8 +107,11 @@ class TestFeaturizerListConsistency:
         """
         from themap.utils.featurizer_utils import get_featurizer
 
+        # A DGL featurizer needs both the dgl library and molfeat's transformer class.
+        # molfeat 1.0.0 removed PretrainedDGLTransformer, so dgl alone is no longer enough.
         try:
             import dgl  # noqa: F401
+            from molfeat.trans.pretrained import PretrainedDGLTransformer  # noqa: F401
 
             has_dgl = True
         except ImportError:
